@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner@2.0.3'
 import logoImage from 'figma:asset/6748e9361ee0546a59b88c4fb2d8d612f9260020.png'
+import { authApiService } from '../../services/authApi'
 
 interface AuthProps {
   onLogin: (user: any) => void
@@ -158,40 +159,63 @@ export function Auth({ onLogin }: AuthProps) {
     e.preventDefault()
     setLoading(true)
 
-    // Mock authentication with better error handling
-    setTimeout(() => {
-      console.log('Login attempt:', { email: formData.email, password: formData.password })
-      
-      const user = mockUsers.find(u => 
-        u.email.toLowerCase() === formData.email.toLowerCase() && 
-        u.password === formData.password
-      )
-      
-      if (user) {
-        console.log('User found:', user)
-        console.log('Audit Log: User login successful', {
-          userId: user.id,
-          email: user.email,
-          role: user.role,
-          timestamp: new Date().toISOString(),
-          rememberMe
-        })
-        
-        toast.success(`Welcome back, ${user.name}!`)
-        onLogin(user)
-      } else {
-        console.log('Available users:', mockUsers.map(u => ({ email: u.email, role: u.role })))
-        console.log('Audit Log: Failed login attempt', {
-          email: formData.email,
-          timestamp: new Date().toISOString(),
-          reason: 'Invalid credentials'
-        })
-        
-        toast.error('Invalid email or password. Please check the demo credentials below.')
+    try {
+      // API authentication
+      console.log('Login attempt:', { email: formData.email })
+
+      const loginResponse = await authApiService.login({
+        email: formData.email,
+        password: formData.password
+      })
+
+      // Store tokens
+      authApiService.setTokens(loginResponse)
+
+      // Get user profile
+      const userProfile = await authApiService.getCurrentUser()
+
+      // Transform user profile to match expected format
+      const user = {
+        id: userProfile.id,
+        email: userProfile.email,
+        name: userProfile.name,
+        role: userProfile.role_id,
+        avatar: userProfile.avatar || userProfile.name.split(' ').map(n => n[0]).join(''),
+        lastLogin: userProfile.last_login,
+        status: userProfile.is_active ? 'active' : 'inactive',
+        department: userProfile.department,
+        phone: userProfile.phone,
+        skills: userProfile.skills,
+        timezone: userProfile.timezone,
+        created_at: userProfile.created_at,
+        updated_at: userProfile.updated_at
       }
-      
+
+      // Store user profile
+      authApiService.setUserProfile(userProfile)
+
+      console.log('Audit Log: User login successful', {
+        userId: user.id,
+        email: user.email,
+        role: user.role,
+        timestamp: new Date().toISOString(),
+        rememberMe
+      })
+
+      toast.success(`Welcome back, ${user.name}!`)
+      onLogin(user)
+
+    } catch (error) {
+      console.log('Audit Log: Failed login attempt', {
+        email: formData.email,
+        timestamp: new Date().toISOString(),
+        reason: error instanceof Error ? error.message : 'Unknown error'
+      })
+
+      toast.error(error instanceof Error ? error.message : 'Login failed. Please try again.')
+    } finally {
       setLoading(false)
-    }, 800)
+    }
   }
 
   const handleForgotPassword = () => {

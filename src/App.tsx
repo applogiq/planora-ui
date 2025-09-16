@@ -20,6 +20,7 @@ import { Badge } from './components/ui/badge'
 import { Search, Plus, Bell, Sun, Moon, LogOut, Settings, User } from 'lucide-react'
 import { toast, Toaster } from 'sonner@2.0.3'
 import logoImage from 'figma:asset/6748e9361ee0546a59b88c4fb2d8d612f9260020.png'
+import { authApiService } from './services/authApi'
 
 export default function App() {
   const [activeModule, setActiveModule] = useState('dashboard')
@@ -31,7 +32,66 @@ export default function App() {
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
   const [showUserProfile, setShowUserProfile] = useState(false)
+  const [authLoading, setAuthLoading] = useState(true)
   const userMenuRef = useRef<HTMLDivElement>(null)
+
+  // Check for existing authentication on app start
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        if (authApiService.isAuthenticated()) {
+          const userProfile = authApiService.getUserProfile()
+          if (userProfile) {
+            // Transform stored profile to match expected format
+            const user = {
+              id: userProfile.id,
+              email: userProfile.email,
+              name: userProfile.name,
+              role: userProfile.role_id,
+              avatar: userProfile.avatar || userProfile.name.split(' ').map(n => n[0]).join(''),
+              lastLogin: userProfile.last_login,
+              status: userProfile.is_active ? 'active' : 'inactive',
+              department: userProfile.department,
+              phone: userProfile.phone,
+              skills: userProfile.skills,
+              timezone: userProfile.timezone,
+              created_at: userProfile.created_at,
+              updated_at: userProfile.updated_at
+            }
+            setUser(user)
+          } else {
+            // Try to fetch current user profile if token exists but no cached profile
+            const currentUser = await authApiService.getCurrentUser()
+            const user = {
+              id: currentUser.id,
+              email: currentUser.email,
+              name: currentUser.name,
+              role: currentUser.role_id,
+              avatar: currentUser.avatar || currentUser.name.split(' ').map(n => n[0]).join(''),
+              lastLogin: currentUser.last_login,
+              status: currentUser.is_active ? 'active' : 'inactive',
+              department: currentUser.department,
+              phone: currentUser.phone,
+              skills: currentUser.skills,
+              timezone: currentUser.timezone,
+              created_at: currentUser.created_at,
+              updated_at: currentUser.updated_at
+            }
+            authApiService.setUserProfile(currentUser)
+            setUser(user)
+          }
+        }
+      } catch (error) {
+        console.log('Authentication check failed:', error)
+        authApiService.clearTokens()
+        authApiService.clearUserProfile()
+      } finally {
+        setAuthLoading(false)
+      }
+    }
+
+    checkAuth()
+  }, [])
 
   // Set page title based on active module
   useEffect(() => {
@@ -45,7 +105,7 @@ export default function App() {
       reports: 'Reports',
       admin: 'Admin'
     }
-    
+
     const moduleName = moduleNames[activeModule as keyof typeof moduleNames] || 'Dashboard'
     document.title = `${moduleName} - Planora`
   }, [activeModule])
@@ -166,18 +226,52 @@ export default function App() {
     console.log('User authenticated:', userData)
   }
 
-  const handleLogout = () => {
-    console.log('Audit Log: User logout', {
-      userId: user?.id,
-      email: user?.email,
-      timestamp: new Date().toISOString()
-    })
-    
-    setUser(null)
-    setActiveModule('dashboard')
-    setSelectedProjectId(null) // Reset project selection on logout
-    setShowUserProfile(false) // Reset user profile modal
-    toast.success('Logged out successfully')
+  const handleLogout = async () => {
+    try {
+      console.log('Audit Log: User logout', {
+        userId: user?.id,
+        email: user?.email,
+        timestamp: new Date().toISOString()
+      })
+
+      await authApiService.logout()
+
+      setUser(null)
+      setActiveModule('dashboard')
+      setSelectedProjectId(null) // Reset project selection on logout
+      setShowUserProfile(false) // Reset user profile modal
+      toast.success('Logged out successfully')
+    } catch (error) {
+      console.error('Logout error:', error)
+      // Clear local state even if API call fails
+      authApiService.clearTokens()
+      authApiService.clearUserProfile()
+      setUser(null)
+      setActiveModule('dashboard')
+      setSelectedProjectId(null)
+      setShowUserProfile(false)
+      toast.success('Logged out successfully')
+    }
+  }
+
+  // Show loading screen while checking authentication
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#F8F9FA]">
+        <div className="text-center">
+          <div className="flex items-center space-x-3 mb-4">
+            <img
+              src={logoImage}
+              alt="Planora Logo"
+              className="w-12 h-12 object-contain"
+            />
+            <span className="text-2xl font-bold text-[#28A745]">Planora</span>
+          </div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#28A745] mx-auto"></div>
+          <p className="text-gray-600 mt-4">Loading...</p>
+        </div>
+      </div>
+    )
   }
 
   // Show authentication screen if not logged in
