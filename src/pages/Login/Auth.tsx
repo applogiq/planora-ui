@@ -61,85 +61,7 @@ const userRoles = {
   }
 }
 
-const mockUsers = [
-  {
-    id: '1',
-    email: 'admin@planora.com',
-    password: 'admin123',
-    name: 'Admin User',
-    role: 'super_admin',
-    avatar: 'AU',
-    lastLogin: '2025-01-13T10:30:00Z',
-    status: 'active',
-    department: 'Administration',
-    phone: '+91-9876543210',
-    location: 'Mumbai, India',
-    joinDate: '2023-01-15'
-  },
-  {
-    id: '6',
-    email: 'manager@planora.com',
-    password: 'admin123',
-    name: 'Sarah Johnson',
-    role: 'admin',
-    avatar: 'SJ',
-    lastLogin: '2025-01-13T11:45:00Z',
-    status: 'active',
-    department: 'Management',
-    phone: '+91-9876543216',
-    location: 'Delhi, India',
-    joinDate: '2024-12-15'
-  },
-  {
-    id: '2',
-    email: 'pm@planora.com',
-    password: 'pm123',
-    name: 'Project Manager',
-    role: 'project_manager',
-    avatar: 'PM',
-    lastLogin: '2025-01-13T09:15:00Z',
-    status: 'active',
-    department: 'Project Management',
-    phone: '+91-9876543211',
-    location: 'Bangalore, India',
-    joinDate: '2023-03-20'
-  },
-  {
-    id: '3',
-    email: 'dev@planora.com',
-    password: 'dev123',
-    name: 'Rajesh Kumar',
-    role: 'developer',
-    avatar: 'RK',
-    lastLogin: '2025-01-13T08:45:00Z',
-    status: 'active',
-    department: 'Development',
-    phone: '+91-9876543212',
-    location: 'Hyderabad, India',
-    joinDate: '2023-05-10',
-    skills: ['React', 'Node.js', 'Python', 'MongoDB'],
-    currentProjects: ['E-Commerce Platform', 'Mobile Banking App'],
-    experienceLevel: 'Senior'
-  },
-  {
-    id: '4',
-    email: 'tester@planora.com',
-    password: 'test123',
-    name: 'Praveen Kumar',
-    role: 'tester',
-    avatar: 'PK',
-    lastLogin: '2025-01-13T07:30:00Z',
-    status: 'active',
-    department: 'Quality Assurance',
-    phone: '+91-9876543213',
-    location: 'Chennai, India',
-    joinDate: '2023-07-15',
-    skills: ['Manual Testing', 'Automation Testing', 'Selenium', 'API Testing'],
-    currentProjects: ['E-Commerce Platform', 'CRM System'],
-    experienceLevel: 'Mid-Level',
-    certifications: ['ISTQB Foundation', 'Agile Testing']
-  }
-]
+
 
 export function Auth({ onLogin }: AuthProps) {
   const [showPassword, setShowPassword] = useState(false)
@@ -179,7 +101,7 @@ export function Auth({ onLogin }: AuthProps) {
         id: userProfile.id,
         email: userProfile.email,
         name: userProfile.name,
-        role: userProfile.role_id,
+        role: userProfile.role_id.startsWith('role_') ? userProfile.role_id.replace('role_', '') : userProfile.role_id,
         avatar: userProfile.avatar || userProfile.name.split(' ').map(n => n[0]).join(''),
         lastLogin: userProfile.last_login,
         status: userProfile.is_active ? 'active' : 'inactive',
@@ -476,4 +398,4 @@ export function Auth({ onLogin }: AuthProps) {
 }
 
 // Export user roles and permissions for use in other components
-export { userRoles, mockUsers }
+export { userRoles }

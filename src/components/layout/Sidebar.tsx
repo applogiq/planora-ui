@@ -1,12 +1,14 @@
+import { useMemo } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { cn } from '../ui/utils'
 import { Button } from '../ui/button'
 
-import { 
-  LayoutDashboard, 
-  FolderOpen, 
-  CheckSquare, 
-  Users, 
-  BarChart3, 
+import {
+  LayoutDashboard,
+  FolderOpen,
+  CheckSquare,
+  Users,
+  BarChart3,
   Settings,
   Clock,
   ChevronRight,
@@ -19,7 +21,6 @@ import {
 
 interface SidebarProps {
   activeModule: string
-  onModuleChange: (module: string) => void
   user?: any
 }
 
@@ -31,6 +32,7 @@ const getNavigationItems = (userRole: string) => {
       label: 'Dashboard',
       icon: LayoutDashboard,
       badge: null,
+      path: '/dashboard',
       roles: ['admin', 'super_admin', 'project_manager', 'developer', 'tester']
     },
     {
@@ -38,6 +40,7 @@ const getNavigationItems = (userRole: string) => {
       label: 'Projects',
       icon: FolderOpen,
       badge: null,
+      path: '/projects',
       roles: ['admin', 'super_admin', 'project_manager', 'developer', 'tester']
     },
     {
@@ -45,6 +48,7 @@ const getNavigationItems = (userRole: string) => {
       label: 'Planning',
       icon: CheckSquare,
       badge: null,
+      path: '/planning',
       roles: ['admin', 'super_admin', 'project_manager', 'developer', 'tester']
     },
     {
@@ -52,6 +56,7 @@ const getNavigationItems = (userRole: string) => {
       label: 'Project Boards',
       icon: LayoutGrid,
       badge: null,
+      path: '/boards',
       roles: ['admin', 'super_admin', 'project_manager', 'developer', 'tester']
     },
     {
@@ -59,6 +64,7 @@ const getNavigationItems = (userRole: string) => {
       label: 'Time Tracking',
       icon: Clock,
       badge: null,
+      path: '/timetracking',
       roles: ['admin', 'super_admin', 'project_manager', 'developer', 'tester']
     },
     {
@@ -66,6 +72,7 @@ const getNavigationItems = (userRole: string) => {
       label: 'Customers',
       icon: Users,
       badge: null,
+      path: '/customers',
       roles: ['admin', 'super_admin', 'project_manager'] // Admin, super admin and project manager
     },
     {
@@ -73,6 +80,7 @@ const getNavigationItems = (userRole: string) => {
       label: 'Reports',
       icon: BarChart3,
       badge: null,
+      path: '/reports',
       roles: ['admin', 'super_admin', 'project_manager', 'developer', 'tester']
     },
     {
@@ -80,6 +88,7 @@ const getNavigationItems = (userRole: string) => {
       label: 'Admin',
       icon: Settings,
       badge: null,
+      path: '/admin',
       roles: ['admin', 'super_admin'] // Admin and super admin
     }
   ]
@@ -90,9 +99,16 @@ const getNavigationItems = (userRole: string) => {
 
 
 
-export function Sidebar({ activeModule, onModuleChange, user }: SidebarProps) {
+export function Sidebar({ activeModule, user }: SidebarProps) {
+  const navigate = useNavigate()
+  const location = useLocation()
   const userRole = user?.role || 'developer'
-  const navigationItems = getNavigationItems(userRole)
+
+  // Use useMemo to ensure navigation items update when user changes
+  const navigationItems = useMemo(() => {
+    return getNavigationItems(userRole)
+  }, [userRole])
+
 
 
 
@@ -143,7 +159,7 @@ export function Sidebar({ activeModule, onModuleChange, user }: SidebarProps) {
         <nav className="space-y-2">
           {navigationItems.map((item) => {
             const Icon = item.icon
-            const isActive = activeModule === item.id
+            const isActive = location.pathname === item.path || activeModule === item.id
             
             return (
               <Button
@@ -153,7 +169,7 @@ export function Sidebar({ activeModule, onModuleChange, user }: SidebarProps) {
                   "w-full justify-start h-11 px-4 rounded-xl transition-all duration-200 hover:bg-green-200/50 dark:hover:bg-green-800/50 text-black dark:text-green-200 hover:text-black dark:hover:text-white",
                   isActive && "bg-gradient-to-r from-[#28A745]/20 to-[#28A745]/10 text-[#28A745] border border-[#28A745]/30 shadow-lg backdrop-blur-sm hover:from-[#28A745]/30 hover:to-[#28A745]/20"
                 )}
-                onClick={() => onModuleChange(item.id)}
+                onClick={() => navigate(item.path)}
               >
                 <Icon className={cn(
                   "w-5 h-5 mr-3 transition-colors",

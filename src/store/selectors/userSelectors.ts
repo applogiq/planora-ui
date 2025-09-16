@@ -27,9 +27,12 @@ export const selectUsersTotal = createSelector(
 export const selectUsersPagination = createSelector(
   [selectUserState],
   (userState) => ({
-    skip: userState.skip,
-    limit: userState.limit,
+    page: userState.page,
+    per_page: userState.per_page,
     total: userState.total,
+    total_pages: userState.total_pages,
+    has_next: userState.has_next,
+    has_prev: userState.has_prev,
   })
 );
 
@@ -42,6 +45,9 @@ export const selectUsersFilters = createSelector(
 export const selectFilteredUsers = createSelector(
   [selectUsers, selectUsersFilters],
   (users, filters) => {
+    if (!users || !Array.isArray(users)) {
+      return [];
+    }
     return users.filter(user => {
       const matchesSearch = !filters.search ||
         user.name.toLowerCase().includes(filters.search.toLowerCase()) ||
@@ -58,17 +64,20 @@ export const selectFilteredUsers = createSelector(
 
 export const selectActiveUsers = createSelector(
   [selectUsers],
-  (users) => users.filter(user => user.is_active)
+  (users) => Array.isArray(users) ? users.filter(user => user.is_active) : []
 );
 
 export const selectInactiveUsers = createSelector(
   [selectUsers],
-  (users) => users.filter(user => !user.is_active)
+  (users) => Array.isArray(users) ? users.filter(user => !user.is_active) : []
 );
 
 export const selectUsersByRole = createSelector(
   [selectUsers],
   (users) => {
+    if (!Array.isArray(users)) {
+      return {};
+    }
     return users.reduce((acc, user) => {
       const role = user.role_id;
       if (!acc[role]) {
@@ -82,12 +91,21 @@ export const selectUsersByRole = createSelector(
 
 export const selectUserById = createSelector(
   [selectUsers, (state: RootState, userId: string) => userId],
-  (users, userId) => users.find(user => user.id === userId)
+  (users, userId) => Array.isArray(users) ? users.find(user => user.id === userId) : undefined
 );
 
 export const selectUsersStats = createSelector(
   [selectUsers],
   (users) => {
+    if (!Array.isArray(users)) {
+      return {
+        total: 0,
+        active: 0,
+        inactive: 0,
+        roleStats: {},
+      };
+    }
+
     const total = users.length;
     const active = users.filter(user => user.is_active).length;
     const inactive = total - active;
@@ -110,20 +128,15 @@ export const selectUsersStats = createSelector(
 export const selectPaginationInfo = createSelector(
   [selectUsersPagination],
   (pagination) => {
-    const currentPage = Math.floor(pagination.skip / pagination.limit) + 1;
-    const totalPages = Math.ceil(pagination.total / pagination.limit);
-    const hasNextPage = pagination.skip + pagination.limit < pagination.total;
-    const hasPrevPage = pagination.skip > 0;
-
     return {
-      currentPage,
-      totalPages,
-      hasNextPage,
-      hasPrevPage,
-      itemsPerPage: pagination.limit,
+      currentPage: pagination.page,
+      totalPages: pagination.total_pages,
+      hasNextPage: pagination.has_next,
+      hasPrevPage: pagination.has_prev,
+      itemsPerPage: pagination.per_page,
       totalItems: pagination.total,
-      startItem: pagination.skip + 1,
-      endItem: Math.min(pagination.skip + pagination.limit, pagination.total),
+      startItem: ((pagination.page - 1) * pagination.per_page) + 1,
+      endItem: Math.min(pagination.page * pagination.per_page, pagination.total),
     };
   }
 );

@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
@@ -31,57 +31,12 @@ import {
   Lock,
   Unlock
 } from 'lucide-react'
-import { userRoles, mockUsers } from './Auth'
+import { userRoles } from '../Login/Auth'
 import { toast } from 'sonner@2.0.3'
+import { User } from '../../services/userApi'
 
-interface User {
-  id: string
-  email: string
-  name: string
-  role: string
-  avatar: string
-  lastLogin: string
-  status: 'active' | 'inactive' | 'suspended'
-  authProvider?: string
-  createdAt?: string
-  permissions?: string[]
-}
-
-// Expanded mock data for demonstration
-const extendedMockUsers: User[] = [
-  ...mockUsers,
-  {
-    id: '5',
-    email: 'client@company.com',
-    name: 'Client User',
-    role: 'client',
-    avatar: 'CU',
-    lastLogin: '2025-01-12T14:20:00Z',
-    status: 'active',
-    createdAt: '2025-01-01T00:00:00Z'
-  },
-  {
-    id: '6',
-    email: 'manager@planora.com',
-    name: 'Sarah Johnson',
-    role: 'admin',
-    avatar: 'SJ',
-    lastLogin: '2025-01-13T11:45:00Z',
-    status: 'active',
-    authProvider: 'google',
-    createdAt: '2024-12-15T00:00:00Z'
-  },
-  {
-    id: '7',
-    email: 'inactive@planora.com',
-    name: 'Inactive User',
-    role: 'developer',
-    avatar: 'IU',
-    lastLogin: '2024-12-01T09:30:00Z',
-    status: 'inactive',
-    createdAt: '2024-11-01T00:00:00Z'
-  }
-]
+// Initial empty users array - will be populated from API
+const initialUsers: User[] = []
 
 // Mock audit logs
 const auditLogs = [
@@ -147,7 +102,16 @@ const auditLogs = [
 ]
 
 export function UserManagement() {
-  const [users, setUsers] = useState<User[]>(extendedMockUsers)
+  const [users, setUsers] = useState<User[]>(initialUsers)
+  const [loading, setLoading] = useState(false)
+  const [pagination, setPagination] = useState({
+    page: 1,
+    per_page: 20,
+    total: 0,
+    total_pages: 0,
+    has_next: false,
+    has_prev: false
+  })
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedRole, setSelectedRole] = useState('all')
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
@@ -159,86 +123,120 @@ export function UserManagement() {
     role: 'developer'
   })
 
-  const filteredUsers = users.filter(user => {
-    const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         user.email.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesRole = selectedRole === 'all' || user.role === selectedRole
-    return matchesSearch && matchesRole
-  })
+  // Fetch users function
+  const fetchUsers = async (params: { page?: number; per_page?: number; search?: string; role_id?: string } = {}) => {
+    setLoading(true)
+    try {
+      const userApiService = (await import('../../services/userApi')).userApiService
+      const response = await userApiService.getUsers({
+        page: params.page || pagination.page,
+        per_page: params.per_page || pagination.per_page,
+        search: params.search || searchTerm || undefined,
+        role_id: params.role_id || (selectedRole !== 'all' ? selectedRole : undefined)
+      })
+
+      setUsers(response.items || [])
+      setPagination({
+        page: response.page,
+        per_page: response.per_page,
+        total: response.total,
+        total_pages: response.total_pages,
+        has_next: response.has_next,
+        has_prev: response.has_prev
+      })
+    } catch (error) {
+      console.error('Failed to fetch users:', error)
+      toast.error('Failed to load users')
+      setUsers([]) // Ensure users is always an array
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Fetch users on component mount
+  useEffect(() => {
+    fetchUsers()
+  }, [])
+
+  // Debounced search effect
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchUsers({ page: 1 }) // Reset to page 1 when searching
+    }, 500) // 500ms delay
+
+    return () => clearTimeout(timer)
+  }, [searchTerm, selectedRole])
+
+  // Since we're doing server-side filtering, we don't need client-side filtering
+  const filteredUsers = Array.isArray(users) ? users : []
+
+  // Pagination handlers
+  const handlePageChange = (newPage: number) => {
+    fetchUsers({ page: newPage })
+  }
+
+  const handlePerPageChange = (perPage: number) => {
+    fetchUsers({ page: 1, per_page: perPage })
+  }
 
   const filteredAuditLogs = auditLogs.slice(0, 10) // Show recent logs
 
-  const handleCreateUser = () => {
-    const user: User = {
-      id: Date.now().toString(),
-      ...newUser,
-      avatar: newUser.name.split(' ').map(n => n[0]).join(''),
-      lastLogin: new Date().toISOString(),
-      status: 'active',
-      createdAt: new Date().toISOString()
+  const handleCreateUser = async () => {
+    try {
+      const userApiService = (await import('../../services/userApi')).userApiService
+      await userApiService.createUser({
+        name: newUser.name,
+        email: newUser.email,
+        role_id: `role_${newUser.role}`,
+        avatar: newUser.name.split(' ').map(n => n[0]).join(''),
+        is_active: true,
+        department: '',
+        skills: [],
+        phone: '',
+        timezone: 'UTC'
+      })
+
+      // Refresh the users list
+      await fetchUsers()
+
+      setNewUser({ name: '', email: '', role: 'developer' })
+      setShowCreateUser(false)
+
+      toast.success('User created successfully')
+    } catch (error) {
+      console.error('Failed to create user:', error)
+      toast.error('Failed to create user')
     }
     
-    setUsers(prev => [...prev, user])
-    setNewUser({ name: '', email: '', role: 'developer' })
-    setShowCreateUser(false)
-    
-    // Log audit event
-    console.log('Audit Log: User created', {
-      userId: user.id,
-      email: user.email,
-      role: user.role,
-      timestamp: new Date().toISOString(),
-      performedBy: 'current_admin'
-    })
-    
-    toast.success('User created successfully')
   }
 
-  const handleToggleUserStatus = (userId: string) => {
-    setUsers(prev => prev.map(user => 
-      user.id === userId 
-        ? { ...user, status: user.status === 'active' ? 'suspended' : 'active' }
-        : user
-    ))
-    
-    const user = users.find(u => u.id === userId)
-    console.log('Audit Log: User status changed', {
-      userId,
-      email: user?.email,
-      newStatus: user?.status === 'active' ? 'suspended' : 'active',
-      timestamp: new Date().toISOString(),
-      performedBy: 'current_admin'
-    })
-    
-    toast.success('User status updated')
-  }
+  const handleToggleUserStatus = async (userId: string) => {
+    try {
+      const user = users.find(u => u.id === userId)
+      if (!user) return
 
-  const handleRoleChange = (userId: string, newRole: string) => {
-    const oldUser = users.find(u => u.id === userId)
-    setUsers(prev => prev.map(user => 
-      user.id === userId ? { ...user, role: newRole } : user
-    ))
-    
-    console.log('Audit Log: Role changed', {
-      userId,
-      email: oldUser?.email,
-      oldRole: oldUser?.role,
-      newRole,
-      timestamp: new Date().toISOString(),
-      performedBy: 'current_admin'
-    })
-    
-    toast.success('User role updated')
-  }
+      const userApiService = (await import('../../services/userApi')).userApiService
+      await userApiService.toggleUserStatus(userId, !user.is_active)
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active': return 'bg-green-500 text-white'
-      case 'inactive': return 'bg-yellow-500 text-white'
-      case 'suspended': return 'bg-red-500 text-white'
-      default: return 'bg-gray-500 text-white'
+      // Refresh the users list
+      await fetchUsers()
+
+      console.log('Audit Log: User status changed', {
+        userId,
+        email: user?.email,
+        newStatus: !user.is_active ? 'active' : 'inactive',
+        timestamp: new Date().toISOString(),
+        performedBy: 'current_admin'
+      })
+
+      toast.success('User status updated')
+    } catch (error) {
+      console.error('Failed to update user status:', error)
+      toast.error('Failed to update user status')
     }
   }
+
+
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -254,80 +252,7 @@ export function UserManagement() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">User Management & RBAC</h1>
-          <p className="text-muted-foreground">Manage users, roles, permissions, and audit compliance</p>
-        </div>
-        <div className="flex items-center space-x-2">
-          <Button variant="outline" size="sm">
-            <Filter className="w-4 h-4 mr-2" />
-            Filters
-          </Button>
-          <Dialog open={showCreateUser} onOpenChange={setShowCreateUser}>
-            <DialogTrigger asChild>
-              <Button size="sm" className="bg-[#28A745] hover:bg-[#218838] text-white">
-                <UserPlus className="w-4 h-4 mr-2" />
-                Add User
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Create New User</DialogTitle>
-                <DialogDescription>
-                  Add a new user to the system with role-based permissions
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Full Name</Label>
-                  <Input
-                    id="name"
-                    value={newUser.name}
-                    onChange={(e) => setNewUser(prev => ({ ...prev, name: e.target.value }))}
-                    placeholder="John Doe"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={newUser.email}
-                    onChange={(e) => setNewUser(prev => ({ ...prev, email: e.target.value }))}
-                    placeholder="john@company.com"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="role">Role</Label>
-                  <select
-                    id="role"
-                    value={newUser.role}
-                    onChange={(e) => setNewUser(prev => ({ ...prev, role: e.target.value }))}
-                    className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground"
-                  >
-                    {Object.entries(userRoles).map(([key, role]) => (
-                      key !== 'super_admin' && (
-                        <option key={key} value={key}>{role.name}</option>
-                      )
-                    ))}
-                  </select>
-                </div>
-                <div className="flex justify-end space-x-2">
-                  <Button variant="outline" onClick={() => setShowCreateUser(false)}>
-                    Cancel
-                  </Button>
-                  <Button onClick={handleCreateUser} className="bg-[#28A745] hover:bg-[#218838]">
-                    Create User
-                  </Button>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
-        </div>
-      </div>
-
+  
       <Tabs defaultValue="users" className="space-y-6">
         <TabsList>
           <TabsTrigger value="users">Users & Roles</TabsTrigger>
@@ -354,7 +279,7 @@ export function UserManagement() {
             >
               <option value="all">All Roles</option>
               {Object.entries(userRoles).map(([key, role]) => (
-                <option key={key} value={key}>{role.name}</option>
+                <option key={key} value={`role_${key}`}>{role.name}</option>
               ))}
             </select>
           </div>
@@ -396,35 +321,25 @@ export function UserManagement() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <select
-                          value={user.role}
-                          onChange={(e) => handleRoleChange(user.id, e.target.value)}
-                          className="text-xs px-2 py-1 border border-border rounded bg-background"
-                        >
-                          {Object.entries(userRoles).map(([key, role]) => (
-                            <option key={key} value={key}>{role.name}</option>
-                          ))}
-                        </select>
+                        <div className="text-sm">
+                          <Badge variant="outline" className="text-xs">
+                            {user.role?.name || user.role_id || 'Unknown'}
+                          </Badge>
+                        </div>
                       </TableCell>
                       <TableCell>
-                        <Badge className={`text-xs ${getStatusColor(user.status)}`}>
-                          {user.status}
+                        <Badge className={`text-xs ${user.is_active ? 'bg-green-500 text-white' : 'bg-gray-500 text-white'}`}>
+                          {user.is_active ? 'Active' : 'Inactive'}
                         </Badge>
                       </TableCell>
                       <TableCell>
                         <div className="text-xs">
-                          <p>{formatDate(user.lastLogin)}</p>
+                          <p>{user.last_login ? formatDate(user.last_login) : 'Never'}</p>
                         </div>
                       </TableCell>
                       <TableCell>
                         <div className="text-xs">
-                          {user.authProvider ? (
-                            <Badge variant="outline" className="text-xs">
-                              {user.authProvider}
-                            </Badge>
-                          ) : (
-                            <span className="text-muted-foreground">Email</span>
-                          )}
+                          <span className="text-muted-foreground">Email</span>
                         </div>
                       </TableCell>
                       <TableCell>
@@ -435,7 +350,7 @@ export function UserManagement() {
                             onClick={() => handleToggleUserStatus(user.id)}
                             className="h-8 w-8 p-0"
                           >
-                            {user.status === 'active' ? (
+                            {user.is_active ? (
                               <Lock className="h-4 w-4 text-red-500" />
                             ) : (
                               <Unlock className="h-4 w-4 text-green-500" />
@@ -458,6 +373,71 @@ export function UserManagement() {
                   ))}
                 </TableBody>
               </Table>
+
+              {/* Pagination Controls */}
+              {pagination.total > 0 && (
+                <div className="flex items-center justify-between px-2 py-4">
+                  <div className="text-sm text-muted-foreground">
+                    Showing {((pagination.page - 1) * pagination.per_page) + 1} to {Math.min(pagination.page * pagination.per_page, pagination.total)} of {pagination.total} users
+                  </div>
+                  <div className="flex items-center space-x-6 lg:space-x-8">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm font-medium">Rows per page</span>
+                      <select
+                        value={pagination.per_page}
+                        onChange={(e) => handlePerPageChange(Number(e.target.value))}
+                        className="px-3 py-1 border border-border rounded bg-background text-foreground text-sm"
+                      >
+                        <option value={10}>10</option>
+                        <option value={20}>20</option>
+                        <option value={50}>50</option>
+                        <option value={100}>100</option>
+                      </select>
+                    </div>
+                    <div className="flex w-[100px] items-center justify-center text-sm font-medium">
+                      Page {pagination.page} of {pagination.total_pages}
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Button
+                        variant="outline"
+                        className="h-8 w-8 p-0"
+                        onClick={() => handlePageChange(1)}
+                        disabled={!pagination.has_prev || loading}
+                      >
+                        <span className="sr-only">Go to first page</span>
+                        ⟨⟨
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="h-8 w-8 p-0"
+                        onClick={() => handlePageChange(pagination.page - 1)}
+                        disabled={!pagination.has_prev || loading}
+                      >
+                        <span className="sr-only">Go to previous page</span>
+                        ⟨
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="h-8 w-8 p-0"
+                        onClick={() => handlePageChange(pagination.page + 1)}
+                        disabled={!pagination.has_next || loading}
+                      >
+                        <span className="sr-only">Go to next page</span>
+                        ⟩
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="h-8 w-8 p-0"
+                        onClick={() => handlePageChange(pagination.total_pages)}
+                        disabled={!pagination.has_next || loading}
+                      >
+                        <span className="sr-only">Go to last page</span>
+                        ⟩⟩
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -541,7 +521,6 @@ export function UserManagement() {
           </Card>
         </TabsContent>
       </Tabs>
-
       {/* User Permission Dialog */}
       <Dialog open={showPermissionDialog} onOpenChange={setShowPermissionDialog}>
         <DialogContent className="max-w-2xl">
@@ -562,8 +541,8 @@ export function UserManagement() {
                 <div>
                   <p className="font-medium">{selectedUser.name}</p>
                   <p className="text-sm text-muted-foreground">{selectedUser.email}</p>
-                  <Badge className={`text-xs ${userRoles[selectedUser.role as keyof typeof userRoles]?.color} text-white`}>
-                    {userRoles[selectedUser.role as keyof typeof userRoles]?.name}
+                  <Badge className={`text-xs ${userRoles[selectedUser.role?.name as keyof typeof userRoles]?.color} text-white`}>
+                    {selectedUser.role?.name}
                   </Badge>
                 </div>
               </div>
@@ -571,7 +550,7 @@ export function UserManagement() {
               <div className="space-y-3">
                 <h4 className="font-medium">Current Permissions</h4>
                 <div className="grid grid-cols-2 gap-2">
-                  {userRoles[selectedUser.role as keyof typeof userRoles]?.permissions.map((permission) => (
+                  {userRoles[selectedUser.role?.name as keyof typeof userRoles]?.permissions.map((permission) => (
                     <div key={permission} className="flex items-center justify-between p-2 bg-muted/10 rounded">
                       <span className="text-sm">{permission}</span>
                       <Switch checked={true} disabled />

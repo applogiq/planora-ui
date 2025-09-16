@@ -16,114 +16,6 @@ export interface User {
   timezone?: string;
 }
 
-export const mockUsers: User[] = [
-  {
-    id: 'admin123',
-    email: 'admin@planora.com',
-    password: 'admin123',
-    name: 'System Administrator',
-    role: 'admin',
-    avatar: 'SA',
-    isActive: true,
-    lastLogin: '2025-01-15T10:30:00Z',
-    createdAt: '2024-01-01T00:00:00Z',
-    department: 'IT',
-    skills: ['System Administration', 'Security', 'DevOps'],
-    phone: '+1 (555) 000-0001',
-    timezone: 'America/New_York'
-  },
-  {
-    id: 'superadmin456',
-    email: 'superadmin@planora.com',
-    password: 'super123',
-    name: 'Super Administrator',
-    role: 'super_admin',
-    avatar: 'SA',
-    isActive: true,
-    lastLogin: '2025-01-15T09:45:00Z',
-    createdAt: '2024-01-01T00:00:00Z',
-    department: 'Management',
-    skills: ['Leadership', 'Strategy', 'Project Management'],
-    phone: '+1 (555) 000-0002',
-    timezone: 'America/New_York'
-  },
-  {
-    id: 'pm789',
-    email: 'pm@planora.com',
-    password: 'pm123',
-    name: 'Project Manager',
-    role: 'project_manager',
-    avatar: 'PM',
-    isActive: true,
-    lastLogin: '2025-01-15T08:20:00Z',
-    createdAt: '2024-01-15T00:00:00Z',
-    department: 'Project Management',
-    skills: ['Agile', 'Scrum', 'Risk Management'],
-    phone: '+1 (555) 000-0003',
-    timezone: 'America/Los_Angeles'
-  },
-  {
-    id: 'dev101',
-    email: 'developer@planora.com',
-    password: 'dev123',
-    name: 'Senior Developer',
-    role: 'developer',
-    avatar: 'SD',
-    isActive: true,
-    lastLogin: '2025-01-15T07:15:00Z',
-    createdAt: '2024-02-01T00:00:00Z',
-    department: 'Engineering',
-    skills: ['React', 'Node.js', 'TypeScript', 'Python'],
-    phone: '+1 (555) 000-0004',
-    timezone: 'America/Chicago'
-  },
-  {
-    id: 'tester202',
-    email: 'tester@planora.com',
-    password: 'test123',
-    name: 'QA Tester',
-    role: 'tester',
-    avatar: 'QA',
-    isActive: true,
-    lastLogin: '2025-01-14T16:30:00Z',
-    createdAt: '2024-03-01T00:00:00Z',
-    department: 'Quality Assurance',
-    skills: ['Manual Testing', 'Automation', 'Selenium', 'Jest'],
-    phone: '+1 (555) 000-0005',
-    timezone: 'America/Denver'
-  },
-  // Additional team members
-  {
-    id: 'rajesh001',
-    email: 'rajesh.kumar@planora.com',
-    password: 'rajesh123',
-    name: 'Rajesh Kumar',
-    role: 'developer',
-    avatar: 'RK',
-    isActive: true,
-    lastLogin: '2025-01-15T09:00:00Z',
-    createdAt: '2024-02-15T00:00:00Z',
-    department: 'Engineering',
-    skills: ['Java', 'Spring Boot', 'MySQL', 'Docker'],
-    phone: '+1 (555) 000-0006',
-    timezone: 'America/New_York'
-  },
-  {
-    id: 'lisa001',
-    email: 'lisa.park@planora.com',
-    password: 'lisa123',
-    name: 'Lisa Park',
-    role: 'developer',
-    avatar: 'LP',
-    isActive: true,
-    lastLogin: '2025-01-15T08:45:00Z',
-    createdAt: '2024-03-15T00:00:00Z',
-    department: 'Engineering',
-    skills: ['React', 'CSS', 'Figma', 'UX/UI Design'],
-    phone: '+1 (555) 000-0007',
-    timezone: 'America/Los_Angeles'
-  }
-];
 
 export interface Role {
   id: string;
@@ -260,9 +152,9 @@ export const mockAuditLogs: AuditLog[] = [
 ];
 
 // Utility functions
-export const getUserByEmail = (email: string) => mockUsers.find(user => user.email === email);
-export const getUserById = (id: string) => mockUsers.find(user => user.id === id);
-export const getActiveUsers = () => mockUsers.filter(user => user.isActive);
-export const getUsersByRole = (role: string) => mockUsers.filter(user => user.role === role);
+export const getUserByEmail = (email: string) => undefined;
+export const getUserById = (id: string) => undefined;
+export const getActiveUsers = () => [];
+export const getUsersByRole = (role: string) => [];
 export const getRoleById = (id: string) => mockRoles.find(role => role.id === id);
 export const getActiveRoles = () => mockRoles.filter(role => role.isActive);

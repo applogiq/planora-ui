@@ -4,8 +4,11 @@ import { userApiService, User, UsersQueryParams, UsersResponse } from '../../ser
 export interface UserState {
   users: User[];
   total: number;
-  skip: number;
-  limit: number;
+  page: number;
+  per_page: number;
+  total_pages: number;
+  has_next: boolean;
+  has_prev: boolean;
   loading: boolean;
   error: string | null;
   filters: {
@@ -18,8 +21,11 @@ export interface UserState {
 const initialState: UserState = {
   users: [],
   total: 0,
-  skip: 0,
-  limit: 10,
+  page: 1,
+  per_page: 20,
+  total_pages: 0,
+  has_next: false,
+  has_prev: false,
   loading: false,
   error: null,
   filters: {
@@ -97,12 +103,12 @@ export const userSlice = createSlice({
     setFilters: (state, action: PayloadAction<Partial<UserState['filters']>>) => {
       state.filters = { ...state.filters, ...action.payload };
     },
-    setPagination: (state, action: PayloadAction<{ skip?: number; limit?: number }>) => {
-      if (action.payload.skip !== undefined) {
-        state.skip = action.payload.skip;
+    setPagination: (state, action: PayloadAction<{ page?: number; per_page?: number }>) => {
+      if (action.payload.page !== undefined) {
+        state.page = action.payload.page;
       }
-      if (action.payload.limit !== undefined) {
-        state.limit = action.payload.limit;
+      if (action.payload.per_page !== undefined) {
+        state.per_page = action.payload.per_page;
       }
     },
     clearError: (state) => {
@@ -111,7 +117,7 @@ export const userSlice = createSlice({
     resetUsers: (state) => {
       state.users = [];
       state.total = 0;
-      state.skip = 0;
+      state.page = 1;
       state.error = null;
     },
   },
@@ -124,10 +130,13 @@ export const userSlice = createSlice({
       })
       .addCase(fetchUsers.fulfilled, (state, action: PayloadAction<UsersResponse>) => {
         state.loading = false;
-        state.users = action.payload.users;
+        state.users = action.payload.items;
         state.total = action.payload.total;
-        state.skip = action.payload.skip;
-        state.limit = action.payload.limit;
+        state.page = action.payload.page;
+        state.per_page = action.payload.per_page;
+        state.total_pages = action.payload.total_pages;
+        state.has_next = action.payload.has_next;
+        state.has_prev = action.payload.has_prev;
         state.error = null;
       })
       .addCase(fetchUsers.rejected, (state, action) => {
