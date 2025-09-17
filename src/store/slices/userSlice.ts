@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { userApiService, User, UsersQueryParams, UsersResponse } from '../../services/userApi';
+import { userApiService, User, UsersQueryParams, UsersResponse, UserSummary } from '../../services/userApi';
 
 export interface UserState {
   users: User[];
@@ -11,6 +11,8 @@ export interface UserState {
   has_prev: boolean;
   loading: boolean;
   error: string | null;
+  summary: UserSummary | null;
+  summaryLoading: boolean;
   filters: {
     search: string;
     role_id: string;
@@ -22,12 +24,14 @@ const initialState: UserState = {
   users: [],
   total: 0,
   page: 1,
-  per_page: 20,
+  per_page: 10,
   total_pages: 0,
   has_next: false,
   has_prev: false,
   loading: false,
   error: null,
+  summary: null,
+  summaryLoading: false,
   filters: {
     search: '',
     role_id: '',
@@ -96,6 +100,18 @@ export const toggleUserStatus = createAsyncThunk(
   }
 );
 
+export const fetchUserSummary = createAsyncThunk(
+  'users/fetchUserSummary',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await userApiService.getUserSummary();
+      return response;
+    } catch (error) {
+      return rejectWithValue(error instanceof Error ? error.message : 'Failed to fetch user summary');
+    }
+  }
+);
+
 export const userSlice = createSlice({
   name: 'users',
   initialState,
@@ -109,6 +125,10 @@ export const userSlice = createSlice({
       }
       if (action.payload.per_page !== undefined) {
         state.per_page = action.payload.per_page;
+        // Reset calculated values when per_page changes
+        state.total_pages = Math.ceil(state.total / action.payload.per_page);
+        state.has_next = state.page < state.total_pages;
+        state.has_prev = state.page > 1;
       }
     },
     clearError: (state) => {
@@ -200,6 +220,19 @@ export const userSlice = createSlice({
         state.error = null;
       })
       .addCase(toggleUserStatus.rejected, (state, action) => {
+        state.error = action.payload as string;
+      })
+
+      // Fetch user summary
+      .addCase(fetchUserSummary.pending, (state) => {
+        state.summaryLoading = true;
+      })
+      .addCase(fetchUserSummary.fulfilled, (state, action: PayloadAction<UserSummary>) => {
+        state.summaryLoading = false;
+        state.summary = action.payload;
+      })
+      .addCase(fetchUserSummary.rejected, (state, action) => {
+        state.summaryLoading = false;
         state.error = action.payload as string;
       });
   },

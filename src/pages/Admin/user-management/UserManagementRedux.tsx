@@ -1,16 +1,16 @@
 import React, { useState, useEffect } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'
-import { Button } from '../../components/ui/button'
-import { Input } from '../../components/ui/input'
-import { Label } from '../../components/ui/label'
-import { Badge } from '../../components/ui/badge'
-import { Avatar, AvatarFallback } from '../../components/ui/avatar'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '../../components/ui/dialog'
-import { Alert, AlertDescription } from '../../components/ui/alert'
-import { Separator } from '../../components/ui/separator'
-import { Switch } from '../../components/ui/switch'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card'
+import { Button } from '../../../components/ui/button'
+import { Input } from '../../../components/ui/input'
+import { Label } from '../../../components/ui/label'
+import { Badge } from '../../../components/ui/badge'
+import { Avatar, AvatarFallback } from '../../../components/ui/avatar'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '../../../components/ui/dialog'
+import { Alert, AlertDescription } from '../../../components/ui/alert'
+import { Separator } from '../../../components/ui/separator'
+import { Switch } from '../../../components/ui/switch'
 import {
   Users,
   Plus,
@@ -35,7 +35,7 @@ import {
   Loader2
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { useAppDispatch, useAppSelector } from '../../store/hooks'
+import { useAppDispatch, useAppSelector } from '../../../store/hooks'
 import {
   fetchUsers,
   createUser,
@@ -45,7 +45,7 @@ import {
   setFilters,
   setPagination,
   clearError,
-} from '../../store/slices/userSlice'
+} from '../../../store/slices/userSlice'
 import {
   selectUsers,
   selectUsersLoading,
@@ -53,8 +53,8 @@ import {
   selectUsersFilters,
   selectPaginationInfo,
   selectUsersStats,
-} from '../../store/selectors/userSelectors'
-import { User } from '../../services/userApi'
+} from '../../../store/selectors/userSelectors'
+import { User } from '../../../services/userApi'
 
 // Mock role data - this should ideally come from an API
 const userRoles = {
@@ -88,13 +88,13 @@ export function UserManagementRedux() {
 
   useEffect(() => {
     dispatch(fetchUsers({
-      skip: paginationInfo.startItem - 1,
-      limit: paginationInfo.itemsPerPage,
+      page: paginationInfo.currentPage,
+      per_page: paginationInfo.itemsPerPage,
       search: filters.search || undefined,
       role_id: filters.role_id || undefined,
       is_active: filters.is_active ?? undefined,
     }))
-  }, [dispatch, filters, paginationInfo.startItem, paginationInfo.itemsPerPage])
+  }, [dispatch, filters, paginationInfo.currentPage, paginationInfo.itemsPerPage])
 
   useEffect(() => {
     if (error) {
@@ -163,17 +163,20 @@ export function UserManagementRedux() {
 
   const handleSearchChange = (search: string) => {
     dispatch(setFilters({ search }))
-    dispatch(setPagination({ skip: 0 })) // Reset to first page
+    dispatch(setPagination({ page: 1 })) // Reset to first page
   }
 
   const handleRoleFilterChange = (role_id: string) => {
     dispatch(setFilters({ role_id: role_id === 'all' ? '' : role_id }))
-    dispatch(setPagination({ skip: 0 })) // Reset to first page
+    dispatch(setPagination({ page: 1 })) // Reset to first page
   }
 
   const handlePageChange = (page: number) => {
-    const skip = (page - 1) * paginationInfo.itemsPerPage
-    dispatch(setPagination({ skip }))
+    dispatch(setPagination({ page }))
+  }
+
+  const handlePerPageChange = (per_page: number) => {
+    dispatch(setPagination({ page: 1, per_page })) // Reset to page 1 when changing page size
   }
 
   const getStatusColor = (isActive: boolean) => {
@@ -252,7 +255,7 @@ export function UserManagementRedux() {
             >
               <option value="all">All Roles</option>
               {Object.entries(userRoles).map(([key, role]) => (
-                <option key={key} value={key}>{role.name}</option>
+                <option key={key} value={`role_${key}`}>{role.name}</option>
               ))}
             </select>
           </div>
@@ -367,34 +370,69 @@ export function UserManagementRedux() {
               </Table>
 
               {/* Pagination */}
-              <div className="flex items-center justify-between mt-4">
-                <div className="text-sm text-muted-foreground">
-                  Showing {paginationInfo.startItem} to {paginationInfo.endItem} of {paginationInfo.totalItems} users
+              {paginationInfo.totalItems > 0 && (
+                <div className="flex items-center justify-between mt-4">
+                  <div className="text-sm text-muted-foreground">
+                    Showing {paginationInfo.startItem} to {paginationInfo.endItem} of {paginationInfo.totalItems} users
+                  </div>
+                  <div className="flex items-center space-x-6 lg:space-x-8">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm font-medium">Rows per page</span>
+                      <select
+                        value={paginationInfo.itemsPerPage}
+                        onChange={(e) => handlePerPageChange(Number(e.target.value))}
+                        className="px-3 py-1 border border-border rounded bg-background text-foreground text-sm"
+                      >
+                        <option value={10}>10</option>
+                        <option value={20}>20</option>
+                        <option value={25}>25</option>
+                        <option value={50}>50</option>
+                      </select>
+                    </div>
+                    <div className="flex w-[100px] items-center justify-center text-sm font-medium">
+                      Page {paginationInfo.currentPage} of {paginationInfo.totalPages}
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Button
+                        variant="outline"
+                        className="h-8 w-8 p-0"
+                        onClick={() => handlePageChange(1)}
+                        disabled={!paginationInfo.hasPrevPage || loading}
+                      >
+                        <span className="sr-only">Go to first page</span>
+                        ⟨⟨
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="h-8 w-8 p-0"
+                        onClick={() => handlePageChange(paginationInfo.currentPage - 1)}
+                        disabled={!paginationInfo.hasPrevPage || loading}
+                      >
+                        <span className="sr-only">Go to previous page</span>
+                        ⟨
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="h-8 w-8 p-0"
+                        onClick={() => handlePageChange(paginationInfo.currentPage + 1)}
+                        disabled={!paginationInfo.hasNextPage || loading}
+                      >
+                        <span className="sr-only">Go to next page</span>
+                        ⟩
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="h-8 w-8 p-0"
+                        onClick={() => handlePageChange(paginationInfo.totalPages)}
+                        disabled={!paginationInfo.hasNextPage || loading}
+                      >
+                        <span className="sr-only">Go to last page</span>
+                        ⟩⟩
+                      </Button>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handlePageChange(paginationInfo.currentPage - 1)}
-                    disabled={!paginationInfo.hasPrevPage || loading}
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                    Previous
-                  </Button>
-                  <span className="text-sm">
-                    Page {paginationInfo.currentPage} of {paginationInfo.totalPages}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handlePageChange(paginationInfo.currentPage + 1)}
-                    disabled={!paginationInfo.hasNextPage || loading}
-                  >
-                    Next
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

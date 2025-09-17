@@ -37,7 +37,7 @@ import {
   ChevronRight
 } from 'lucide-react'
 import { toast } from 'sonner@2.0.3'
-import { UserManagementRedux } from './UserManagementRedux'
+import { UserManagement } from './user-management'
 
 const mockUsers = [
   {
@@ -492,7 +492,7 @@ export function Admin({ user }: AdminProps) {
         </TabsList>
 
         <TabsContent value="users" className="space-y-6">
-          <UserManagementRedux />
+          <UserManagement />
         </TabsContent>
 
         <TabsContent value="roles" className="space-y-6">

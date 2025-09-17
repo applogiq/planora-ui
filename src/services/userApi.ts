@@ -43,6 +43,19 @@ export interface UsersQueryParams {
   is_active?: boolean;
 }
 
+export interface RoleCount {
+  role_name: string;
+  count: number;
+}
+
+export interface UserSummary {
+  total_users: number;
+  active_users: number;
+  inactive_users: number;
+  total_roles: number;
+  role_counts: RoleCount[];
+}
+
 import { authApiService } from './authApi';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -127,7 +140,7 @@ export class UserApiService {
         items: [],
         total: 0,
         page: params.page || 1,
-        per_page: params.per_page || 20,
+        per_page: params.per_page || 10,
         total_pages: 0,
         has_next: false,
         has_prev: false,
@@ -164,6 +177,10 @@ export class UserApiService {
       method: 'PATCH',
       body: JSON.stringify({ is_active }),
     });
+  }
+
+  async getUserSummary(): Promise<UserSummary> {
+    return this.makeRequest<UserSummary>('/api/v1/users/summary');
   }
 }
 

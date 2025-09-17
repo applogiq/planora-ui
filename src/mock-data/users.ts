@@ -27,53 +27,7 @@ export interface Role {
   userCount: number;
 }
 
-export const mockRoles: Role[] = [
-  {
-    id: 'role_super_admin',
-    name: 'Super Admin',
-    description: 'Full system access with all permissions',
-    permissions: ['*'],
-    isActive: true,
-    createdAt: '2024-01-01T00:00:00Z',
-    userCount: 1
-  },
-  {
-    id: 'role_admin',
-    name: 'Administrator',
-    description: 'System administration with user management',
-    permissions: ['user:read', 'user:write', 'user:delete', 'role:read', 'role:write', 'project:read', 'project:write', 'settings:read', 'settings:write'],
-    isActive: true,
-    createdAt: '2024-01-01T00:00:00Z',
-    userCount: 1
-  },
-  {
-    id: 'role_project_manager',
-    name: 'Project Manager',
-    description: 'Project management and team coordination',
-    permissions: ['project:read', 'project:write', 'task:read', 'task:write', 'team:read', 'report:read', 'customer:read'],
-    isActive: true,
-    createdAt: '2024-01-01T00:00:00Z',
-    userCount: 1
-  },
-  {
-    id: 'role_developer',
-    name: 'Developer',
-    description: 'Development tasks and project participation',
-    permissions: ['project:read', 'task:read', 'task:write', 'report:read'],
-    isActive: true,
-    createdAt: '2024-01-01T00:00:00Z',
-    userCount: 3
-  },
-  {
-    id: 'role_tester',
-    name: 'Tester',
-    description: 'Quality assurance and testing activities',
-    permissions: ['project:read', 'task:read', 'task:write', 'report:read'],
-    isActive: true,
-    createdAt: '2024-01-01T00:00:00Z',
-    userCount: 1
-  }
-];
+export const mockRoles: Role[] = [];
 
 export interface AuditLog {
   id: string;
@@ -156,5 +110,5 @@ export const getUserByEmail = (email: string) => undefined;
 export const getUserById = (id: string) => undefined;
 export const getActiveUsers = () => [];
 export const getUsersByRole = (role: string) => [];
-export const getRoleById = (id: string) => mockRoles.find(role => role.id === id);
-export const getActiveRoles = () => mockRoles.filter(role => role.isActive);
+export const getRoleById = (id: string) => undefined;
+export const getActiveRoles = () => [];

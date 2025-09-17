@@ -19,6 +19,8 @@ export interface Project {
   tasks: any[];
   color: string;
   lastUpdated: string;
+  methodology: 'Agile' | 'Waterfall' | 'Scrum' | 'Kanban' | 'Lean' | 'Hybrid';
+  projectType: 'Web Development' | 'Mobile App' | 'Desktop App' | 'API Development' | 'Data Analytics' | 'E-commerce' | 'CRM' | 'ERP' | 'DevOps' | 'Machine Learning' | 'Other';
 }
 
 export const projects: Project[] = [
@@ -41,7 +43,9 @@ export const projects: Project[] = [
     tags: ['frontend', 'design', 'react'],
     tasks: [],
     color: '#28A745',
-    lastUpdated: '2025-01-15'
+    lastUpdated: '2025-01-15',
+    methodology: 'Agile',
+    projectType: 'Web Development'
   },
   {
     id: 'PROJ-002',
@@ -61,7 +65,9 @@ export const projects: Project[] = [
     tags: ['mobile', 'security', 'fintech'],
     tasks: [],
     color: '#17A2B8',
-    lastUpdated: '2025-01-14'
+    lastUpdated: '2025-01-14',
+    methodology: 'Scrum',
+    projectType: 'Mobile App'
   },
   {
     id: 'PROJ-003',
@@ -81,7 +87,9 @@ export const projects: Project[] = [
     tags: ['e-commerce', 'inventory', 'payments'],
     tasks: [],
     color: '#FFC107',
-    lastUpdated: '2025-01-13'
+    lastUpdated: '2025-01-13',
+    methodology: 'Hybrid',
+    projectType: 'E-commerce'
   },
   // On Hold Projects
   {
@@ -102,7 +110,9 @@ export const projects: Project[] = [
     tags: ['analytics', 'dashboard', 'reporting'],
     tasks: [],
     color: '#FD7E14',
-    lastUpdated: '2024-12-20'
+    lastUpdated: '2024-12-20',
+    methodology: 'Kanban',
+    projectType: 'Data Analytics'
   },
   // Completed Projects
   {
@@ -123,12 +133,16 @@ export const projects: Project[] = [
     tags: ['crm', 'sales', 'customer-management'],
     tasks: [],
     color: '#28A745',
-    lastUpdated: '2024-11-30'
+    lastUpdated: '2024-11-30',
+    methodology: 'Waterfall',
+    projectType: 'CRM'
   }
 ];
 
 export const projectStatuses = ['Active', 'On Hold', 'Completed', 'Planning'] as const;
 export const projectPriorities = ['Low', 'Medium', 'High', 'Critical'] as const;
+export const projectMethodologies = ['Agile', 'Waterfall', 'Scrum', 'Kanban', 'Lean', 'Hybrid'] as const;
+export const projectTypes = ['Web Development', 'Mobile App', 'Desktop App', 'API Development', 'Data Analytics', 'E-commerce', 'CRM', 'ERP', 'DevOps', 'Machine Learning', 'Other'] as const;
 
 export const getProjectsByStatus = (status: string) => 
   projects.filter(project => project.status === status);
