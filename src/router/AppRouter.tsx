@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate } from 'react-router-dom'
+import { createBrowserRouter, Navigate, useParams, useNavigate } from 'react-router-dom'
 import { Dashboard } from '../pages/Dashboard/Dashboard'
 import { Projects } from '../pages/Project/Projects'
 import { ProjectDetails } from '../pages/Project/ProjectDetails'
@@ -11,6 +11,18 @@ import { Admin } from '../pages/Admin/Admin'
 import { UserProfile } from '../pages/Admin/UserProfile'
 import { Auth } from '../pages/Login/Auth'
 import { MainLayout } from '../components/layout/MainLayout'
+
+// Wrapper components for routing
+const ProjectsWrapper = ({ user }: { user: any }) => {
+  const navigate = useNavigate()
+  return <Projects onProjectSelect={(projectId) => navigate(`/projects/${projectId}`)} user={user} />
+}
+
+const ProjectDetailsWrapper = ({ user }: { user: any }) => {
+  const { projectId } = useParams<{ projectId: string }>()
+  const navigate = useNavigate()
+  return <ProjectDetails projectId={projectId || ''} onBack={() => navigate('/projects')} user={user} />
+}
 
 export const createAppRouter = (user: any, onLogin: (userData: any) => void, onLogout: () => void) => {
   return createBrowserRouter([
@@ -32,11 +44,11 @@ export const createAppRouter = (user: any, onLogin: (userData: any) => void, onL
         },
         {
           path: "projects",
-          element: <Projects onProjectSelect={() => {}} user={user} />
+          element: <ProjectsWrapper user={user} />
         },
         {
           path: "projects/:projectId",
-          element: <ProjectDetails projectId="" onBack={() => {}} user={user} />
+          element: <ProjectDetailsWrapper user={user} />
         },
         {
           path: "planning",

@@ -8,6 +8,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/ta
 import { Separator } from '../../components/ui/separator'
 import { Input } from '../../components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../../components/ui/dialog'
+import { useAppDispatch, useAppSelector } from '../../store/hooks'
+import {
+  fetchProjectById,
+  deleteProject,
+  clearSelectedProject,
+  clearError
+} from '../../store/slices/projectSlice'
+import { toast } from 'sonner@2.0.3'
 import { 
   ArrowLeft, 
   Edit,
@@ -48,7 +57,8 @@ import {
   ChevronDown,
   ChevronRight,
   Hash,
-  User
+  User,
+  Trash2
 } from 'lucide-react'
 import { ProjectDashboard } from './ProjectDashboard'
 import { TasksView } from './TasksView'
@@ -65,216 +75,65 @@ interface ProjectDetailsProps {
   user?: any
 }
 
-// Mock project data - in a real app, this would be fetched based on projectId
-const getProjectDetails = (projectId: string) => {
-  const projects: { [key: string]: any } = {
-    'PROJ-001': {
-      id: 'PROJ-001',
-      name: 'Web App Redesign',
-      description: 'Complete redesign of the main web application with new UI/UX framework, improved user experience, and modern design patterns. This project includes user research, wireframing, prototyping, and full implementation.',
-      status: 'Active',
-      priority: 'High',
-      progress: 75,
-      methodology: 'Scrum',
-      type: 'Software Development',
-      startDate: '2025-08-01',
-      dueDate: '2025-10-15',
-      budget: 50000,
-      spent: 37500,
-      owner: 'John Doe',
-      customer: 'Internal',
-      team: [
-        { id: 1, name: 'John Doe', role: 'Project Manager', avatar: 'JD', status: 'Active', email: 'john@planora.com' },
-        { id: 2, name: 'Jane Smith', role: 'UX Designer', avatar: 'JS', status: 'Active', email: 'jane@planora.com' },
-        { id: 3, name: 'Mike Johnson', role: 'Frontend Developer', avatar: 'MJ', status: 'Active', email: 'mike@planora.com' },
-        { id: 4, name: 'Sarah Wilson', role: 'Backend Developer', avatar: 'SW', status: 'Active', email: 'sarah@planora.com' },
-        { id: 5, name: 'Alex Chen', role: 'QA Engineer', avatar: 'AC', status: 'Active', email: 'alex@planora.com' }
-      ],
-      tasksCompleted: 18,
-      totalTasks: 24,
-      epics: 3,
-      stories: 12,
-      currentSprint: 'Sprint 15',
-      nextMilestone: 'Beta Release',
-      milestoneDue: '2025-09-30',
-      version: 'v2.0.0',
-      dependencies: ['PROJ-003'],
-      milestones: [
-        { name: 'Project Kickoff', date: '2025-08-01', status: 'Completed' },
-        { name: 'Design Phase Complete', date: '2025-08-15', status: 'Completed' },
-        { name: 'Alpha Release', date: '2025-09-01', status: 'Completed' },
-        { name: 'Beta Release', date: '2025-09-30', status: 'In Progress' },
-        { name: 'Final Release', date: '2025-10-15', status: 'Upcoming' }
-      ],
-      recentActivity: [
-        { 
-          id: 1, 
-          user: 'Jane Smith', 
-          action: 'completed task', 
-          target: 'User interface mockups', 
-          timestamp: '2 hours ago',
-          type: 'task'
-        },
-        { 
-          id: 2, 
-          user: 'Mike Johnson', 
-          action: 'pushed commit', 
-          target: 'Frontend component updates', 
-          timestamp: '4 hours ago',
-          type: 'code'
-        },
-        { 
-          id: 3, 
-          user: 'John Doe', 
-          action: 'updated milestone', 
-          target: 'Beta Release timeline', 
-          timestamp: '1 day ago',
-          type: 'milestone'
-        }
-      ],
-      tasks: [
-        {
-          id: 'TASK-001',
-          title: 'Design user authentication flow',
-          description: 'Create wireframes and mockups for the new authentication system',
-          status: 'In Progress',
-          priority: 'High',
-          assignee: { name: 'Jane Smith', avatar: 'JS' },
-          startDate: '2025-09-01',
-          dueDate: '2025-09-15',
-          tags: ['design', 'auth', 'ux'],
-          timeTracked: '12h 30m',
-          progress: 60,
-          subtasks: [
-            { id: 'ST-001', title: 'Research current auth patterns', completed: true },
-            { id: 'ST-002', title: 'Create wireframes', completed: true },
-            { id: 'ST-003', title: 'Design mockups', completed: false },
-            { id: 'ST-004', title: 'User testing', completed: false }
-          ],
-          attachments: [
-            { name: 'auth-wireframes.figma', size: '2.4 MB', type: 'figma' },
-            { name: 'user-flow.pdf', size: '1.8 MB', type: 'pdf' }
-          ],
-          comments: [
-            { id: 1, user: 'John Doe', text: 'Looking good so far! Can we add social login options?', timestamp: '2 hours ago' },
-            { id: 2, user: 'Jane Smith', text: 'Absolutely! I\'ll include Google and GitHub options.', timestamp: '1 hour ago' }
-          ]
-        },
-        {
-          id: 'TASK-002',
-          title: 'Implement responsive navigation',
-          description: 'Build mobile-first navigation component with accessibility features',
-          status: 'To Do',
-          priority: 'Medium',
-          assignee: { name: 'Mike Johnson', avatar: 'MJ' },
-          startDate: '2025-09-10',
-          dueDate: '2025-09-20',
-          tags: ['frontend', 'responsive', 'a11y'],
-          timeTracked: '0h',
-          progress: 0,
-          subtasks: [],
-          attachments: [],
-          comments: []
-        },
-        {
-          id: 'TASK-003',
-          title: 'Set up API authentication middleware',
-          description: 'Configure JWT authentication and role-based access control',
-          status: 'Completed',
-          priority: 'High',
-          assignee: { name: 'Sarah Wilson', avatar: 'SW' },
-          startDate: '2025-08-15',
-          dueDate: '2025-08-30',
-          tags: ['backend', 'auth', 'security'],
-          timeTracked: '18h 45m',
-          progress: 100,
-          subtasks: [
-            { id: 'ST-005', title: 'JWT implementation', completed: true },
-            { id: 'ST-006', title: 'Role-based permissions', completed: true },
-            { id: 'ST-007', title: 'Security testing', completed: true }
-          ],
-          attachments: [],
-          comments: []
-        }
-      ],
-      files: [
-        {
-          id: 'FILE-001',
-          name: 'Project Requirements.pdf',
-          size: '2.4 MB',
-          type: 'pdf',
-          uploadedBy: 'John Doe',
-          uploadedAt: '2025-08-01',
-          category: 'Documentation'
-        },
-        {
-          id: 'FILE-002',
-          name: 'UI Mockups.figma',
-          size: '15.2 MB',
-          type: 'figma',
-          uploadedBy: 'Jane Smith',
-          uploadedAt: '2025-08-15',
-          category: 'Design'
-        },
-        {
-          id: 'FILE-003',
-          name: 'API Documentation.md',
-          size: '0.8 MB',
-          type: 'markdown',
-          uploadedBy: 'Sarah Wilson',
-          uploadedAt: '2025-08-20',
-          category: 'Documentation'
-        }
-      ],
-      timeEntries: [
-        {
-          id: 'TIME-001',
-          user: 'Jane Smith',
-          task: 'TASK-001',
-          description: 'Working on authentication wireframes',
-          duration: '4h 30m',
-          date: '2025-09-13',
-          billable: true
-        },
-        {
-          id: 'TIME-002',
-          user: 'Mike Johnson',
-          task: 'TASK-002',
-          description: 'Research mobile navigation patterns',
-          duration: '2h 15m',
-          date: '2025-09-13',
-          billable: true
-        },
-        {
-          id: 'TIME-003',
-          user: 'Sarah Wilson',
-          task: 'TASK-003',
-          description: 'JWT middleware implementation',
-          duration: '6h 00m',
-          date: '2025-09-12',
-          billable: true
-        }
-      ]
-    }
-  }
-  
-  return projects[projectId] || projects['PROJ-001'] // Fallback to default project
-}
 
 export function ProjectDetails({ projectId, onBack, user }: ProjectDetailsProps) {
+  const dispatch = useAppDispatch()
+  const {
+    selectedProject: project,
+    selectedProjectLoading: loading,
+    error
+  } = useAppSelector((state) => state.projects)
+
   const [activeTab, setActiveTab] = useState('dashboard')
   const [selectedTask, setSelectedTask] = useState<any>(null)
   const [showTaskModal, setShowTaskModal] = useState(false)
   const [taskModalMode, setTaskModalMode] = useState<'create' | 'edit' | 'view'>('view')
   const [showProjectEditModal, setShowProjectEditModal] = useState(false)
-  const [currentProject, setCurrentProject] = useState<any>(null)
-  
-  const project = currentProject || getProjectDetails(projectId)
-  
-  // Initialize current project
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+
+  // Fetch project details on component mount
   useEffect(() => {
-    setCurrentProject(getProjectDetails(projectId))
-  }, [projectId])
+    if (projectId) {
+      dispatch(fetchProjectById(projectId))
+    }
+    return () => {
+      dispatch(clearSelectedProject())
+    }
+  }, [projectId, dispatch])
+
+  // Handle errors
+  useEffect(() => {
+    if (error) {
+      toast.error(error)
+      dispatch(clearError())
+    }
+  }, [error, dispatch])
+
+  // Use project from Redux state only and add computed properties for display
+  const displayProject = project ? {
+    ...project,
+    // Add computed properties for UI display if not already present (using any type for extension)
+    tasksCompleted: (project as any).tasksCompleted || 0,
+    totalTasks: (project as any).totalTasks || 0,
+    team: (project as any).team || [],
+    milestones: (project as any).milestones || [],
+    recentActivity: (project as any).recentActivity || [],
+    tasks: project.tasks || [],
+    files: (project as any).files || [],
+    timeEntries: (project as any).timeEntries || [],
+    epics: (project as any).epics || 0,
+    stories: (project as any).stories || 0,
+    currentSprint: (project as any).currentSprint || 'No active sprint',
+    nextMilestone: (project as any).nextMilestone || 'No upcoming milestones',
+    milestoneDue: (project as any).milestoneDue || project.endDate,
+    version: (project as any).version || 'v1.0.0',
+    dependencies: (project as any).dependencies || [],
+    // Map API fields to display fields for backward compatibility
+    type: project.projectType,
+    owner: project.teamLead,
+    dueDate: project.endDate
+  } : null
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -325,9 +184,46 @@ export function ProjectDetails({ projectId, onBack, user }: ProjectDetailsProps)
 
   const handleProjectSave = (updatedProjectData: any) => {
     console.log('Saving project:', updatedProjectData)
-    setCurrentProject(updatedProjectData)
     setShowProjectEditModal(false)
-    // In a real app, this would save to the backend
+    // The ProjectEditModal will handle the API call via Redux
+  }
+
+  const handleDeleteProject = async () => {
+    if (!displayProject?.id) return
+
+    setIsDeleting(true)
+    try {
+      await dispatch(deleteProject(displayProject.id)).unwrap()
+      toast.success('Project deleted successfully')
+      onBack() // Navigate back to projects list
+    } catch (error) {
+      toast.error(`Failed to delete project: ${error}`)
+    } finally {
+      setIsDeleting(false)
+      setShowDeleteConfirm(false)
+    }
+  }
+
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-muted-foreground">Loading project details...</div>
+      </div>
+    )
+  }
+
+  // Show error state if project not found
+  if (!displayProject) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 space-y-4">
+        <div className="text-muted-foreground">Project not found</div>
+        <Button variant="outline" onClick={onBack}>
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Back to Projects
+        </Button>
+      </div>
+    )
   }
 
   return (
@@ -346,21 +242,21 @@ export function ProjectDetails({ projectId, onBack, user }: ProjectDetailsProps)
           </Button>
           <div>
             <div className="flex items-center space-x-3">
-              <h1 className="text-2xl font-semibold text-foreground">{project.name}</h1>
-              <Badge className={getPriorityColor(project.priority)}>
-                {project.priority}
+              <h1 className="text-2xl font-semibold text-foreground">{displayProject.name}</h1>
+              <Badge className={getPriorityColor(displayProject.priority)}>
+                {displayProject.priority}
               </Badge>
-              <Badge variant="outline">{project.id}</Badge>
+              <Badge variant="outline">{displayProject.id}</Badge>
             </div>
             <div className="flex items-center space-x-4 mt-2 text-sm text-muted-foreground">
               <div className="flex items-center space-x-1">
                 <Zap className="w-4 h-4" />
-                <span>{project.methodology}</span>
+                <span>{displayProject.methodology}</span>
               </div>
               <span>•</span>
-              <span>{project.type}</span>
+              <span>{displayProject.projectType || displayProject.type}</span>
               <span>•</span>
-              <span>Owner: {project.owner}</span>
+              <span>Owner: {displayProject.teamLead || displayProject.owner}</span>
             </div>
           </div>
         </div>
@@ -373,8 +269,14 @@ export function ProjectDetails({ projectId, onBack, user }: ProjectDetailsProps)
             <Edit className="w-4 h-4 mr-2" />
             Edit
           </Button>
-          <Button variant="outline" size="sm">
-            <MoreHorizontal className="w-4 h-4" />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowDeleteConfirm(true)}
+            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+          >
+            <Trash2 className="w-4 h-4 mr-2" />
+            Delete
           </Button>
         </div>
       </div>
@@ -385,15 +287,15 @@ export function ProjectDetails({ projectId, onBack, user }: ProjectDetailsProps)
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-muted-foreground">Progress</p>
-              <p className="text-2xl font-semibold">{project.progress}%</p>
+              <p className="text-2xl font-semibold">{displayProject.progress}%</p>
             </div>
             <div className="p-3 bg-[#007BFF]/10 rounded-full">
               <TrendingUp className="w-6 h-6 text-[#007BFF]" />
             </div>
           </div>
-          <Progress value={project.progress} className="h-2 mt-4" />
+          <Progress value={displayProject.progress} className="h-2 mt-4" />
           <p className="text-xs text-muted-foreground mt-2">
-            {project.tasksCompleted} of {project.totalTasks} tasks completed
+            {displayProject.tasksCompleted || 0} of {displayProject.totalTasks || 0} tasks completed
           </p>
         </Card>
 
@@ -401,7 +303,7 @@ export function ProjectDetails({ projectId, onBack, user }: ProjectDetailsProps)
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-muted-foreground">Budget</p>
-              <p className="text-2xl font-semibold">${(project.spent / 1000).toFixed(0)}k</p>
+              <p className="text-2xl font-semibold">${((displayProject.spent || 0) / 1000).toFixed(0)}k</p>
             </div>
             <div className="p-3 bg-[#28A745]/10 rounded-full">
               <DollarSign className="w-6 h-6 text-[#28A745]" />
@@ -409,10 +311,10 @@ export function ProjectDetails({ projectId, onBack, user }: ProjectDetailsProps)
           </div>
           <div className="mt-2">
             <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">of ${(project.budget / 1000).toFixed(0)}k</span>
+              <span className="text-muted-foreground">of ${((displayProject.budget || 0) / 1000).toFixed(0)}k</span>
               <span className="text-[#28A745] font-medium">On Track</span>
             </div>
-            <Progress value={(project.spent / project.budget) * 100} className="h-2 mt-1" />
+            <Progress value={displayProject.budget ? ((displayProject.spent || 0) / displayProject.budget) * 100 : 0} className="h-2 mt-1" />
           </div>
         </Card>
 
@@ -420,23 +322,23 @@ export function ProjectDetails({ projectId, onBack, user }: ProjectDetailsProps)
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-muted-foreground">Team Size</p>
-              <p className="text-2xl font-semibold">{project.team.length}</p>
+              <p className="text-2xl font-semibold">{(displayProject.team?.length || displayProject.teamMembers?.length || 0) + 1}</p>
             </div>
             <div className="p-3 bg-[#FFC107]/10 rounded-full">
               <Users className="w-6 h-6 text-[#FFC107]" />
             </div>
           </div>
           <div className="flex -space-x-1 mt-3">
-            {project.team.slice(0, 4).map((member: any, index: number) => (
+            {(displayProject.team || []).slice(0, 4).map((member: any, index: number) => (
               <Avatar key={index} className="w-6 h-6 border-2 border-background">
                 <AvatarFallback className="text-xs bg-[#007BFF] text-white">
-                  {member.avatar}
+                  {member.avatar || member.name?.charAt(0) || 'U'}
                 </AvatarFallback>
               </Avatar>
             ))}
-            {project.team.length > 4 && (
+            {(displayProject.team?.length || 0) > 4 && (
               <div className="w-6 h-6 rounded-full bg-muted border-2 border-background flex items-center justify-center">
-                <span className="text-xs">+{project.team.length - 4}</span>
+                <span className="text-xs">+{(displayProject.team?.length || 0) - 4}</span>
               </div>
             )}
           </div>
@@ -447,7 +349,9 @@ export function ProjectDetails({ projectId, onBack, user }: ProjectDetailsProps)
             <div>
               <p className="text-sm font-medium text-muted-foreground">Days Left</p>
               <p className="text-2xl font-semibold">
-                {Math.ceil((new Date(project.dueDate).getTime() - new Date().getTime()) / (1000 * 3600 * 24))}
+                {displayProject.endDate || displayProject.dueDate
+                  ? Math.ceil((new Date(displayProject.endDate || displayProject.dueDate).getTime() - new Date().getTime()) / (1000 * 3600 * 24))
+                  : 0}
               </p>
             </div>
             <div className="p-3 bg-[#DC3545]/10 rounded-full">
@@ -455,7 +359,9 @@ export function ProjectDetails({ projectId, onBack, user }: ProjectDetailsProps)
             </div>
           </div>
           <p className="text-xs text-muted-foreground mt-2">
-            Due: {new Date(project.dueDate).toLocaleDateString()}
+            Due: {displayProject.endDate || displayProject.dueDate
+              ? new Date(displayProject.endDate || displayProject.dueDate).toLocaleDateString()
+              : 'Not set'}
           </p>
         </Card>
       </div>
@@ -490,12 +396,12 @@ export function ProjectDetails({ projectId, onBack, user }: ProjectDetailsProps)
         </TabsList>
 
         <TabsContent value="dashboard">
-          <ProjectDashboard project={project} onTaskView={handleTaskView} />
+          <ProjectDashboard project={displayProject} onTaskView={handleTaskView} />
         </TabsContent>
 
         <TabsContent value="tasks">
-          <TasksView 
-            project={project} 
+          <TasksView
+            project={displayProject}
             onTaskCreate={handleTaskCreate}
             onTaskEdit={handleTaskEdit}
             onTaskView={handleTaskView}
@@ -503,20 +409,20 @@ export function ProjectDetails({ projectId, onBack, user }: ProjectDetailsProps)
         </TabsContent>
 
         <TabsContent value="files">
-          <FilesView project={project} />
+          <FilesView project={displayProject} />
         </TabsContent>
 
         <TabsContent value="time">
-          <TimeTrackingView project={project} />
+          <TimeTrackingView project={displayProject} />
         </TabsContent>
 
         <TabsContent value="activity">
-          <ActivityView project={project} />
+          <ActivityView project={displayProject} />
         </TabsContent>
 
         <TabsContent value="settings">
-          <ProjectSettings 
-            project={project} 
+          <ProjectSettings
+            project={displayProject}
             onUpdate={handleProjectSave}
             user={user}
           />
@@ -530,7 +436,7 @@ export function ProjectDetails({ projectId, onBack, user }: ProjectDetailsProps)
           onClose={() => setShowTaskModal(false)}
           task={selectedTask}
           mode={taskModalMode}
-          project={project}
+          project={displayProject}
           onSave={handleTaskSave}
         />
       )}
@@ -540,11 +446,52 @@ export function ProjectDetails({ projectId, onBack, user }: ProjectDetailsProps)
         <ProjectEditModal
           isOpen={showProjectEditModal}
           onClose={() => setShowProjectEditModal(false)}
-          project={project}
+          project={displayProject}
           onSave={handleProjectSave}
           user={user}
         />
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center space-x-2 text-destructive">
+              <AlertTriangle className="w-5 h-5" />
+              <span>Delete Project</span>
+            </DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete "{displayProject?.name}"? This action cannot be undone and will permanently remove all project data, tasks, and files.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end space-x-3 pt-4">
+            <Button
+              variant="outline"
+              onClick={() => setShowDeleteConfirm(false)}
+              disabled={isDeleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteProject}
+              disabled={isDeleting}
+            >
+              {isDeleting ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete Project
+                </>
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

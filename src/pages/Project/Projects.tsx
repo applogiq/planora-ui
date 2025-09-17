@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
 import { Badge } from '../../components/ui/badge'
@@ -16,7 +16,16 @@ import { cn } from '../../components/ui/utils'
 import { format } from 'date-fns'
 import { toast } from 'sonner@2.0.3'
 import { ProjectTemplates } from './ProjectTemplates'
-import { projects as mockProjects, Project, getActiveProjects, getCompletedProjects, getOnHoldProjects } from '../../mock-data/projects'
+import { Project, projectStatuses, projectPriorities, projectMethodologies, projectTypes } from '../../mock-data/projects'
+import { useAppDispatch, useAppSelector } from '../../store/hooks'
+import {
+  fetchProjects,
+  createProject,
+  setFilters,
+  setPagination,
+  clearError
+} from '../../store/slices/projectSlice'
+import { CreateProjectRequest } from '../../services/projectApi'
 import { 
   Plus, 
   Search, 
@@ -42,13 +51,10 @@ import {
   PauseCircle
 } from 'lucide-react'
 
-// Using centralized mock data
-const projects = mockProjects.map(project => ({
+// Add computed properties for UI display
+const addComputedProperties = (project: Project) => ({
   ...project,
-  // Add any additional properties needed for the UI that aren't in the base Project interface
-  methodology: project.tags.includes('agile') ? 'Agile' : 'Scrum',
-  type: project.tags.includes('mobile') ? 'Mobile' : project.tags.includes('web') ? 'Web' : 'Software',
-  teamSize: project.teamMembers.length + 1, // +1 for team lead
+  teamSize: (project.teamMembers?.length || 0) + 1, // +1 for team lead
   tasksTotal: 25, // Default value, could be calculated from tasks
   tasksCompleted: Math.floor((project.progress / 100) * 25),
   issuesOpen: Math.floor(Math.random() * 5) + 1,
@@ -61,9 +67,7 @@ const projects = mockProjects.map(project => ({
   milestoneDue: project.endDate,
   version: 'v1.0.0',
   dependencies: []
-})).slice(0, 8); // Take first 8 for the demo
-
-// Note: Now using centralized mock data from src/mock-data/projects.ts
+});
 
 interface ProjectsProps {
   onProjectSelect?: (projectId: string) => void
@@ -71,10 +75,22 @@ interface ProjectsProps {
 }
 
 export function Projects({ onProjectSelect, user }: ProjectsProps) {
+  const dispatch = useAppDispatch()
+  const {
+    projects: reduxProjects,
+    loading,
+    error,
+    filters,
+    total
+  } = useAppSelector((state) => state.projects)
+
   const userRole = user?.role || 'developer'
   const isAdmin = userRole === 'admin'
   const isProjectManager = userRole === 'project_manager'
   const isDeveloperOrTester = userRole === 'developer' || userRole === 'tester'
+
+  // Add computed properties to projects from Redux
+  const projects = reduxProjects.map(addComputedProperties)
 
   // Filter projects based on user role
   const getFilteredProjects = () => {
@@ -82,8 +98,8 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
       return projects // Admins and PMs see all projects
     } else if (isDeveloperOrTester) {
       // Developers and testers only see projects they're assigned to
-      return projects.filter(project => 
-        project.team.some(member => member.name === user?.name)
+      return projects.filter(project =>
+        (project.teamMembers?.includes(user?.name)) || project.teamLead === user?.name
       )
     }
     return projects
@@ -112,8 +128,27 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
     dueDate: undefined as Date | undefined,
     budget: '',
     owner: '',
-    customer: ''
+    customer: '',
+    customerId: '',
+    teamLead: '',
+    tags: [] as string[]
   })
+
+  // Fetch projects on component mount
+  useEffect(() => {
+    dispatch(fetchProjects())
+  }, [dispatch])
+
+  // Update filters in Redux when local filters change
+  useEffect(() => {
+    dispatch(setFilters({
+      search: searchQuery,
+      status: filterBy.status === 'all' ? '' : filterBy.status,
+      priority: filterBy.priority === 'all' ? '' : filterBy.priority,
+      methodology: filterBy.methodology === 'all' ? '' : filterBy.methodology,
+      projectType: filterBy.type === 'all' ? '' : filterBy.type
+    }))
+  }, [dispatch, searchQuery, filterBy])
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -154,18 +189,41 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
     return { color: 'text-[#28A745]', status: 'On Track' }
   }
 
-  const handleCreateProject = (e: React.FormEvent) => {
+  const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!newProject.name.trim()) {
       toast.error('Project name is required')
       return
     }
-    toast.success('Project created successfully!')
-    setShowCreateProject(false)
-    setNewProject({
-      name: '', description: '', methodology: '', type: '', priority: '',
-      startDate: undefined, dueDate: undefined, budget: '', owner: '', customer: ''
-    })
+
+    try {
+      const projectData: CreateProjectRequest = {
+        name: newProject.name,
+        description: newProject.description,
+        status: 'Planning' as const,
+        startDate: newProject.startDate ? newProject.startDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+        endDate: newProject.dueDate ? newProject.dueDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+        budget: parseInt(newProject.budget) || 0,
+        customerId: newProject.customerId || 'default-customer',
+        priority: (newProject.priority as 'Low' | 'Medium' | 'High' | 'Critical') || 'Medium',
+        teamLead: newProject.teamLead || newProject.owner || 'default-lead',
+        teamMembers: [],
+        tags: newProject.tags,
+        methodology: (newProject.methodology as 'Agile' | 'Waterfall' | 'Scrum' | 'Kanban' | 'Lean' | 'Hybrid') || 'Agile',
+        projectType: (newProject.type as 'Web Development' | 'Mobile App' | 'Desktop App' | 'API Development' | 'Data Analytics' | 'E-commerce' | 'CRM' | 'ERP' | 'DevOps' | 'Machine Learning' | 'Other') || 'Other'
+      }
+
+      await dispatch(createProject(projectData)).unwrap()
+      toast.success('Project created successfully!')
+      setShowCreateProject(false)
+      setNewProject({
+        name: '', description: '', methodology: '', type: '', priority: '',
+        startDate: undefined, dueDate: undefined, budget: '', owner: '', customer: '',
+        customerId: '', teamLead: '', tags: []
+      })
+    } catch (error) {
+      toast.error(`Failed to create project: ${error}`)
+    }
   }
 
   const handleUseTemplate = (template: any) => {
@@ -189,8 +247,23 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
     }
   }
 
+  // Show error if there's one
+  useEffect(() => {
+    if (error) {
+      toast.error(error)
+      dispatch(clearError())
+    }
+  }, [error, dispatch])
+
   return (
     <div className="space-y-6">
+      {/* Loading indicator */}
+      {loading && (
+        <div className="flex items-center justify-center py-8">
+          <div className="text-muted-foreground">Loading projects...</div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -609,7 +682,7 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
                 <label className="text-sm font-medium">Customer/Client</label>
                 <Input
                   value={newProject.customer}
-                  onChange={(e) => setNewProject(prev => ({ ...prev, customer: e.target.value }))}
+                  onChange={(e) => setNewProject(prev => ({ ...prev, customer: e.target.value, customerId: e.target.value.toLowerCase().replace(/\s+/g, '-') }))}
                   placeholder="Enter customer name"
                 />
               </div>
@@ -649,12 +722,17 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
                     <SelectValue placeholder="Select type" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Software Development">Software Development</SelectItem>
-                    <SelectItem value="Infrastructure">Infrastructure</SelectItem>
-                    <SelectItem value="Marketing">Marketing</SelectItem>
-                    <SelectItem value="Analytics">Analytics</SelectItem>
-                    <SelectItem value="Security">Security</SelectItem>
-                    <SelectItem value="Research">Research</SelectItem>
+                    <SelectItem value="Web Development">Web Development</SelectItem>
+                    <SelectItem value="Mobile App">Mobile App</SelectItem>
+                    <SelectItem value="Desktop App">Desktop App</SelectItem>
+                    <SelectItem value="API Development">API Development</SelectItem>
+                    <SelectItem value="Data Analytics">Data Analytics</SelectItem>
+                    <SelectItem value="E-commerce">E-commerce</SelectItem>
+                    <SelectItem value="CRM">CRM</SelectItem>
+                    <SelectItem value="ERP">ERP</SelectItem>
+                    <SelectItem value="DevOps">DevOps</SelectItem>
+                    <SelectItem value="Machine Learning">Machine Learning</SelectItem>
+                    <SelectItem value="Other">Other</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -666,6 +744,7 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
                     <SelectValue placeholder="Select priority" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="Critical">Critical</SelectItem>
                     <SelectItem value="High">High</SelectItem>
                     <SelectItem value="Medium">Medium</SelectItem>
                     <SelectItem value="Low">Low</SelectItem>
@@ -689,7 +768,7 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
                     <CalendarComponent
                       mode="single"
                       selected={newProject.startDate}
-                      onSelect={(date) => setNewProject(prev => ({ ...prev, startDate: date }))}
+                      onSelect={(date: Date | undefined) => setNewProject(prev => ({ ...prev, startDate: date }))}
                       initialFocus
                     />
                   </PopoverContent>
@@ -709,7 +788,7 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
                     <CalendarComponent
                       mode="single"
                       selected={newProject.dueDate}
-                      onSelect={(date) => setNewProject(prev => ({ ...prev, dueDate: date }))}
+                      onSelect={(date: Date | undefined) => setNewProject(prev => ({ ...prev, dueDate: date }))}
                       initialFocus
                     />
                   </PopoverContent>
@@ -727,13 +806,24 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
               </div>
             </div>
             
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Project Owner</label>
-              <Input
-                value={newProject.owner}
-                onChange={(e) => setNewProject(prev => ({ ...prev, owner: e.target.value }))}
-                placeholder="Enter project owner name"
-              />
+            <div className="grid grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Project Owner</label>
+                <Input
+                  value={newProject.owner}
+                  onChange={(e) => setNewProject(prev => ({ ...prev, owner: e.target.value }))}
+                  placeholder="Enter project owner name"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Team Lead</label>
+                <Input
+                  value={newProject.teamLead}
+                  onChange={(e) => setNewProject(prev => ({ ...prev, teamLead: e.target.value }))}
+                  placeholder="Enter team lead name"
+                />
+              </div>
             </div>
             
             <Separator />

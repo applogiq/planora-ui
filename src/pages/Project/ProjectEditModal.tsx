@@ -13,6 +13,10 @@ import { Separator } from '../../components/ui/separator'
 import { Switch } from '../../components/ui/switch'
 import { Calendar } from '../../components/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '../../components/ui/popover'
+import { useAppDispatch } from '../../store/hooks'
+import { updateProject } from '../../store/slices/projectSlice'
+import { UpdateProjectRequest } from '../../services/projectApi'
+import { projectTypes, projectMethodologies, projectPriorities } from '../../mock-data/projects'
 import { 
   CalendarIcon,
   X,
@@ -66,29 +70,9 @@ const mockTeamMembers = [
   { id: 8, name: 'Emma Wilson', role: 'Business Analyst', avatar: 'EW', email: 'emma@planora.com', department: 'Analysis' }
 ]
 
-const projectTypes = [
-  'Software Development',
-  'Web Application',
-  'Mobile Application',
-  'Infrastructure',
-  'Research & Development',
-  'Marketing Campaign',
-  'Product Launch',
-  'Training & Development',
-  'Consulting',
-  'Maintenance'
-]
+const editableProjectTypes = Array.from(projectTypes)
 
-const methodologies = [
-  'Scrum',
-  'Kanban',
-  'Waterfall',
-  'Hybrid',
-  'Lean',
-  'XP (Extreme Programming)',
-  'SAFe',
-  'Custom'
-]
+const editableMethodologies = Array.from(projectMethodologies)
 
 const priorities = [
   { value: 'Low', color: 'bg-[#28A745] text-white' },
@@ -106,6 +90,7 @@ const statuses = [
 ]
 
 export function ProjectEditModal({ isOpen, onClose, project, onSave, user }: ProjectEditModalProps) {
+  const dispatch = useAppDispatch()
   const [activeTab, setActiveTab] = useState('general')
   const [formData, setFormData] = useState({
     name: '',
@@ -201,48 +186,61 @@ export function ProjectEditModal({ isOpen, onClose, project, onSave, user }: Pro
 
   const handleSave = async () => {
     setIsLoading(true)
-    
+
     // Validation
     if (!formData.name.trim()) {
       toast.error('Project name is required')
       setIsLoading(false)
       return
     }
-    
+
     if (!formData.description.trim()) {
       toast.error('Project description is required')
       setIsLoading(false)
       return
     }
-    
+
     if (formData.dueDate <= formData.startDate) {
       toast.error('Due date must be after start date')
       setIsLoading(false)
       return
     }
-    
+
     if (formData.budget < 0) {
       toast.error('Budget must be a positive number')
       setIsLoading(false)
       return
     }
 
+    if (!project?.id) {
+      toast.error('Project ID is required')
+      setIsLoading(false)
+      return
+    }
+
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      const updatedProject = {
-        ...project,
-        ...formData,
-        updatedAt: new Date().toISOString(),
-        updatedBy: user?.name || 'Current User'
+      const updateData: UpdateProjectRequest = {
+        name: formData.name,
+        description: formData.description,
+        status: formData.status as 'Active' | 'On Hold' | 'Completed' | 'Planning',
+        startDate: formData.startDate.toISOString().split('T')[0],
+        endDate: formData.dueDate.toISOString().split('T')[0],
+        budget: formData.budget,
+        priority: formData.priority as 'Low' | 'Medium' | 'High' | 'Critical',
+        teamLead: formData.owner,
+        teamMembers: formData.team.map(member => member.name),
+        tags: formData.tags,
+        methodology: formData.methodology as 'Agile' | 'Waterfall' | 'Scrum' | 'Kanban' | 'Lean' | 'Hybrid',
+        projectType: formData.type as 'Web Development' | 'Mobile App' | 'Desktop App' | 'API Development' | 'Data Analytics' | 'E-commerce' | 'CRM' | 'ERP' | 'DevOps' | 'Machine Learning' | 'Other'
       }
-      
-      onSave(updatedProject)
+
+      await dispatch(updateProject({ id: project.id, projectData: updateData })).unwrap()
+
       toast.success('Project updated successfully')
+      onSave(formData) // Call the callback for any local UI updates
       onClose()
     } catch (error) {
-      toast.error('Failed to update project')
+      toast.error(`Failed to update project: ${error}`)
     } finally {
       setIsLoading(false)
     }
@@ -390,7 +388,7 @@ export function ProjectEditModal({ isOpen, onClose, project, onSave, user }: Pro
                       <SelectValue placeholder="Select methodology" />
                     </SelectTrigger>
                     <SelectContent>
-                      {methodologies.map((methodology) => (
+                      {editableMethodologies.map((methodology) => (
                         <SelectItem key={methodology} value={methodology}>
                           {methodology}
                         </SelectItem>
@@ -406,7 +404,7 @@ export function ProjectEditModal({ isOpen, onClose, project, onSave, user }: Pro
                       <SelectValue placeholder="Select project type" />
                     </SelectTrigger>
                     <SelectContent>
-                      {projectTypes.map((type) => (
+                      {editableProjectTypes.map((type) => (
                         <SelectItem key={type} value={type}>
                           {type}
                         </SelectItem>

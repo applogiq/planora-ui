@@ -1,0 +1,216 @@
+import { authApiService } from './authApi';
+import { Project, projectStatuses, projectPriorities, projectMethodologies, projectTypes } from '../mock-data/projects';
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+
+export interface CreateProjectRequest {
+  name: string;
+  description: string;
+  status: typeof projectStatuses[number];
+  startDate: string;
+  endDate: string;
+  budget: number;
+  customerId: string;
+  priority: typeof projectPriorities[number];
+  teamLead: string;
+  teamMembers: string[];
+  tags: string[];
+  methodology: typeof projectMethodologies[number];
+  projectType: typeof projectTypes[number];
+}
+
+export interface UpdateProjectRequest extends Partial<CreateProjectRequest> {
+  spent?: number;
+  progress?: number;
+  color?: string;
+}
+
+export interface ProjectsResponse {
+  items: Project[];
+  total: number;
+  page: number;
+  per_page: number;
+  total_pages: number;
+  has_next: boolean;
+  has_prev: boolean;
+}
+
+export interface ProjectsQueryParams {
+  page?: number;
+  per_page?: number;
+  search?: string;
+  status?: string;
+  priority?: string;
+  methodology?: string;
+  projectType?: string;
+  customerId?: string;
+  teamLead?: string;
+}
+
+export class ProjectApiService {
+  private async makeRequest<T>(endpoint: string, options?: RequestInit): Promise<T> {
+    const url = `${API_BASE_URL}${endpoint}`;
+
+    // Get the access token for authorization
+    const token = authApiService.getAccessToken();
+    const tokenType = authApiService.getTokenType();
+
+    if (!token) {
+      console.warn('No access token available for API request');
+      throw new Error('Authentication required. Please login again.');
+    }
+
+    const defaultHeaders = {
+      'Content-Type': 'application/json',
+      Authorization: `${tokenType} ${token}`
+    };
+
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        ...defaultHeaders,
+        ...options?.headers,
+      },
+    });
+
+    if (!response.ok) {
+      // Handle unauthorized/forbidden errors
+      if (response.status === 401 || response.status === 403) {
+        console.log('Authentication error, attempting to refresh token...');
+        try {
+          await authApiService.refreshToken();
+          // Retry the request with new token
+          const newToken = authApiService.getAccessToken();
+          const newTokenType = authApiService.getTokenType();
+
+          if (!newToken) {
+            throw new Error('Failed to get new token after refresh');
+          }
+
+          const retryResponse = await fetch(url, {
+            ...options,
+            headers: {
+              ...defaultHeaders,
+              Authorization: `${newTokenType} ${newToken}`,
+              ...options?.headers,
+            },
+          });
+
+          if (retryResponse.ok) {
+            return retryResponse.json();
+          }
+
+          // If retry also fails, throw error
+          const retryErrorData = await retryResponse.json().catch(() => ({}));
+          throw new Error(retryErrorData.detail || `API Error after retry: ${retryResponse.status} ${retryResponse.statusText}`);
+        } catch (refreshError) {
+          // Refresh failed, user needs to login again
+          console.error('Token refresh failed:', refreshError);
+          authApiService.clearTokens();
+          authApiService.clearUserProfile();
+          throw new Error('Authentication failed. Please login again.');
+        }
+      }
+
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || `API Error: ${response.status} ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+
+  async getProjects(params: ProjectsQueryParams = {}): Promise<ProjectsResponse> {
+    const searchParams = new URLSearchParams();
+
+    if (params.page !== undefined) searchParams.append('page', params.page.toString());
+    if (params.per_page !== undefined) searchParams.append('per_page', params.per_page.toString());
+    if (params.search) searchParams.append('search', params.search);
+    if (params.status) searchParams.append('status', params.status);
+    if (params.priority) searchParams.append('priority', params.priority);
+    if (params.methodology) searchParams.append('methodology', params.methodology);
+    if (params.projectType) searchParams.append('project_type', params.projectType);
+    if (params.customerId) searchParams.append('customer_id', params.customerId);
+    if (params.teamLead) searchParams.append('team_lead', params.teamLead);
+
+    const queryString = searchParams.toString();
+    const endpoint = `/api/v1/projects${queryString ? `?${queryString}` : ''}`;
+
+    const response = await this.makeRequest<ProjectsResponse>(endpoint);
+
+    if (response && Array.isArray(response.items)) {
+      return response;
+    } else {
+      console.error('Unexpected API response format:', response);
+      return {
+        items: [],
+        total: 0,
+        page: params.page || 1,
+        per_page: params.per_page || 10,
+        total_pages: 0,
+        has_next: false,
+        has_prev: false,
+      };
+    }
+  }
+
+  async getProjectById(id: string): Promise<Project> {
+    return this.makeRequest<Project>(`/api/v1/projects/${id}`);
+  }
+
+  async createProject(projectData: CreateProjectRequest): Promise<Project> {
+    return this.makeRequest<Project>('/api/v1/projects/', {
+      method: 'POST',
+      body: JSON.stringify(projectData),
+    });
+  }
+
+  async updateProject(id: string, projectData: UpdateProjectRequest): Promise<Project> {
+    return this.makeRequest<Project>(`/api/v1/projects/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(projectData),
+    });
+  }
+
+  async deleteProject(id: string): Promise<void> {
+    return this.makeRequest<void>(`/api/v1/projects/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async updateProjectStatus(id: string, status: typeof projectStatuses[number]): Promise<Project> {
+    return this.makeRequest<Project>(`/api/v1/projects/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    });
+  }
+
+  async updateProjectProgress(id: string, progress: number): Promise<Project> {
+    return this.makeRequest<Project>(`/api/v1/projects/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ progress }),
+    });
+  }
+
+  async getProjectsByStatus(status: string): Promise<Project[]> {
+    const response = await this.getProjects({ status });
+    return response.items;
+  }
+
+  async getActiveProjects(): Promise<Project[]> {
+    return this.getProjectsByStatus('Active');
+  }
+
+  async getCompletedProjects(): Promise<Project[]> {
+    return this.getProjectsByStatus('Completed');
+  }
+
+  async getOnHoldProjects(): Promise<Project[]> {
+    return this.getProjectsByStatus('On Hold');
+  }
+
+  async getPlanningProjects(): Promise<Project[]> {
+    return this.getProjectsByStatus('Planning');
+  }
+}
+
+export const projectApiService = new ProjectApiService();
