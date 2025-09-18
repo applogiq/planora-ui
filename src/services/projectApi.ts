@@ -1,22 +1,87 @@
 import { authApiService } from './authApi';
-import { Project, projectStatuses, projectPriorities, projectMethodologies, projectTypes } from '../mock-data/projects';
+import { Project } from '../mock-data/projects';
+
+export interface ProjectMasterItem {
+  name: string;
+  description: string;
+  is_active: boolean;
+  sort_order: number;
+  id: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProjectStatusItem extends ProjectMasterItem {
+  color: string;
+}
+
+export interface ProjectPriorityItem extends ProjectMasterItem {
+  color: string;
+  level: number;
+}
+
+export interface ProjectMastersResponse {
+  methodologies: ProjectMasterItem[];
+  types: ProjectMasterItem[];
+  statuses: ProjectStatusItem[];
+  priorities: ProjectPriorityItem[];
+}
+
+export interface ProjectOwner {
+  email: string;
+  name: string;
+  role_id: string;
+  avatar: string;
+  is_active: boolean;
+  department: string;
+  skills: string[];
+  phone: string;
+  timezone: string;
+  id: string;
+  last_login: string | null;
+  created_at: string;
+  updated_at: string | null;
+  role: {
+    name: string;
+    description: string;
+    permissions: string[];
+    is_active: boolean;
+    id: string;
+    created_at: string;
+    updated_at: string | null;
+  };
+}
+
+export interface ProjectOwnersResponse {
+  items: ProjectOwner[];
+  total: number;
+  page: number;
+  per_page: number;
+  total_pages: number;
+  has_next: boolean;
+  has_prev: boolean;
+}
+
+// Alias for project members since they have the same structure
+export type ProjectMember = ProjectOwner;
+export type ProjectMembersResponse = ProjectOwnersResponse;
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 export interface CreateProjectRequest {
   name: string;
   description: string;
-  status: typeof projectStatuses[number];
+  status: string;
   startDate: string;
   endDate: string;
   budget: number;
   customerId: string;
-  priority: typeof projectPriorities[number];
+  priority: string;
   teamLead: string;
   teamMembers: string[];
   tags: string[];
-  methodology: typeof projectMethodologies[number];
-  projectType: typeof projectTypes[number];
+  methodology: string;
+  projectType: string;
 }
 
 export interface UpdateProjectRequest extends Partial<CreateProjectRequest> {
@@ -177,7 +242,7 @@ export class ProjectApiService {
     });
   }
 
-  async updateProjectStatus(id: string, status: typeof projectStatuses[number]): Promise<Project> {
+  async updateProjectStatus(id: string, status: string): Promise<Project> {
     return this.makeRequest<Project>(`/api/v1/projects/${id}`, {
       method: 'PATCH',
       body: JSON.stringify({ status }),
@@ -210,6 +275,18 @@ export class ProjectApiService {
 
   async getPlanningProjects(): Promise<Project[]> {
     return this.getProjectsByStatus('Planning');
+  }
+
+  async getProjectMasters(): Promise<ProjectMastersResponse> {
+    return this.makeRequest<ProjectMastersResponse>('/api/v1/masters/project');
+  }
+
+  async getProjectOwners(): Promise<ProjectOwnersResponse> {
+    return this.makeRequest<ProjectOwnersResponse>('/api/v1/users/project-owner/');
+  }
+
+  async getProjectMembers(): Promise<ProjectMembersResponse> {
+    return this.makeRequest<ProjectMembersResponse>('/api/v1/users/project-member/');
   }
 }
 

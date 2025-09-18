@@ -31,47 +31,6 @@ export const mockTeamMembers = [
   { id: 13, name: 'Tom Anderson', role: 'Security Engineer', avatar: 'TA', email: 'tom.anderson@planora.com', department: 'Security' }
 ]
 
-// ====== PROJECT PRIORITIES ======
-export const priorities = [
-  { value: 'Low', color: 'bg-[#28A745] text-white' },
-  { value: 'Medium', color: 'bg-[#FFC107] text-white' },
-  { value: 'High', color: 'bg-[#DC3545] text-white' },
-  { value: 'Critical', color: 'bg-[#6F42C1] text-white' }
-]
-
-// ====== PROJECT STATUSES ======
-export const statuses = [
-  { value: 'Planning', color: 'bg-gray-500 text-white' },
-  { value: 'Active', color: 'bg-[#28A745] text-white' },
-  { value: 'On Hold', color: 'bg-[#FFC107] text-white' },
-  { value: 'Completed', color: 'bg-[#007BFF] text-white' },
-  { value: 'Cancelled', color: 'bg-[#DC3545] text-white' }
-]
-
-// ====== PROJECT METHODOLOGIES ======
-export const methodologies = [
-  'Agile',
-  'Waterfall',
-  'Scrum',
-  'Kanban',
-  'Lean',
-  'Hybrid'
-]
-
-// ====== PROJECT TYPES ======
-export const projectTypes = [
-  'Web Development',
-  'Mobile App',
-  'Desktop App',
-  'API Development',
-  'Data Analytics',
-  'E-commerce',
-  'CRM',
-  'ERP',
-  'DevOps',
-  'Machine Learning',
-  'Other'
-]
 
 // ====== DEPARTMENTS ======
 export const departments = [
@@ -162,14 +121,3 @@ export const getTeamMembersByRole = (role: string) => {
   return mockTeamMembers.filter(member => member.role === role)
 }
 
-export const getPriorityConfig = (priority: string) => {
-  return priorities.find(p => p.value === priority)
-}
-
-export const getStatusConfig = (status: string) => {
-  return statuses.find(s => s.value === status)
-}
-
-// ====== EXPORTS FOR BACKWARD COMPATIBILITY ======
-export const editableProjectTypes = Array.from(projectTypes)
-export const editableMethodologies = Array.from(methodologies)

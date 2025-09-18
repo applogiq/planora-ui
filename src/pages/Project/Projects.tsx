@@ -18,15 +18,14 @@ import { cn } from '../../components/ui/utils'
 import { format } from 'date-fns'
 import { toast } from 'sonner@2.0.3'
 import { ProjectTemplates } from './ProjectTemplates'
-import { Project, projectStatuses, projectPriorities, projectMethodologies, projectTypes } from '../../mock-data/projects'
+import { Project } from '../../mock-data/projects'
 import {
   mockCustomers,
-  mockTeamMembers,
-  priorities,
-  statuses,
-  editableProjectTypes,
-  editableMethodologies
+  mockTeamMembers
 } from '../../mock-data/master'
+import { useProjectMasters } from '../../hooks/useProjectMasters'
+import { useProjectOwners } from '../../hooks/useProjectOwners'
+import { useProjectMembers } from '../../hooks/useProjectMembers'
 import { useAppDispatch, useAppSelector } from '../../store/hooks'
 import {
   fetchProjects,
@@ -105,6 +104,27 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
     total
   } = useAppSelector((state) => state.projects)
 
+  const {
+    data: projectMasters,
+    loading: mastersLoading,
+    error: mastersError,
+    retry: retryMasters
+  } = useProjectMasters()
+
+  const {
+    data: projectOwners,
+    loading: ownersLoading,
+    error: ownersError,
+    retry: retryOwners
+  } = useProjectOwners()
+
+  const {
+    data: projectMembers,
+    loading: membersLoading,
+    error: membersError,
+    retry: retryMembers
+  } = useProjectMembers()
+
   const userRole = user?.role || 'developer'
   const isAdmin = userRole === 'admin'
   const isProjectManager = userRole === 'project_manager'
@@ -167,6 +187,68 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
   const [showDueDatePicker, setShowDueDatePicker] = useState(false)
   const [newTag, setNewTag] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+
+  // Helper functions to process API data
+  const getApiStatuses = () => {
+    if (!projectMasters?.statuses) return []
+    return projectMasters.statuses
+      .filter(status => status.is_active)
+      .sort((a, b) => a.sort_order - b.sort_order)
+      .map(status => ({
+        value: status.name,
+        color: `bg-[${status.color}] text-white`
+      }))
+  }
+
+  const getApiPriorities = () => {
+    if (!projectMasters?.priorities) return []
+    return projectMasters.priorities
+      .filter(priority => priority.is_active)
+      .sort((a, b) => a.sort_order - b.sort_order)
+      .map(priority => ({
+        value: priority.name,
+        color: `bg-[${priority.color}] text-white`
+      }))
+  }
+
+  const getApiMethodologies = () => {
+    if (!projectMasters?.methodologies) return []
+    return projectMasters.methodologies
+      .filter(methodology => methodology.is_active)
+      .sort((a, b) => a.sort_order - b.sort_order)
+      .map(methodology => methodology.name)
+  }
+
+  const getApiProjectTypes = () => {
+    if (!projectMasters?.types) return []
+    return projectMasters.types
+      .filter(type => type.is_active)
+      .sort((a, b) => a.sort_order - b.sort_order)
+      .map(type => type.name)
+  }
+
+  // Use API data if available, fallback to mock data
+  const statuses = getApiStatuses().length > 0 ? getApiStatuses() : [
+    { value: 'Planning', color: 'bg-gray-500 text-white' },
+    { value: 'Active', color: 'bg-[#28A745] text-white' },
+    { value: 'On Hold', color: 'bg-[#FFC107] text-white' },
+    { value: 'Completed', color: 'bg-[#007BFF] text-white' }
+  ]
+
+  const priorities = getApiPriorities().length > 0 ? getApiPriorities() : [
+    { value: 'Low', color: 'bg-[#28A745] text-white' },
+    { value: 'Medium', color: 'bg-[#FFC107] text-white' },
+    { value: 'High', color: 'bg-[#DC3545] text-white' },
+    { value: 'Critical', color: 'bg-[#6F42C1] text-white' }
+  ]
+
+  const editableMethodologies = getApiMethodologies().length > 0 ? getApiMethodologies() : [
+    'Agile', 'Waterfall', 'Scrum', 'Kanban', 'Lean', 'Hybrid'
+  ]
+
+  const editableProjectTypes = getApiProjectTypes().length > 0 ? getApiProjectTypes() : [
+    'Web Development', 'Mobile App', 'Desktop App', 'API Development', 'Data Analytics', 'E-commerce', 'CRM', 'ERP', 'DevOps', 'Machine Learning', 'Other'
+  ]
 
   // Fetch projects on component mount
   useEffect(() => {
@@ -295,17 +377,17 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
       const projectData: CreateProjectRequest = {
         name: newProject.name,
         description: newProject.description,
-        status: newProject.status as 'Active' | 'On Hold' | 'Completed' | 'Planning',
+        status: newProject.status,
         startDate: newProject.startDate.toISOString().split('T')[0],
         endDate: newProject.dueDate.toISOString().split('T')[0],
         budget: newProject.budget,
         customerId: newProject.customerId || 'default-customer',
-        priority: newProject.priority as 'Low' | 'Medium' | 'High' | 'Critical',
+        priority: newProject.priority,
         teamLead: newProject.teamLead || newProject.owner || 'default-lead',
         teamMembers: newProject.team.map(member => member.name),
         tags: newProject.tags,
-        methodology: newProject.methodology as 'Agile' | 'Waterfall' | 'Scrum' | 'Kanban' | 'Lean' | 'Hybrid',
-        projectType: newProject.type as 'Web Development' | 'Mobile App' | 'Desktop App' | 'API Development' | 'Data Analytics' | 'E-commerce' | 'CRM' | 'ERP' | 'DevOps' | 'Machine Learning' | 'Other'
+        methodology: newProject.methodology,
+        projectType: newProject.type
       }
 
       await dispatch(createProject(projectData)).unwrap()
@@ -355,9 +437,27 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
     setShowCreateProject(true)
   }
 
-  const availableMembers = mockTeamMembers.filter(
-    member => !newProject.team.find(teamMember => teamMember.id === member.id)
-  )
+  // Get available team members from API data, fallback to mock data
+  const getAvailableMembers = () => {
+    const apiMembers = projectMembers?.items?.filter(member => member.is_active) || []
+    const mockMembers = mockTeamMembers
+
+    // Use API data if available, otherwise fallback to mock data
+    const allMembers = apiMembers.length > 0 ? apiMembers.map(member => ({
+      id: member.id,
+      name: member.name,
+      role: member.role.name,
+      avatar: member.avatar || member.name.charAt(0).toUpperCase(),
+      email: member.email,
+      department: member.department
+    })) : mockMembers
+
+    return allMembers.filter(
+      availableMember => !newProject.team.find(teamMember => teamMember.id === availableMember.id)
+    )
+  }
+
+  const availableMembers = getAvailableMembers()
 
   const getMethodologyIcon = (methodology: string) => {
     switch (methodology) {
@@ -375,6 +475,27 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
       dispatch(clearError())
     }
   }, [error, dispatch])
+
+  // Show error for masters API
+  useEffect(() => {
+    if (mastersError) {
+      toast.error(`Failed to load project configuration: ${mastersError}`)
+    }
+  }, [mastersError])
+
+  // Show error for owners API
+  useEffect(() => {
+    if (ownersError) {
+      toast.error(`Failed to load project owners: ${ownersError}`)
+    }
+  }, [ownersError])
+
+  // Show error for members API
+  useEffect(() => {
+    if (membersError) {
+      toast.error(`Failed to load project members: ${membersError}`)
+    }
+  }, [membersError])
 
   return (
     <div className="space-y-6">
@@ -503,9 +624,14 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
             <FileText className="w-4 h-4 mr-2" />
             Templates
           </Button>
-          <Button size="sm" className="bg-[#28A745] hover:bg-[#218838] text-white" onClick={() => setShowCreateProject(true)}>
+          <Button
+            size="sm"
+            className="bg-[#28A745] hover:bg-[#218838] text-white"
+            onClick={() => setShowCreateProject(true)}
+            disabled={mastersLoading || ownersLoading || membersLoading}
+          >
             <Plus className="w-4 h-4 mr-2" />
-            New Project
+            {(mastersLoading || ownersLoading || membersLoading) ? 'Loading...' : 'New Project'}
           </Button>
         </div>
       </div>
@@ -941,13 +1067,40 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
 
                   <div>
                     <Label htmlFor="owner">Project Owner</Label>
-                    <Input
-                      id="owner"
-                      value={newProject.owner}
-                      onChange={(e) => handleInputChange('owner', e.target.value)}
-                      placeholder="Enter project owner name"
-                      className="mt-1"
-                    />
+                    <Select value={newProject.owner} onValueChange={(value) => handleInputChange('owner', value)}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="Select project owner" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ownersLoading ? (
+                          <SelectItem value="" disabled>
+                            Loading owners...
+                          </SelectItem>
+                        ) : projectOwners?.items?.length ? (
+                          projectOwners.items
+                            .filter(owner => owner.is_active)
+                            .map((owner) => (
+                              <SelectItem key={owner.id} value={owner.name}>
+                                <div className="flex items-center space-x-2">
+                                  <div className="w-6 h-6 rounded-full bg-[#007BFF] text-white text-xs flex items-center justify-center">
+                                    {owner.avatar || owner.name.charAt(0).toUpperCase()}
+                                  </div>
+                                  <div>
+                                    <span className="font-medium">{owner.name}</span>
+                                    <span className="text-xs text-muted-foreground ml-2">
+                                      {owner.role.name} • {owner.department}
+                                    </span>
+                                  </div>
+                                </div>
+                              </SelectItem>
+                            ))
+                        ) : (
+                          <SelectItem value="" disabled>
+                            No owners available
+                          </SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
               </div>
@@ -1027,7 +1180,9 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
                     <span>Available Team Members</span>
                   </h3>
                   <div className="space-y-3 max-h-80 overflow-y-auto">
-                    {availableMembers.length === 0 ? (
+                    {membersLoading ? (
+                      <p className="text-muted-foreground text-sm">Loading team members...</p>
+                    ) : availableMembers.length === 0 ? (
                       <p className="text-muted-foreground text-sm">All team members are already assigned</p>
                     ) : (
                       availableMembers.map((member) => (

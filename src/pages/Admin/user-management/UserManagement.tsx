@@ -401,7 +401,6 @@ export function UserManagement() {
         <TabsList>
           <TabsTrigger value="users">Users & Roles</TabsTrigger>
           <TabsTrigger value="permissions">Permissions</TabsTrigger>
-          <TabsTrigger value="audit">Audit Logs</TabsTrigger>
         </TabsList>
 
         <TabsContent value="users" className="space-y-6">
@@ -693,45 +692,6 @@ export function UserManagement() {
                 </div>
                 );
               })}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="audit" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Activity className="h-5 w-5" />
-                <span>Audit Logs</span>
-              </CardTitle>
-              <CardDescription>
-                Security and compliance audit trail for all system activities
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {filteredAuditLogs.map((log) => (
-                  <div key={log.id} className="flex items-start space-x-3 p-3 bg-muted/20 rounded-lg">
-                    {getStatusIcon(log.status)}
-                    <div className="flex-1 space-y-1">
-                      <div className="flex items-center justify-between">
-                        <p className="text-sm font-medium">
-                          {log.userEmail} - {log.action.replace('_', ' ')}
-                        </p>
-                        <span className="text-xs text-muted-foreground">
-                          {formatDate(log.timestamp)}
-                        </span>
-                      </div>
-                      <p className="text-xs text-muted-foreground">{log.details}</p>
-                      <div className="flex items-center space-x-4 text-xs text-muted-foreground">
-                        <span>IP: {log.ip}</span>
-                        {log.performedBy && <span>By: {log.performedBy}</span>}
-                        {log.authProvider && <span>Provider: {log.authProvider}</span>}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
             </CardContent>
           </Card>
         </TabsContent>

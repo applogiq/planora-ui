@@ -16,15 +16,13 @@ import { Popover, PopoverContent, PopoverTrigger } from '../../components/ui/pop
 import { useAppDispatch } from '../../store/hooks'
 import { updateProject } from '../../store/slices/projectSlice'
 import { UpdateProjectRequest } from '../../services/projectApi'
-import { projectTypes, projectMethodologies, projectPriorities } from '../../mock-data/projects'
 import {
   mockCustomers,
-  mockTeamMembers,
-  priorities,
-  statuses,
-  editableProjectTypes,
-  editableMethodologies
+  mockTeamMembers
 } from '../../mock-data/master'
+import { useProjectMasters } from '../../hooks/useProjectMasters'
+import { useProjectOwners } from '../../hooks/useProjectOwners'
+import { useProjectMembers } from '../../hooks/useProjectMembers'
 import { 
   CalendarIcon,
   X,
@@ -60,6 +58,23 @@ interface ProjectEditModalProps {
 
 export function ProjectEditModal({ isOpen, onClose, project, onSave, user }: ProjectEditModalProps) {
   const dispatch = useAppDispatch()
+  const {
+    data: projectMasters,
+    loading: mastersLoading,
+    error: mastersError
+  } = useProjectMasters()
+
+  const {
+    data: projectOwners,
+    loading: ownersLoading,
+    error: ownersError
+  } = useProjectOwners()
+
+  const {
+    data: projectMembers,
+    loading: membersLoading,
+    error: membersError
+  } = useProjectMembers()
   const [activeTab, setActiveTab] = useState('general')
   const [formData, setFormData] = useState({
     name: '',
@@ -86,6 +101,68 @@ export function ProjectEditModal({ isOpen, onClose, project, onSave, user }: Pro
   const [showDueDatePicker, setShowDueDatePicker] = useState(false)
   const [newTag, setNewTag] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+
+  // Helper functions to process API data
+  const getApiStatuses = () => {
+    if (!projectMasters?.statuses) return []
+    return projectMasters.statuses
+      .filter(status => status.is_active)
+      .sort((a, b) => a.sort_order - b.sort_order)
+      .map(status => ({
+        value: status.name,
+        color: `bg-[${status.color}] text-white`
+      }))
+  }
+
+  const getApiPriorities = () => {
+    if (!projectMasters?.priorities) return []
+    return projectMasters.priorities
+      .filter(priority => priority.is_active)
+      .sort((a, b) => a.sort_order - b.sort_order)
+      .map(priority => ({
+        value: priority.name,
+        color: `bg-[${priority.color}] text-white`
+      }))
+  }
+
+  const getApiMethodologies = () => {
+    if (!projectMasters?.methodologies) return []
+    return projectMasters.methodologies
+      .filter(methodology => methodology.is_active)
+      .sort((a, b) => a.sort_order - b.sort_order)
+      .map(methodology => methodology.name)
+  }
+
+  const getApiProjectTypes = () => {
+    if (!projectMasters?.types) return []
+    return projectMasters.types
+      .filter(type => type.is_active)
+      .sort((a, b) => a.sort_order - b.sort_order)
+      .map(type => type.name)
+  }
+
+  // Use API data if available, fallback to mock data
+  const statuses = getApiStatuses().length > 0 ? getApiStatuses() : [
+    { value: 'Planning', color: 'bg-gray-500 text-white' },
+    { value: 'Active', color: 'bg-[#28A745] text-white' },
+    { value: 'On Hold', color: 'bg-[#FFC107] text-white' },
+    { value: 'Completed', color: 'bg-[#007BFF] text-white' }
+  ]
+
+  const priorities = getApiPriorities().length > 0 ? getApiPriorities() : [
+    { value: 'Low', color: 'bg-[#28A745] text-white' },
+    { value: 'Medium', color: 'bg-[#FFC107] text-white' },
+    { value: 'High', color: 'bg-[#DC3545] text-white' },
+    { value: 'Critical', color: 'bg-[#6F42C1] text-white' }
+  ]
+
+  const editableMethodologies = getApiMethodologies().length > 0 ? getApiMethodologies() : [
+    'Agile', 'Waterfall', 'Scrum', 'Kanban', 'Lean', 'Hybrid'
+  ]
+
+  const editableProjectTypes = getApiProjectTypes().length > 0 ? getApiProjectTypes() : [
+    'Web Development', 'Mobile App', 'Desktop App', 'API Development', 'Data Analytics', 'E-commerce', 'CRM', 'ERP', 'DevOps', 'Machine Learning', 'Other'
+  ]
 
   // Initialize form data when project changes
   useEffect(() => {
@@ -215,9 +292,27 @@ export function ProjectEditModal({ isOpen, onClose, project, onSave, user }: Pro
     }
   }
 
-  const availableMembers = mockTeamMembers.filter(
-    member => !formData.team.find(teamMember => teamMember.id === member.id)
-  )
+  // Get available team members from API data, fallback to mock data
+  const getAvailableMembers = () => {
+    const apiMembers = projectMembers?.items?.filter(member => member.is_active) || []
+    const mockMembers = mockTeamMembers
+
+    // Use API data if available, otherwise fallback to mock data
+    const allMembers = apiMembers.length > 0 ? apiMembers.map(member => ({
+      id: member.id,
+      name: member.name,
+      role: member.role.name,
+      avatar: member.avatar || member.name.charAt(0).toUpperCase(),
+      email: member.email,
+      department: member.department
+    })) : mockMembers
+
+    return allMembers.filter(
+      availableMember => !formData.team.find(teamMember => teamMember.id === availableMember.id)
+    )
+  }
+
+  const availableMembers = getAvailableMembers()
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -470,7 +565,9 @@ export function ProjectEditModal({ isOpen, onClose, project, onSave, user }: Pro
                   <span>Available Team Members</span>
                 </h3>
                 <div className="space-y-3 max-h-80 overflow-y-auto">
-                  {availableMembers.length === 0 ? (
+                  {membersLoading ? (
+                    <p className="text-muted-foreground text-sm">Loading team members...</p>
+                  ) : availableMembers.length === 0 ? (
                     <p className="text-muted-foreground text-sm">All team members are already assigned</p>
                   ) : (
                     availableMembers.map((member) => (
