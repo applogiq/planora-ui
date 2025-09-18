@@ -17,6 +17,14 @@ import { useAppDispatch } from '../../store/hooks'
 import { updateProject } from '../../store/slices/projectSlice'
 import { UpdateProjectRequest } from '../../services/projectApi'
 import { projectTypes, projectMethodologies, projectPriorities } from '../../mock-data/projects'
+import {
+  mockCustomers,
+  mockTeamMembers,
+  priorities,
+  statuses,
+  editableProjectTypes,
+  editableMethodologies
+} from '../../mock-data/master'
 import { 
   CalendarIcon,
   X,
@@ -49,45 +57,6 @@ interface ProjectEditModalProps {
   onSave: (projectData: any) => void
   user?: any
 }
-
-// Mock customer data for selection
-const mockCustomers = [
-  { id: 'CUST-001', name: 'Internal', type: 'Internal', email: 'internal@planora.com' },
-  { id: 'CUST-002', name: 'TechCorp Inc', type: 'Enterprise', email: 'contact@techcorp.com' },
-  { id: 'CUST-003', name: 'StartupXYZ', type: 'Startup', email: 'hello@startupxyz.io' },
-  { id: 'CUST-004', name: 'MegaSoft Solutions', type: 'Enterprise', email: 'projects@megasoft.com' }
-]
-
-// Mock team member pool for assignment
-const mockTeamMembers = [
-  { id: 1, name: 'John Doe', role: 'Project Manager', avatar: 'JD', email: 'john@planora.com', department: 'Management' },
-  { id: 2, name: 'Jane Smith', role: 'UX Designer', avatar: 'JS', email: 'jane@planora.com', department: 'Design' },
-  { id: 3, name: 'Mike Johnson', role: 'Frontend Developer', avatar: 'MJ', email: 'mike@planora.com', department: 'Development' },
-  { id: 4, name: 'Sarah Wilson', role: 'Backend Developer', avatar: 'SW', email: 'sarah@planora.com', department: 'Development' },
-  { id: 5, name: 'Alex Chen', role: 'QA Engineer', avatar: 'AC', email: 'alex@planora.com', department: 'Quality Assurance' },
-  { id: 6, name: 'Lisa Brown', role: 'DevOps Engineer', avatar: 'LB', email: 'lisa@planora.com', department: 'Operations' },
-  { id: 7, name: 'Tom Davis', role: 'Technical Writer', avatar: 'TD', email: 'tom@planora.com', department: 'Documentation' },
-  { id: 8, name: 'Emma Wilson', role: 'Business Analyst', avatar: 'EW', email: 'emma@planora.com', department: 'Analysis' }
-]
-
-const editableProjectTypes = Array.from(projectTypes)
-
-const editableMethodologies = Array.from(projectMethodologies)
-
-const priorities = [
-  { value: 'Low', color: 'bg-[#28A745] text-white' },
-  { value: 'Medium', color: 'bg-[#FFC107] text-white' },
-  { value: 'High', color: 'bg-[#DC3545] text-white' },
-  { value: 'Critical', color: 'bg-[#6F42C1] text-white' }
-]
-
-const statuses = [
-  { value: 'Planning', color: 'bg-gray-500 text-white' },
-  { value: 'Active', color: 'bg-[#28A745] text-white' },
-  { value: 'On Hold', color: 'bg-[#FFC107] text-white' },
-  { value: 'Completed', color: 'bg-[#007BFF] text-white' },
-  { value: 'Cancelled', color: 'bg-[#DC3545] text-white' }
-]
 
 export function ProjectEditModal({ isOpen, onClose, project, onSave, user }: ProjectEditModalProps) {
   const dispatch = useAppDispatch()

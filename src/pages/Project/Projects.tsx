@@ -12,11 +12,21 @@ import { Textarea } from '../../components/ui/textarea'
 import { Calendar as CalendarComponent } from '../../components/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '../../components/ui/popover'
 import { Separator } from '../../components/ui/separator'
+import { Switch } from '../../components/ui/switch'
+import { Label } from '../../components/ui/label'
 import { cn } from '../../components/ui/utils'
 import { format } from 'date-fns'
 import { toast } from 'sonner@2.0.3'
 import { ProjectTemplates } from './ProjectTemplates'
 import { Project, projectStatuses, projectPriorities, projectMethodologies, projectTypes } from '../../mock-data/projects'
+import {
+  mockCustomers,
+  mockTeamMembers,
+  priorities,
+  statuses,
+  editableProjectTypes,
+  editableMethodologies
+} from '../../mock-data/master'
 import { useAppDispatch, useAppSelector } from '../../store/hooks'
 import {
   fetchProjects,
@@ -26,10 +36,10 @@ import {
   clearError
 } from '../../store/slices/projectSlice'
 import { CreateProjectRequest } from '../../services/projectApi'
-import { 
-  Plus, 
-  Search, 
-  Filter, 
+import {
+  Plus,
+  Search,
+  Filter,
   Calendar,
   Users,
   Target,
@@ -48,7 +58,18 @@ import {
   Calendar as CalendarIcon,
   CheckCircle,
   PlayCircle,
-  PauseCircle
+  PauseCircle,
+  X,
+  Trash2,
+  Save,
+  DollarSign,
+  Calendar as CalendarDays,
+  User,
+  Mail,
+  Phone,
+  MapPin,
+  Building,
+  Globe
 } from 'lucide-react'
 
 // Add computed properties for UI display
@@ -121,18 +142,31 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
   const [newProject, setNewProject] = useState({
     name: '',
     description: '',
-    methodology: '',
-    type: '',
-    priority: '',
-    startDate: undefined as Date | undefined,
-    dueDate: undefined as Date | undefined,
-    budget: '',
+    status: 'Planning',
+    priority: 'Medium',
+    methodology: 'Scrum',
+    type: 'Software Development',
+    startDate: new Date(),
+    dueDate: new Date(),
+    budget: 0,
+    customer: 'Internal',
     owner: '',
-    customer: '',
+    team: [] as any[],
+    isPublic: true,
+    notifications: true,
+    autoArchive: false,
+    version: 'v1.0.0',
+    tags: [] as string[],
+    customFields: {} as Record<string, any>,
     customerId: '',
-    teamLead: '',
-    tags: [] as string[]
+    teamLead: ''
   })
+
+  const [activeTab, setActiveTab] = useState('general')
+  const [showStartDatePicker, setShowStartDatePicker] = useState(false)
+  const [showDueDatePicker, setShowDueDatePicker] = useState(false)
+  const [newTag, setNewTag] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
 
   // Fetch projects on component mount
   useEffect(() => {
@@ -189,10 +223,71 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
     return { color: 'text-[#28A745]', status: 'On Track' }
   }
 
-  const handleCreateProject = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleInputChange = (field: string, value: any) => {
+    setNewProject(prev => ({
+      ...prev,
+      [field]: value
+    }))
+  }
+
+  const handleAddTeamMember = (member: any) => {
+    if (!newProject.team.find(m => m.id === member.id)) {
+      setNewProject(prev => ({
+        ...prev,
+        team: [...prev.team, member]
+      }))
+    }
+  }
+
+  const handleRemoveTeamMember = (memberId: number) => {
+    setNewProject(prev => ({
+      ...prev,
+      team: prev.team.filter(m => m.id !== memberId)
+    }))
+  }
+
+  const handleAddTag = () => {
+    if (newTag.trim() && !newProject.tags.includes(newTag.trim())) {
+      setNewProject(prev => ({
+        ...prev,
+        tags: [...prev.tags, newTag.trim()]
+      }))
+      setNewTag('')
+    }
+  }
+
+  const handleRemoveTag = (tag: string) => {
+    setNewProject(prev => ({
+      ...prev,
+      tags: prev.tags.filter(t => t !== tag)
+    }))
+  }
+
+  const handleCreateProject = async () => {
+    setIsLoading(true)
+
+    // Enhanced validation (same as edit modal)
     if (!newProject.name.trim()) {
       toast.error('Project name is required')
+      setIsLoading(false)
+      return
+    }
+
+    if (!newProject.description.trim()) {
+      toast.error('Project description is required')
+      setIsLoading(false)
+      return
+    }
+
+    if (newProject.dueDate <= newProject.startDate) {
+      toast.error('Due date must be after start date')
+      setIsLoading(false)
+      return
+    }
+
+    if (newProject.budget < 0) {
+      toast.error('Budget must be a positive number')
+      setIsLoading(false)
       return
     }
 
@@ -200,29 +295,51 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
       const projectData: CreateProjectRequest = {
         name: newProject.name,
         description: newProject.description,
-        status: 'Planning' as const,
-        startDate: newProject.startDate ? newProject.startDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-        endDate: newProject.dueDate ? newProject.dueDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-        budget: parseInt(newProject.budget) || 0,
+        status: newProject.status as 'Active' | 'On Hold' | 'Completed' | 'Planning',
+        startDate: newProject.startDate.toISOString().split('T')[0],
+        endDate: newProject.dueDate.toISOString().split('T')[0],
+        budget: newProject.budget,
         customerId: newProject.customerId || 'default-customer',
-        priority: (newProject.priority as 'Low' | 'Medium' | 'High' | 'Critical') || 'Medium',
+        priority: newProject.priority as 'Low' | 'Medium' | 'High' | 'Critical',
         teamLead: newProject.teamLead || newProject.owner || 'default-lead',
-        teamMembers: [],
+        teamMembers: newProject.team.map(member => member.name),
         tags: newProject.tags,
-        methodology: (newProject.methodology as 'Agile' | 'Waterfall' | 'Scrum' | 'Kanban' | 'Lean' | 'Hybrid') || 'Agile',
-        projectType: (newProject.type as 'Web Development' | 'Mobile App' | 'Desktop App' | 'API Development' | 'Data Analytics' | 'E-commerce' | 'CRM' | 'ERP' | 'DevOps' | 'Machine Learning' | 'Other') || 'Other'
+        methodology: newProject.methodology as 'Agile' | 'Waterfall' | 'Scrum' | 'Kanban' | 'Lean' | 'Hybrid',
+        projectType: newProject.type as 'Web Development' | 'Mobile App' | 'Desktop App' | 'API Development' | 'Data Analytics' | 'E-commerce' | 'CRM' | 'ERP' | 'DevOps' | 'Machine Learning' | 'Other'
       }
 
       await dispatch(createProject(projectData)).unwrap()
       toast.success('Project created successfully!')
       setShowCreateProject(false)
+
+      // Reset form to initial state
       setNewProject({
-        name: '', description: '', methodology: '', type: '', priority: '',
-        startDate: undefined, dueDate: undefined, budget: '', owner: '', customer: '',
-        customerId: '', teamLead: '', tags: []
+        name: '',
+        description: '',
+        status: 'Planning',
+        priority: 'Medium',
+        methodology: 'Scrum',
+        type: 'Software Development',
+        startDate: new Date(),
+        dueDate: new Date(),
+        budget: 0,
+        customer: 'Internal',
+        owner: '',
+        team: [] as any[],
+        isPublic: true,
+        notifications: true,
+        autoArchive: false,
+        version: 'v1.0.0',
+        tags: [] as string[],
+        customFields: {} as Record<string, any>,
+        customerId: '',
+        teamLead: ''
       })
+      setActiveTab('general')
     } catch (error) {
       toast.error(`Failed to create project: ${error}`)
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -237,6 +354,10 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
     setShowTemplateModal(false)
     setShowCreateProject(true)
   }
+
+  const availableMembers = mockTeamMembers.filter(
+    member => !newProject.team.find(teamMember => teamMember.id === member.id)
+  )
 
   const getMethodologyIcon = (methodology: string) => {
     switch (methodology) {
@@ -655,188 +776,460 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
         onSelectTemplate={handleUseTemplate}
       />
 
-      {/* Create Project Dialog - Updated width to 1200px */}
+      {/* Create Project Dialog - Enhanced with tabs like edit modal */}
       <Dialog open={showCreateProject} onOpenChange={setShowCreateProject}>
-        <DialogContent className="w-[1200px] max-w-[1200px] max-h-[80vh] overflow-y-auto">
+        <DialogContent className="w-[1200px] max-w-[1200px] max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Create New Project</DialogTitle>
+            <DialogTitle className="flex items-center space-x-2">
+              <Plus className="w-5 h-5" />
+              <span>Create New Project</span>
+            </DialogTitle>
             <DialogDescription>
-              Set up your project with all the necessary details and configurations
+              Set up your project with comprehensive details, manage team members, set timeline and budget, and configure project settings.
             </DialogDescription>
           </DialogHeader>
-          
-          <form onSubmit={handleCreateProject} className="space-y-6">
-            {/* Basic Information */}
-            <div className="grid grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Project Name *</label>
-                <Input
-                  value={newProject.name}
-                  onChange={(e) => setNewProject(prev => ({ ...prev, name: e.target.value }))}
-                  placeholder="Enter project name"
-                  required
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Customer/Client</label>
-                <Input
-                  value={newProject.customer}
-                  onChange={(e) => setNewProject(prev => ({ ...prev, customer: e.target.value, customerId: e.target.value.toLowerCase().replace(/\s+/g, '-') }))}
-                  placeholder="Enter customer name"
-                />
-              </div>
-            </div>
-            
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Description</label>
-              <Textarea
-                value={newProject.description}
-                onChange={(e) => setNewProject(prev => ({ ...prev, description: e.target.value }))}
-                placeholder="Describe the project goals and objectives"
-                rows={3}
-              />
-            </div>
-            
-            {/* Project Configuration */}
-            <div className="grid grid-cols-3 gap-6">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Methodology</label>
-                <Select value={newProject.methodology} onValueChange={(value) => setNewProject(prev => ({ ...prev, methodology: value }))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select methodology" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Scrum">Scrum</SelectItem>
-                    <SelectItem value="Kanban">Kanban</SelectItem>
-                    <SelectItem value="Waterfall">Waterfall</SelectItem>
-                    <SelectItem value="Hybrid">Hybrid</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Project Type</label>
-                <Select value={newProject.type} onValueChange={(value) => setNewProject(prev => ({ ...prev, type: value }))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Web Development">Web Development</SelectItem>
-                    <SelectItem value="Mobile App">Mobile App</SelectItem>
-                    <SelectItem value="Desktop App">Desktop App</SelectItem>
-                    <SelectItem value="API Development">API Development</SelectItem>
-                    <SelectItem value="Data Analytics">Data Analytics</SelectItem>
-                    <SelectItem value="E-commerce">E-commerce</SelectItem>
-                    <SelectItem value="CRM">CRM</SelectItem>
-                    <SelectItem value="ERP">ERP</SelectItem>
-                    <SelectItem value="DevOps">DevOps</SelectItem>
-                    <SelectItem value="Machine Learning">Machine Learning</SelectItem>
-                    <SelectItem value="Other">Other</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Priority</label>
-                <Select value={newProject.priority} onValueChange={(value) => setNewProject(prev => ({ ...prev, priority: value }))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select priority" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Critical">Critical</SelectItem>
-                    <SelectItem value="High">High</SelectItem>
-                    <SelectItem value="Medium">Medium</SelectItem>
-                    <SelectItem value="Low">Low</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            
-            {/* Timeline & Budget */}
-            <div className="grid grid-cols-3 gap-6">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Start Date</label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full justify-start text-left font-normal">
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {newProject.startDate ? format(newProject.startDate, 'MMM dd, yyyy') : 'Select date'}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <CalendarComponent
-                      mode="single"
-                      selected={newProject.startDate}
-                      onSelect={(date: Date | undefined) => setNewProject(prev => ({ ...prev, startDate: date }))}
-                      initialFocus
+
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger value="general" className="flex items-center space-x-2">
+                <FileText className="w-4 h-4" />
+                <span>General</span>
+              </TabsTrigger>
+              <TabsTrigger value="team" className="flex items-center space-x-2">
+                <Users className="w-4 h-4" />
+                <span>Team</span>
+              </TabsTrigger>
+              <TabsTrigger value="timeline" className="flex items-center space-x-2">
+                <CalendarDays className="w-4 h-4" />
+                <span>Timeline & Budget</span>
+              </TabsTrigger>
+              <TabsTrigger value="settings" className="flex items-center space-x-2">
+                <Settings className="w-4 h-4" />
+                <span>Settings</span>
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="general" className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="name">Project Name *</Label>
+                    <Input
+                      id="name"
+                      value={newProject.name}
+                      onChange={(e) => handleInputChange('name', e.target.value)}
+                      placeholder="Enter project name"
+                      className="mt-1"
                     />
-                  </PopoverContent>
-                </Popover>
-              </div>
-              
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Due Date</label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full justify-start text-left font-normal">
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {newProject.dueDate ? format(newProject.dueDate, 'MMM dd, yyyy') : 'Select date'}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <CalendarComponent
-                      mode="single"
-                      selected={newProject.dueDate}
-                      onSelect={(date: Date | undefined) => setNewProject(prev => ({ ...prev, dueDate: date }))}
-                      initialFocus
+                  </div>
+
+                  <div>
+                    <Label htmlFor="description">Description *</Label>
+                    <Textarea
+                      id="description"
+                      value={newProject.description}
+                      onChange={(e) => handleInputChange('description', e.target.value)}
+                      placeholder="Enter project description"
+                      rows={4}
+                      className="mt-1"
                     />
-                  </PopoverContent>
-                </Popover>
-              </div>
-              
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Budget ($)</label>
-                <Input
-                  type="number"
-                  value={newProject.budget}
-                  onChange={(e) => setNewProject(prev => ({ ...prev, budget: e.target.value }))}
-                  placeholder="0"
-                />
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Project Owner</label>
-                <Input
-                  value={newProject.owner}
-                  onChange={(e) => setNewProject(prev => ({ ...prev, owner: e.target.value }))}
-                  placeholder="Enter project owner name"
-                />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="customer">Customer</Label>
+                    <Select value={newProject.customer} onValueChange={(value) => handleInputChange('customer', value)}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="Select customer" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {mockCustomers.map((customer) => (
+                          <SelectItem key={customer.id} value={customer.name}>
+                            <div className="flex items-center space-x-2">
+                              <span>{customer.name}</span>
+                              <Badge variant="outline" className="text-xs">
+                                {customer.type}
+                              </Badge>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="version">Version</Label>
+                    <Input
+                      id="version"
+                      value={newProject.version}
+                      onChange={(e) => handleInputChange('version', e.target.value)}
+                      placeholder="e.g., v1.0.0"
+                      className="mt-1"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="status">Status</Label>
+                    <Select value={newProject.status} onValueChange={(value) => handleInputChange('status', value)}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="Select status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {statuses.map((status) => (
+                          <SelectItem key={status.value} value={status.value}>
+                            <div className="flex items-center space-x-2">
+                              <div className={`w-2 h-2 rounded-full ${status.color.split(' ')[0]}`} />
+                              <span>{status.value}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="priority">Priority</Label>
+                    <Select value={newProject.priority} onValueChange={(value) => handleInputChange('priority', value)}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="Select priority" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {priorities.map((priority) => (
+                          <SelectItem key={priority.value} value={priority.value}>
+                            <div className="flex items-center space-x-2">
+                              <div className={`w-2 h-2 rounded-full ${priority.color.split(' ')[0]}`} />
+                              <span>{priority.value}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="methodology">Methodology</Label>
+                    <Select value={newProject.methodology} onValueChange={(value) => handleInputChange('methodology', value)}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="Select methodology" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {editableMethodologies.map((methodology) => (
+                          <SelectItem key={methodology} value={methodology}>
+                            {methodology}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="type">Project Type</Label>
+                    <Select value={newProject.type} onValueChange={(value) => handleInputChange('type', value)}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="Select project type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {editableProjectTypes.map((type) => (
+                          <SelectItem key={type} value={type}>
+                            {type}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="owner">Project Owner</Label>
+                    <Input
+                      id="owner"
+                      value={newProject.owner}
+                      onChange={(e) => handleInputChange('owner', e.target.value)}
+                      placeholder="Enter project owner name"
+                      className="mt-1"
+                    />
+                  </div>
+                </div>
               </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Team Lead</label>
-                <Input
-                  value={newProject.teamLead}
-                  onChange={(e) => setNewProject(prev => ({ ...prev, teamLead: e.target.value }))}
-                  placeholder="Enter team lead name"
-                />
+              <div>
+                <Label>Tags</Label>
+                <div className="flex flex-wrap gap-2 mt-2 mb-2">
+                  {newProject.tags.map((tag, index) => (
+                    <Badge key={index} variant="secondary" className="flex items-center space-x-1">
+                      <span>{tag}</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-4 w-4 p-0 hover:bg-destructive hover:text-destructive-foreground"
+                        onClick={() => handleRemoveTag(tag)}
+                      >
+                        <X className="w-3 h-3" />
+                      </Button>
+                    </Badge>
+                  ))}
+                </div>
+                <div className="flex space-x-2">
+                  <Input
+                    value={newTag}
+                    onChange={(e) => setNewTag(e.target.value)}
+                    placeholder="Add a tag"
+                    onKeyPress={(e) => e.key === 'Enter' && handleAddTag()}
+                  />
+                  <Button onClick={handleAddTag} variant="outline" size="sm">
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                </div>
               </div>
-            </div>
-            
-            <Separator />
-            
-            <div className="flex justify-end space-x-3">
-              <Button type="button" variant="outline" onClick={() => setShowCreateProject(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" className="bg-[#28A745] hover:bg-[#218838]">
-                Create Project
-              </Button>
-            </div>
-          </form>
+            </TabsContent>
+
+            <TabsContent value="team" className="space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <Card className="p-4">
+                  <h3 className="font-medium mb-4 flex items-center space-x-2">
+                    <Users className="w-4 h-4" />
+                    <span>Current Team ({newProject.team.length})</span>
+                  </h3>
+                  <div className="space-y-3 max-h-80 overflow-y-auto">
+                    {newProject.team.length === 0 ? (
+                      <p className="text-muted-foreground text-sm">No team members assigned</p>
+                    ) : (
+                      newProject.team.map((member) => (
+                        <div key={member.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                          <div className="flex items-center space-x-3">
+                            <Avatar className="w-8 h-8">
+                              <AvatarFallback className="bg-[#007BFF] text-white text-sm">
+                                {member.avatar}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <p className="font-medium text-sm">{member.name}</p>
+                              <p className="text-xs text-muted-foreground">{member.role}</p>
+                            </div>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleRemoveTeamMember(member.id)}
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </Card>
+
+                <Card className="p-4">
+                  <h3 className="font-medium mb-4 flex items-center space-x-2">
+                    <Plus className="w-4 h-4" />
+                    <span>Available Team Members</span>
+                  </h3>
+                  <div className="space-y-3 max-h-80 overflow-y-auto">
+                    {availableMembers.length === 0 ? (
+                      <p className="text-muted-foreground text-sm">All team members are already assigned</p>
+                    ) : (
+                      availableMembers.map((member) => (
+                        <div key={member.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors">
+                          <div className="flex items-center space-x-3">
+                            <Avatar className="w-8 h-8">
+                              <AvatarFallback className="bg-[#28A745] text-white text-sm">
+                                {member.avatar}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <p className="font-medium text-sm">{member.name}</p>
+                              <p className="text-xs text-muted-foreground">{member.role}</p>
+                              <p className="text-xs text-muted-foreground">{member.department}</p>
+                            </div>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleAddTeamMember(member)}
+                            className="text-[#28A745] hover:text-[#28A745] hover:bg-[#28A745]/10"
+                          >
+                            <Plus className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </Card>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="timeline" className="space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <Card className="p-4">
+                  <h3 className="font-medium mb-4 flex items-center space-x-2">
+                    <CalendarDays className="w-4 h-4" />
+                    <span>Timeline</span>
+                  </h3>
+                  <div className="space-y-4">
+                    <div>
+                      <Label>Start Date</Label>
+                      <Popover open={showStartDatePicker} onOpenChange={setShowStartDatePicker}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-full justify-start text-left font-normal mt-1",
+                              !newProject.startDate && "text-muted-foreground"
+                            )}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {newProject.startDate ? format(newProject.startDate, "PPP") : "Pick a date"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <CalendarComponent
+                            mode="single"
+                            selected={newProject.startDate}
+                            onSelect={(date) => {
+                              if (date) {
+                                handleInputChange('startDate', date)
+                                setShowStartDatePicker(false)
+                              }
+                            }}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+
+                    <div>
+                      <Label>Due Date</Label>
+                      <Popover open={showDueDatePicker} onOpenChange={setShowDueDatePicker}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-full justify-start text-left font-normal mt-1",
+                              !newProject.dueDate && "text-muted-foreground"
+                            )}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {newProject.dueDate ? format(newProject.dueDate, "PPP") : "Pick a date"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <CalendarComponent
+                            mode="single"
+                            selected={newProject.dueDate}
+                            onSelect={(date) => {
+                              if (date) {
+                                handleInputChange('dueDate', date)
+                                setShowDueDatePicker(false)
+                              }
+                            }}
+                            initialFocus
+                            disabled={(date) => date <= newProject.startDate}
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+
+                    <div className="pt-2">
+                      <Label className="text-muted-foreground">Duration</Label>
+                      <p className="text-sm font-medium mt-1">
+                        {Math.ceil((newProject.dueDate.getTime() - newProject.startDate.getTime()) / (1000 * 3600 * 24))} days
+                      </p>
+                    </div>
+                  </div>
+                </Card>
+
+                <Card className="p-4">
+                  <h3 className="font-medium mb-4 flex items-center space-x-2">
+                    <DollarSign className="w-4 h-4" />
+                    <span>Budget</span>
+                  </h3>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="budget">Total Budget ($)</Label>
+                      <Input
+                        id="budget"
+                        type="number"
+                        value={newProject.budget}
+                        onChange={(e) => handleInputChange('budget', parseFloat(e.target.value) || 0)}
+                        placeholder="Enter budget amount"
+                        className="mt-1"
+                        min="0"
+                        step="1000"
+                      />
+                    </div>
+                  </div>
+                </Card>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="settings" className="space-y-6">
+              <Card className="p-4">
+                <h3 className="font-medium mb-4 flex items-center space-x-2">
+                  <Settings className="w-4 h-4" />
+                  <span>Project Settings</span>
+                </h3>
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label className="font-medium">Public Project</Label>
+                      <p className="text-sm text-muted-foreground">Allow all team members to view this project</p>
+                    </div>
+                    <Switch
+                      checked={newProject.isPublic}
+                      onCheckedChange={(checked) => handleInputChange('isPublic', checked)}
+                    />
+                  </div>
+
+                  <Separator />
+
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label className="font-medium">Email Notifications</Label>
+                      <p className="text-sm text-muted-foreground">Send email updates for project activities</p>
+                    </div>
+                    <Switch
+                      checked={newProject.notifications}
+                      onCheckedChange={(checked) => handleInputChange('notifications', checked)}
+                    />
+                  </div>
+
+                  <Separator />
+
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label className="font-medium">Auto Archive</Label>
+                      <p className="text-sm text-muted-foreground">Automatically archive completed projects after 30 days</p>
+                    </div>
+                    <Switch
+                      checked={newProject.autoArchive}
+                      onCheckedChange={(checked) => handleInputChange('autoArchive', checked)}
+                    />
+                  </div>
+                </div>
+              </Card>
+            </TabsContent>
+          </Tabs>
+
+          <div className="flex justify-end space-x-3 pt-6 border-t">
+            <Button variant="outline" onClick={() => setShowCreateProject(false)} disabled={isLoading}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateProject} disabled={isLoading} className="bg-[#28A745] hover:bg-[#218838]">
+              {isLoading ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                  Creating...
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4 mr-2" />
+                  Create Project
+                </>
+              )}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

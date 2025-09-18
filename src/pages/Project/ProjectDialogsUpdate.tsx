@@ -12,7 +12,7 @@
 
 {/* Create Project Dialog - Updated width to 1200px */}
 <Dialog open={showCreateProject} onOpenChange={setShowCreateProject}>
-  <DialogContent className="w-[1200px] max-w-[1200px] max-h-[80vh] overflow-y-auto">
+  <DialogContent className="w-[1200px] max-w-[1200px] sm:max-w-[1200px] lg:max-w-[1200px] max-h-[85vh] overflow-y-auto">
     <DialogHeader>
       <DialogTitle>Create New Project</DialogTitle>
       <DialogDescription>
