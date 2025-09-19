@@ -4,7 +4,7 @@ import { Button } from '../../components/ui/button'
 import { Badge } from '../../components/ui/badge'
 import { Progress } from '../../components/ui/progress'
 import { Avatar, AvatarFallback } from '../../components/ui/avatar'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../../components/ui/dialog'
 import { Input } from '../../components/ui/input'
@@ -58,6 +58,8 @@ import {
   CheckCircle,
   PlayCircle,
   PauseCircle,
+  Grid3X3,
+  List,
   X,
   Trash2,
   Save,
@@ -305,7 +307,7 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
     const matchesStatus = filterBy.status === 'all' || project.status === filterBy.status
     const matchesPriority = filterBy.priority === 'all' || project.priority === filterBy.priority
     const matchesMethodology = filterBy.methodology === 'all' || project.methodology === filterBy.methodology
-    const matchesType = filterBy.type === 'all' || project.type === filterBy.type
+    const matchesType = filterBy.type === 'all' || project.projectType === filterBy.type
     
     return matchesSearch && matchesStatus && matchesPriority && matchesMethodology && matchesType
   })
@@ -494,7 +496,7 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
     const allMembers = apiMembers.length > 0 ? apiMembers.map(member => ({
       id: member.id,
       name: member.name,
-      role: member.role.name,
+      role: typeof member.role === 'object' ? member.role.name : member.role,
       avatar: member.avatar || member.name.charAt(0).toUpperCase(),
       email: member.email,
       department: member.department
@@ -684,108 +686,146 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
         </div>
       </div>
 
-      {/* Tabs */}
-      <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="overview">Overview ({roleFilteredProjects.length})</TabsTrigger>
-          <TabsTrigger value="active">Active ({roleFilteredProjects.filter(p => p.status === 'Active').length})</TabsTrigger>
-          <TabsTrigger value="in-progress">In Progress ({roleFilteredProjects.filter(p => p.status === 'In Progress').length})</TabsTrigger>
-          <TabsTrigger value="completed">Completed ({roleFilteredProjects.filter(p => p.status === 'Completed').length})</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="overview" className="space-y-6">
-          {/* Project Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <Card className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Total Projects</p>
-                  <p className="text-2xl font-semibold">{roleFilteredProjects.length}</p>
-                </div>
-                <div className="p-3 bg-[#007BFF]/10 rounded-full">
-                  <Folder className="w-6 h-6 text-[#007BFF]" />
-                </div>
-              </div>
-            </Card>
-
-            <Card className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Active</p>
-                  <p className="text-2xl font-semibold">{roleFilteredProjects.filter(p => p.status === 'Active').length}</p>
-                </div>
-                <div className="p-3 bg-[#28A745]/10 rounded-full">
-                  <TrendingUp className="w-6 h-6 text-[#28A745]" />
-                </div>
-              </div>
-            </Card>
-
-            <Card className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">At Risk</p>
-                  <p className="text-2xl font-semibold">1</p>
-                </div>
-                <div className="p-3 bg-[#FFC107]/10 rounded-full">
-                  <AlertTriangle className="w-6 h-6 text-[#FFC107]" />
-                </div>
-              </div>
-            </Card>
-
-            <Card className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Total Budget</p>
-                  <p className="text-2xl font-semibold">$160k</p>
-                </div>
-                <div className="p-3 bg-[#DC3545]/10 rounded-full">
-                  <Target className="w-6 h-6 text-[#DC3545]" />
-                </div>
-              </div>
-            </Card>
+      {/* Project Summary Statistics */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+        <Card className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Total Projects</p>
+              <p className="text-3xl font-bold">{roleFilteredProjects.length}</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                +{Math.floor(roleFilteredProjects.length * 0.1)} from last month
+              </p>
+            </div>
+            <div className="p-3 bg-[#007BFF]/10 rounded-full">
+              <Folder className="w-6 h-6 text-[#007BFF]" />
+            </div>
           </div>
+        </Card>
 
-          {/* Projects Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <Card className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Active Projects</p>
+              <p className="text-3xl font-bold">{roleFilteredProjects.filter(p => p.status === 'Active').length}</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Currently in progress
+              </p>
+            </div>
+            <div className="p-3 bg-[#28A745]/10 rounded-full">
+              <PlayCircle className="w-6 h-6 text-[#28A745]" />
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">At Risk</p>
+              <p className="text-3xl font-bold">{roleFilteredProjects.filter(p => {
+                const budgetUsage = (p.spent / p.budget) * 100;
+                return budgetUsage > 90 || p.progress < 50;
+              }).length}</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Need attention
+              </p>
+            </div>
+            <div className="p-3 bg-[#FFC107]/10 rounded-full">
+              <AlertTriangle className="w-6 h-6 text-[#FFC107]" />
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">On Hold</p>
+              <p className="text-3xl font-bold">{roleFilteredProjects.filter(p => p.status === 'On Hold').length}</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Temporarily paused
+              </p>
+            </div>
+            <div className="p-3 bg-[#DC3545]/10 rounded-full">
+              <PauseCircle className="w-6 h-6 text-[#DC3545]" />
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      {/* View Toggle and Projects */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <h3 className="text-lg font-semibold">Projects ({filteredProjects.length})</h3>
+            <Badge variant="outline" className="ml-2">
+              {viewMode === 'grid' ? 'Card View' : 'Table View'}
+            </Badge>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Button
+              variant={viewMode === 'grid' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setViewMode('grid')}
+              className={viewMode === 'grid' ? 'bg-[#007BFF] hover:bg-[#0056b3]' : ''}
+            >
+              <Grid3X3 className="w-4 h-4" />
+            </Button>
+            <Button
+              variant={viewMode === 'list' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setViewMode('list')}
+              className={viewMode === 'list' ? 'bg-[#007BFF] hover:bg-[#0056b3]' : ''}
+            >
+              <List className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+
+        {/* Card View */}
+        {viewMode === 'grid' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 lg:gap-6">
             {filteredProjects.map((project) => {
               const budgetStatus = getBudgetStatus(project.spent, project.budget)
-              
+
               return (
-                <Card 
-                  key={project.id} 
-                  className="hover:shadow-lg transition-shadow cursor-pointer"
+                <Card
+                  key={project.id}
+                  className="hover:shadow-lg transition-shadow cursor-pointer group"
                   onClick={() => onProjectSelect?.(project.id)}
                 >
-                  <div className="p-4">
+                  <div className="p-6">
                     {/* Header */}
-                    <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-start justify-between mb-4">
                       <div className="flex-1">
-                        <div className="flex items-center space-x-2 mb-1">
-                          <h3 className="font-semibold">{project.name}</h3>
+                        <div className="flex items-center space-x-2 mb-2">
+                          <h3 className="font-semibold text-lg group-hover:text-[#007BFF] transition-colors">{project.name}</h3>
                           <Badge className={getPriorityColor(project.priority)}>
                             {project.priority}
                           </Badge>
                         </div>
-                        <p className="text-sm text-muted-foreground line-clamp-2">
+                        <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
                           {project.description}
                         </p>
-                        <div className="flex items-center space-x-3 mt-2">
+                        <div className="flex items-center space-x-3">
                           <div className="flex items-center space-x-1 text-xs text-muted-foreground">
                             {getMethodologyIcon(project.methodology)}
                             <span>{project.methodology}</span>
                           </div>
                           <Badge variant="outline" className="text-xs">
-                            {project.type}
+                            {project.projectType}
                           </Badge>
+                          <span className={`text-xs font-medium ${getStatusColor(project.status)}`}>
+                            {project.status}
+                          </span>
                         </div>
                       </div>
-                      <Button variant="ghost" size="sm" className="p-1">
+                      <Button variant="ghost" size="sm" className="p-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <MoreHorizontal className="w-4 h-4" />
                       </Button>
                     </div>
 
                     {/* Progress */}
-                    <div className="mb-3">
+                    <div className="mb-4">
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-sm font-medium">Progress</span>
                         <span className="text-sm text-muted-foreground">{project.progress}%</span>
@@ -793,155 +833,135 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
                       <Progress value={project.progress} className="h-2" />
                     </div>
 
-                    {/* Backlog Stats */}
-                    <div className="grid grid-cols-3 gap-2 mb-3">
-                      <div className="text-center p-2 bg-muted/30 rounded">
-                        <p className="text-xs text-muted-foreground">Epics</p>
-                        <p className="text-sm font-semibold">{project.epics}</p>
+                    {/* Metrics Grid */}
+                    <div className="grid grid-cols-3 gap-3 mb-4">
+                      <div className="text-center p-3 bg-muted/30 rounded-lg">
+                        <p className="text-xs text-muted-foreground mb-1">Epics</p>
+                        <p className="text-lg font-bold">{project.epics}</p>
                       </div>
-                      <div className="text-center p-2 bg-muted/30 rounded">
-                        <p className="text-xs text-muted-foreground">Stories</p>
-                        <p className="text-sm font-semibold">{project.stories}</p>
+                      <div className="text-center p-3 bg-muted/30 rounded-lg">
+                        <p className="text-xs text-muted-foreground mb-1">Stories</p>
+                        <p className="text-lg font-bold">{project.stories}</p>
                       </div>
-                      <div className="text-center p-2 bg-muted/30 rounded">
-                        <p className="text-xs text-muted-foreground">Tasks</p>
-                        <p className="text-sm font-semibold">{project.tasksCompleted}/{project.totalTasks}</p>
+                      <div className="text-center p-3 bg-muted/30 rounded-lg">
+                        <p className="text-xs text-muted-foreground mb-1">Tasks</p>
+                        <p className="text-lg font-bold">{project.tasksCompleted}/{project.tasksTotal}</p>
                       </div>
                     </div>
 
-                    {/* Status & Budget */}
-                    <div className="flex items-center justify-between">
-                      <span className={`text-sm font-medium ${getStatusColor(project.status)}`}>
-                        {project.status}
-                      </span>
-                      <span className={`text-xs ${budgetStatus.color}`}>
-                        ${(project.spent/1000).toFixed(0)}k / ${(project.budget/1000).toFixed(0)}k
-                      </span>
-                    </div>
-                  </div>
-                </Card>
-              )
-            })}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="active" className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredProjects.filter(p => p.status === 'Active').map((project) => {
-              const budgetStatus = getBudgetStatus(project.spent, project.budget)
-              
-              return (
-                <Card 
-                  key={project.id} 
-                  className="hover:shadow-lg transition-shadow cursor-pointer"
-                  onClick={() => onProjectSelect?.(project.id)}
-                >
-                  <div className="p-4">
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-2 mb-1">
-                          <h3 className="font-semibold">{project.name}</h3>
-                          <Badge className={getPriorityColor(project.priority)}>
-                            {project.priority}
-                          </Badge>
-                        </div>
-                        <p className="text-sm text-muted-foreground line-clamp-2">
-                          {project.description}
+                    {/* Team and Budget */}
+                    <div className="flex items-center justify-between pt-3 border-t">
+                      <div className="flex items-center space-x-2">
+                        <Users className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-sm text-muted-foreground">{project.teamSize} members</span>
+                      </div>
+                      <div className="text-right">
+                        <p className={`text-sm font-medium ${budgetStatus.color}`}>
+                          ${(project.spent/1000).toFixed(0)}k / ${(project.budget/1000).toFixed(0)}k
                         </p>
+                        <p className="text-xs text-muted-foreground">{budgetStatus.status}</p>
                       </div>
-                    </div>
-                    <div className="mb-3">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium">Progress</span>
-                        <span className="text-sm text-muted-foreground">{project.progress}%</span>
-                      </div>
-                      <Progress value={project.progress} className="h-2" />
                     </div>
                   </div>
                 </Card>
               )
             })}
           </div>
-        </TabsContent>
+        )}
 
-        <TabsContent value="in-progress" className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredProjects.filter(p => p.status === 'In Progress').map((project) => {
-              const budgetStatus = getBudgetStatus(project.spent, project.budget)
-              
-              return (
-                <Card 
-                  key={project.id} 
-                  className="hover:shadow-lg transition-shadow cursor-pointer"
-                  onClick={() => onProjectSelect?.(project.id)}
-                >
-                  <div className="p-4">
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-2 mb-1">
-                          <h3 className="font-semibold">{project.name}</h3>
-                          <Badge className={getPriorityColor(project.priority)}>
-                            {project.priority}
-                          </Badge>
-                        </div>
-                        <p className="text-sm text-muted-foreground line-clamp-2">
-                          {project.description}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="mb-3">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium">Progress</span>
-                        <span className="text-sm text-muted-foreground">{project.progress}%</span>
-                      </div>
-                      <Progress value={project.progress} className="h-2" />
-                    </div>
-                  </div>
-                </Card>
-              )
-            })}
-          </div>
-        </TabsContent>
+        {/* Table View */}
+        {viewMode === 'list' && (
+          <Card>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[250px]">Project</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Priority</TableHead>
+                  <TableHead>Progress</TableHead>
+                  <TableHead>Team</TableHead>
+                  <TableHead>Budget</TableHead>
+                  <TableHead>Methodology</TableHead>
+                  <TableHead>Due Date</TableHead>
+                  <TableHead className="w-[50px]"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredProjects.map((project) => {
+                  const budgetStatus = getBudgetStatus(project.spent, project.budget)
 
-        <TabsContent value="completed" className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredProjects.filter(p => p.status === 'Completed').map((project) => {
-              const budgetStatus = getBudgetStatus(project.spent, project.budget)
-              
-              return (
-                <Card 
-                  key={project.id} 
-                  className="hover:shadow-lg transition-shadow cursor-pointer"
-                  onClick={() => onProjectSelect?.(project.id)}
-                >
-                  <div className="p-4">
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-2 mb-1">
-                          <h3 className="font-semibold">{project.name}</h3>
-                          <Badge className={getPriorityColor(project.priority)}>
-                            {project.priority}
-                          </Badge>
+                  return (
+                    <TableRow
+                      key={project.id}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => onProjectSelect?.(project.id)}
+                    >
+                      <TableCell>
+                        <div>
+                          <div className="font-semibold text-sm">{project.name}</div>
+                          <div className="text-xs text-muted-foreground line-clamp-1">
+                            {project.description}
+                          </div>
+                          <div className="text-xs text-muted-foreground mt-1">
+                            {project.customer}
+                          </div>
                         </div>
-                        <p className="text-sm text-muted-foreground line-clamp-2">
-                          {project.description}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="mb-3">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium">Progress</span>
-                        <span className="text-sm text-muted-foreground">{project.progress}%</span>
-                      </div>
-                      <Progress value={project.progress} className="h-2" />
-                    </div>
-                  </div>
-                </Card>
-              )
-            })}
-          </div>
-        </TabsContent>
-      </Tabs>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={getStatusColor(project.status)}>
+                          {project.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={getPriorityColor(project.priority)}>
+                          {project.priority}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="w-full">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-sm">{project.progress}%</span>
+                          </div>
+                          <Progress value={project.progress} className="h-2" />
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center space-x-1">
+                          <Users className="w-4 h-4 text-muted-foreground" />
+                          <span className="text-sm">{project.teamSize}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div>
+                          <div className={`text-sm font-medium ${budgetStatus.color}`}>
+                            ${(project.spent/1000).toFixed(0)}k / ${(project.budget/1000).toFixed(0)}k
+                          </div>
+                          <div className="text-xs text-muted-foreground">{budgetStatus.status}</div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center space-x-1">
+                          {getMethodologyIcon(project.methodology)}
+                          <span className="text-sm">{project.methodology}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-sm">{project.endDate}</div>
+                      </TableCell>
+                      <TableCell>
+                        <Button variant="ghost" size="sm" className="p-1">
+                          <MoreHorizontal className="w-4 h-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+            </Table>
+          </Card>
+        )}
+      </div>
+
 
       {/* Project Template Modal - 1200px width */}
       <ProjectTemplates 
@@ -963,27 +983,9 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
             </DialogDescription>
           </DialogHeader>
 
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="general" className="flex items-center space-x-2">
-                <FileText className="w-4 h-4" />
-                <span>General</span>
-              </TabsTrigger>
-              <TabsTrigger value="team" className="flex items-center space-x-2">
-                <Users className="w-4 h-4" />
-                <span>Team</span>
-              </TabsTrigger>
-              <TabsTrigger value="timeline" className="flex items-center space-x-2">
-                <CalendarDays className="w-4 h-4" />
-                <span>Timeline & Budget</span>
-              </TabsTrigger>
-              <TabsTrigger value="settings" className="flex items-center space-x-2">
-                <Settings className="w-4 h-4" />
-                <span>Settings</span>
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="general" className="space-y-6">
+          <div className="space-y-6">
+            {/* General Tab Content */}
+            <div className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-4">
                   <div>
@@ -1136,7 +1138,7 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
                                   <div>
                                     <span className="font-medium">{owner.name}</span>
                                     <span className="text-xs text-muted-foreground ml-2">
-                                      {owner.role.name} • {owner.department}
+                                      {typeof owner.role === 'object' ? owner.role.name : owner.role} • {owner.department}
                                     </span>
                                   </div>
                                 </div>
@@ -1192,9 +1194,10 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
                   </Button>
                 </div>
               </div>
-            </TabsContent>
+            </div>
 
-            <TabsContent value="team" className="space-y-6">
+            {/* Team Tab Content */}
+            <div className="space-y-6">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <Card className="p-4">
                   <h3 className="font-medium mb-4 flex items-center space-x-2">
@@ -1271,9 +1274,10 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
                   </div>
                 </Card>
               </div>
-            </TabsContent>
+            </div>
 
-            <TabsContent value="timeline" className="space-y-6">
+            {/* Timeline Tab Content */}
+            <div className="space-y-6">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <Card className="p-4">
                   <h3 className="font-medium mb-4 flex items-center space-x-2">
@@ -1375,9 +1379,10 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
                   </div>
                 </Card>
               </div>
-            </TabsContent>
+            </div>
 
-            <TabsContent value="settings" className="space-y-6">
+            {/* Settings Tab Content */}
+            <div className="space-y-6">
               <Card className="p-4">
                 <h3 className="font-medium mb-4 flex items-center space-x-2">
                   <Settings className="w-4 h-4" />
@@ -1422,8 +1427,8 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
                   </div>
                 </div>
               </Card>
-            </TabsContent>
-          </Tabs>
+            </div>
+          </div>
 
           <div className="flex justify-end space-x-3 pt-6 border-t">
             <Button variant="outline" onClick={() => setShowCreateProject(false)} disabled={isLoading}>

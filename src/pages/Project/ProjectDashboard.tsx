@@ -84,7 +84,9 @@ export function ProjectDashboard({ project, onTaskView }: ProjectDashboardProps)
               <div className="flex items-center space-x-2">
                 <User className="w-4 h-4 text-muted-foreground" />
                 <span className="text-sm text-muted-foreground">Project Owner:</span>
-                <span className="text-sm font-medium">{project.owner}</span>
+                <span className="text-sm font-medium">
+                  {typeof project.owner === 'object' ? project.owner?.name || 'Unknown' : project.owner}
+                </span>
               </div>
             </div>
             <div className="space-y-3">
@@ -128,10 +130,12 @@ export function ProjectDashboard({ project, onTaskView }: ProjectDashboardProps)
                       <div className="flex items-center space-x-1">
                         <Avatar className="w-5 h-5">
                           <AvatarFallback className="text-xs bg-[#007BFF] text-white">
-                            {task.assignee.avatar}
+                            {typeof task.assignee === 'object' ? task.assignee?.avatar || task.assignee?.name?.charAt(0) || 'U' : task.assignee?.charAt(0) || 'U'}
                           </AvatarFallback>
                         </Avatar>
-                        <span className="text-xs text-muted-foreground">{task.assignee.name}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {typeof task.assignee === 'object' ? task.assignee?.name || 'Unknown' : task.assignee}
+                        </span>
                       </div>
                       <Badge className={getPriorityColor(task.priority)} size="sm">
                         {task.priority}
@@ -172,9 +176,13 @@ export function ProjectDashboard({ project, onTaskView }: ProjectDashboardProps)
                   <div>
                     <p className="font-medium">{entry.description}</p>
                     <div className="flex items-center space-x-2 mt-1">
-                      <span className="text-xs text-muted-foreground">{entry.user}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {typeof entry.user === 'object' ? entry.user?.name || 'Unknown' : entry.user}
+                      </span>
                       <span className="text-xs text-muted-foreground">•</span>
-                      <span className="text-xs text-muted-foreground">{entry.task}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {typeof entry.task === 'object' ? entry.task?.title || entry.task?.name || 'Unknown' : entry.task}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -264,7 +272,9 @@ export function ProjectDashboard({ project, onTaskView }: ProjectDashboardProps)
                   </Avatar>
                   <div>
                     <p className="text-sm font-medium">{member.name}</p>
-                    <p className="text-xs text-muted-foreground">{member.role}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {typeof member.role === 'object' ? member.role?.name || 'Unknown' : member.role}
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-center space-x-1">

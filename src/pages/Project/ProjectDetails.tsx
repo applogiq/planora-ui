@@ -148,7 +148,9 @@ export function ProjectDetails({ projectId, onBack, user }: ProjectDetailsProps)
     dependencies: (project as any).dependencies || [],
     // Map API fields to display fields for backward compatibility
     type: (project as any).project_type || project.projectType,
-    owner: (project as any).team_lead?.name || project.teamLead,
+    owner: typeof (project as any).team_lead === 'object'
+      ? (project as any).team_lead?.name
+      : (project as any).team_lead || (typeof project.teamLead === 'object' ? (project.teamLead as any)?.name : project.teamLead),
     dueDate: (project as any).end_date || project.endDate,
     // Ensure API response fields are preserved for ProjectEditModal
     start_date: (project as any).start_date,
@@ -305,7 +307,9 @@ export function ProjectDetails({ projectId, onBack, user }: ProjectDetailsProps)
               <span>•</span>
               <span>{displayProject.projectType || displayProject.type}</span>
               <span>•</span>
-              <span>Owner: {displayProject.teamLead || displayProject.owner}</span>
+              <span>Owner: {typeof (displayProject.teamLead || displayProject.owner) === 'object'
+                ? (displayProject.teamLead || displayProject.owner)?.name || 'Unknown'
+                : (displayProject.teamLead || displayProject.owner)}</span>
             </div>
           </div>
         </div>

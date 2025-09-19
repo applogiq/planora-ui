@@ -548,7 +548,7 @@ export function TaskModal({ isOpen, onClose, task, mode, project, teamMembers = 
                         <span className="font-medium text-sm">System</span>
                         <span className="text-xs text-muted-foreground">2 hours ago</span>
                       </div>
-                      <p className="text-sm">Task created by {project.owner}</p>
+                      <p className="text-sm">Task created by {typeof project.owner === 'object' ? project.owner?.name || 'Unknown' : project.owner}</p>
                     </div>
                   </div>
                 </div>
