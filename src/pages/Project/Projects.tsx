@@ -182,6 +182,27 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
     teamLead: ''
   })
 
+  // Update default values when API data is loaded
+  useEffect(() => {
+    if (projectMasters) {
+      const availableStatuses = getApiStatuses()
+      const availablePriorities = getApiPriorities()
+
+      // Only update if current values don't exist in available options
+      if (availableStatuses.length > 0 && !availableStatuses.find(s => s.value === newProject.status)) {
+        setNewProject(prev => ({ ...prev, status: availableStatuses[0].value }))
+      }
+
+      if (availablePriorities.length > 0 && !availablePriorities.find(p => p.value === newProject.priority)) {
+        const mediumPriority = availablePriorities.find(p => p.value === 'Medium')
+        setNewProject(prev => ({
+          ...prev,
+          priority: mediumPriority?.value || availablePriorities[0].value
+        }))
+      }
+    }
+  }, [projectMasters])
+
   const [activeTab, setActiveTab] = useState('general')
   const [showStartDatePicker, setShowStartDatePicker] = useState(false)
   const [showDueDatePicker, setShowDueDatePicker] = useState(false)
@@ -329,12 +350,17 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
   }
 
   const handleAddTag = () => {
-    if (newTag.trim() && !newProject.tags.includes(newTag.trim())) {
+    const tagToAdd = newTag.trim()
+    if (tagToAdd && !newProject.tags.includes(tagToAdd)) {
       setNewProject(prev => ({
         ...prev,
-        tags: [...prev.tags, newTag.trim()]
+        tags: [...prev.tags, tagToAdd]
       }))
       setNewTag('')
+    } else if (tagToAdd && newProject.tags.includes(tagToAdd)) {
+      toast.error('Tag already exists')
+    } else if (!tagToAdd) {
+      toast.error('Please enter a tag name')
     }
   }
 
@@ -374,32 +400,54 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
     }
 
     try {
+      // Find customer ID from the selected customer name
+      const selectedCustomer = mockCustomers.find(c => c.name === newProject.customer)
+
+      // Find team lead ID from the selected owner name
+      const selectedOwner = projectOwners?.items?.find(owner => owner.name === newProject.owner)
+
       const projectData: CreateProjectRequest = {
         name: newProject.name,
         description: newProject.description,
         status: newProject.status,
-        startDate: newProject.startDate.toISOString().split('T')[0],
-        endDate: newProject.dueDate.toISOString().split('T')[0],
+        start_date: newProject.startDate.toISOString().split('T')[0],
+        end_date: newProject.dueDate.toISOString().split('T')[0],
         budget: newProject.budget,
-        customerId: newProject.customerId || 'default-customer',
+        customer_id: selectedCustomer?.id || newProject.customerId || 'default-customer',
+        customer: newProject.customer,
         priority: newProject.priority,
-        teamLead: newProject.teamLead || newProject.owner || 'default-lead',
-        teamMembers: newProject.team.map(member => member.name),
+        team_lead_id: selectedOwner?.id || newProject.teamLead || newProject.owner || 'default-lead',
+        team_members: newProject.team.map(member => {
+          // Try to find the member ID from the API data first
+          const apiMember = projectMembers?.items?.find(apiM => apiM.name === member.name)
+          if (apiMember?.id) {
+            return apiMember.id
+          }
+          // Fallback: try to find in mock data and use a generated ID
+          const mockMember = mockTeamMembers.find(mockM => mockM.name === member.name)
+          return mockMember ? `mock-member-${mockMember.id}` : `member-${member.id || Date.now()}`
+        }),
         tags: newProject.tags,
         methodology: newProject.methodology,
-        projectType: newProject.type
+        project_type: newProject.type,
+        color: '#007BFF' // Default project color
       }
 
       await dispatch(createProject(projectData)).unwrap()
       toast.success('Project created successfully!')
       setShowCreateProject(false)
 
-      // Reset form to initial state
+      // Reset form to initial state with proper default values
+      const availableStatuses = getApiStatuses()
+      const availablePriorities = getApiPriorities()
+
       setNewProject({
         name: '',
         description: '',
-        status: 'Planning',
-        priority: 'Medium',
+        status: availableStatuses.length > 0 ? availableStatuses[0].value : 'Planning',
+        priority: availablePriorities.length > 0 ?
+                 (availablePriorities.find(p => p.value === 'Medium')?.value || availablePriorities[0].value) :
+                 'Medium',
         methodology: 'Scrum',
         type: 'Software Development',
         startDate: new Date(),
@@ -1073,7 +1121,7 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
                       </SelectTrigger>
                       <SelectContent>
                         {ownersLoading ? (
-                          <SelectItem value="" disabled>
+                          <SelectItem value="loading" disabled>
                             Loading owners...
                           </SelectItem>
                         ) : projectOwners?.items?.length ? (
@@ -1095,7 +1143,7 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
                               </SelectItem>
                             ))
                         ) : (
-                          <SelectItem value="" disabled>
+                          <SelectItem value="no-owners" disabled>
                             No owners available
                           </SelectItem>
                         )}
@@ -1127,9 +1175,19 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
                     value={newTag}
                     onChange={(e) => setNewTag(e.target.value)}
                     placeholder="Add a tag"
-                    onKeyPress={(e) => e.key === 'Enter' && handleAddTag()}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        handleAddTag()
+                      }
+                    }}
                   />
-                  <Button onClick={handleAddTag} variant="outline" size="sm">
+                  <Button
+                    onClick={handleAddTag}
+                    variant="outline"
+                    size="sm"
+                    disabled={!newTag.trim()}
+                  >
                     <Plus className="w-4 h-4" />
                   </Button>
                 </div>

@@ -1,0 +1,334 @@
+import { useState, useEffect } from 'react'
+import { Card } from '../../../components/ui/card'
+import { Button } from '../../../components/ui/button'
+import { Badge } from '../../../components/ui/badge'
+import { Progress } from '../../../components/ui/progress'
+import { Avatar, AvatarFallback } from '../../../components/ui/avatar'
+import { Input } from '../../../components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select'
+import { toast } from 'sonner@2.0.3'
+import {
+  Plus,
+  Search,
+  Target,
+  AlertTriangle,
+  Calendar,
+  Users,
+  GitBranch,
+  TrendingUp,
+  MoreHorizontal
+} from 'lucide-react'
+
+interface Epic {
+  id: string
+  title: string
+  description: string
+  status: 'Planning' | 'In Progress' | 'Completed' | 'On Hold'
+  priority: 'Low' | 'Medium' | 'High' | 'Critical'
+  startDate: string
+  endDate: string
+  progress: number
+  totalStoryPoints: number
+  completedStoryPoints: number
+  totalStories: number
+  completedStories: number
+  owner?: string
+  project: string
+  createdAt: string
+  updatedAt: string
+}
+
+interface EpicListProps {
+  projects?: any[]
+  teamMembers?: any[]
+}
+
+export function EpicList({ projects = [], teamMembers = [] }: EpicListProps) {
+  const [epics, setEpics] = useState<Epic[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [priorityFilter, setPriorityFilter] = useState('all')
+  const [projectFilter, setProjectFilter] = useState('all')
+
+  // Mock data for demonstration
+  useEffect(() => {
+    const mockEpics: Epic[] = [
+      {
+        id: 'EPIC-001',
+        title: 'User Management System',
+        description: 'Complete user authentication, profile management, and user administration features',
+        status: 'In Progress',
+        priority: 'High',
+        startDate: '2025-01-01T00:00:00Z',
+        endDate: '2025-03-31T23:59:59Z',
+        progress: 65,
+        totalStoryPoints: 42,
+        completedStoryPoints: 27,
+        totalStories: 8,
+        completedStories: 5,
+        owner: 'Sarah Wilson',
+        project: 'E-commerce Platform',
+        createdAt: '2024-12-15T09:00:00Z',
+        updatedAt: '2025-01-20T14:30:00Z'
+      },
+      {
+        id: 'EPIC-002',
+        title: 'Payment Integration',
+        description: 'Integrate multiple payment gateways including Stripe, PayPal, and Apple Pay',
+        status: 'Planning',
+        priority: 'Critical',
+        startDate: '2025-02-01T00:00:00Z',
+        endDate: '2025-04-30T23:59:59Z',
+        progress: 0,
+        totalStoryPoints: 35,
+        completedStoryPoints: 0,
+        totalStories: 6,
+        completedStories: 0,
+        owner: 'Mike Johnson',
+        project: 'E-commerce Platform',
+        createdAt: '2025-01-10T10:00:00Z',
+        updatedAt: '2025-01-18T16:45:00Z'
+      },
+      {
+        id: 'EPIC-003',
+        title: 'Mobile Responsive Design',
+        description: 'Redesign entire application for mobile-first responsive experience',
+        status: 'Completed',
+        priority: 'Medium',
+        startDate: '2024-11-01T00:00:00Z',
+        endDate: '2025-01-15T23:59:59Z',
+        progress: 100,
+        totalStoryPoints: 28,
+        completedStoryPoints: 28,
+        totalStories: 5,
+        completedStories: 5,
+        owner: 'Emma Davis',
+        project: 'Marketing Website',
+        createdAt: '2024-10-20T11:00:00Z',
+        updatedAt: '2025-01-15T17:30:00Z'
+      }
+    ]
+
+    setTimeout(() => {
+      setEpics(mockEpics)
+      setLoading(false)
+    }, 1000)
+  }, [])
+
+  const getStatusColor = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'planning': return 'bg-gray-100 text-gray-800'
+      case 'in progress': return 'bg-blue-100 text-blue-800'
+      case 'completed': return 'bg-green-100 text-green-800'
+      case 'on hold': return 'bg-yellow-100 text-yellow-800'
+      default: return 'bg-gray-100 text-gray-800'
+    }
+  }
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority.toLowerCase()) {
+      case 'critical': return 'bg-red-100 text-red-800'
+      case 'high': return 'bg-orange-100 text-orange-800'
+      case 'medium': return 'bg-yellow-100 text-yellow-800'
+      case 'low': return 'bg-green-100 text-green-800'
+      default: return 'bg-gray-100 text-gray-800'
+    }
+  }
+
+  const formatDate = (dateString: string) => {
+    try {
+      return new Date(dateString).toLocaleDateString()
+    } catch {
+      return dateString
+    }
+  }
+
+  const filteredEpics = epics.filter(epic => {
+    const matchesSearch = epic.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         epic.description.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesStatus = statusFilter === 'all' || epic.status.toLowerCase() === statusFilter.toLowerCase()
+    const matchesPriority = priorityFilter === 'all' || epic.priority.toLowerCase() === priorityFilter.toLowerCase()
+    const matchesProject = projectFilter === 'all' || epic.project === projectFilter
+
+    return matchesSearch && matchesStatus && matchesPriority && matchesProject
+  })
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin w-8 h-8 border-4 border-orange-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading epics...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-12">
+        <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+        <h3 className="text-lg font-medium text-gray-900 mb-2">Error Loading Epics</h3>
+        <p className="text-gray-600 mb-4">{error}</p>
+        <Button onClick={() => window.location.reload()}>Try Again</Button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 flex items-center space-x-3">
+            <Target className="w-7 h-7 text-orange-600" />
+            <span>Epic Management</span>
+          </h1>
+          <p className="text-gray-600 mt-1">Manage large features and initiatives across multiple sprints</p>
+        </div>
+        <Button className="bg-orange-600 hover:bg-orange-700 text-white">
+          <Plus className="w-4 h-4 mr-2" />
+          Create Epic
+        </Button>
+      </div>
+
+      {/* Filters */}
+      <Card className="p-4">
+        <div className="flex flex-wrap gap-4">
+          <div className="flex-1 min-w-64">
+            <div className="relative">
+              <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+              <Input
+                placeholder="Search epics..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+          </div>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="All Statuses" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Statuses</SelectItem>
+              <SelectItem value="planning">Planning</SelectItem>
+              <SelectItem value="in progress">In Progress</SelectItem>
+              <SelectItem value="completed">Completed</SelectItem>
+              <SelectItem value="on hold">On Hold</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="All Priorities" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Priorities</SelectItem>
+              <SelectItem value="critical">Critical</SelectItem>
+              <SelectItem value="high">High</SelectItem>
+              <SelectItem value="medium">Medium</SelectItem>
+              <SelectItem value="low">Low</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={projectFilter} onValueChange={setProjectFilter}>
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="All Projects" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Projects</SelectItem>
+              <SelectItem value="E-commerce Platform">E-commerce Platform</SelectItem>
+              <SelectItem value="Marketing Website">Marketing Website</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </Card>
+
+      {/* Epic Grid */}
+      {filteredEpics.length === 0 ? (
+        <div className="text-center py-12">
+          <Target className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No Epics Found</h3>
+          <p className="text-gray-600 mb-4">Create your first epic to organize large features</p>
+          <Button className="bg-orange-600 hover:bg-orange-700 text-white">
+            <Plus className="w-4 h-4 mr-2" />
+            Create Epic
+          </Button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {filteredEpics.map((epic) => (
+            <Card key={epic.id} className="p-6 hover:shadow-lg transition-shadow">
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex-1">
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">{epic.title}</h3>
+                  <p className="text-gray-600 line-clamp-3 mb-4">{epic.description}</p>
+                </div>
+                <Button variant="ghost" size="sm">
+                  <MoreHorizontal className="w-4 h-4" />
+                </Button>
+              </div>
+
+              {/* Status and Priority */}
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex space-x-2">
+                  <Badge className={getStatusColor(epic.status)}>
+                    {epic.status}
+                  </Badge>
+                  <Badge className={getPriorityColor(epic.priority)}>
+                    {epic.priority}
+                  </Badge>
+                </div>
+                <span className="text-sm text-gray-500 font-mono">{epic.id}</span>
+              </div>
+
+              {/* Progress */}
+              <div className="mb-4">
+                <div className="flex justify-between text-sm mb-2">
+                  <span className="text-gray-600">Progress</span>
+                  <span className="font-medium">{epic.progress}%</span>
+                </div>
+                <Progress value={epic.progress} className="h-2 mb-2" />
+                <div className="flex justify-between text-xs text-gray-500">
+                  <span>{epic.completedStoryPoints}/{epic.totalStoryPoints} story points</span>
+                  <span>{epic.completedStories}/{epic.totalStories} stories</span>
+                </div>
+              </div>
+
+              {/* Timeline */}
+              <div className="flex items-center justify-between text-sm text-gray-600 mb-4">
+                <div className="flex items-center space-x-1">
+                  <Calendar className="w-3 h-3" />
+                  <span>{formatDate(epic.startDate)}</span>
+                </div>
+                <span>→</span>
+                <div className="flex items-center space-x-1">
+                  <Calendar className="w-3 h-3" />
+                  <span>{formatDate(epic.endDate)}</span>
+                </div>
+              </div>
+
+              {/* Project and Owner */}
+              <div className="flex items-center justify-between pt-4 border-t">
+                <div className="text-sm text-gray-600">
+                  <span className="font-medium">Project:</span> {epic.project}
+                </div>
+                {epic.owner && (
+                  <div className="flex items-center space-x-2">
+                    <Avatar className="w-6 h-6">
+                      <AvatarFallback className="text-xs">
+                        {epic.owner.split(' ').map(n => n[0]).join('')}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="text-sm text-gray-600">{epic.owner}</span>
+                  </div>
+                )}
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}

@@ -173,13 +173,70 @@ export function ProjectEditModal({ isOpen, onClose, project, onSave, user }: Pro
         status: project.status || 'Planning',
         priority: project.priority || 'Medium',
         methodology: project.methodology || 'Scrum',
-        type: project.type || 'Software Development',
-        startDate: project.startDate ? new Date(project.startDate) : new Date(),
-        dueDate: project.dueDate ? new Date(project.dueDate) : new Date(),
+        // Map API field names to form field names
+        type: project.project_type || project.projectType || project.type || 'Software Development',
+        startDate: project.start_date ? new Date(project.start_date) :
+                   project.startDate ? new Date(project.startDate) : new Date(),
+        dueDate: project.end_date ? new Date(project.end_date) :
+                 project.dueDate ? new Date(project.dueDate) : new Date(),
         budget: project.budget || 0,
         customer: project.customer || 'Internal',
-        owner: project.owner || user?.name || '',
-        team: project.team || [],
+        // Map team_lead object to owner string - handle both API formats
+        owner: project.team_lead?.name || project.teamLead || project.owner ||
+               (typeof project.team_lead === 'string' ? project.team_lead : '') ||
+               user?.name || '',
+        // Map team_members to team array with proper structure and preserve original IDs
+        team: project.team_members ?
+              project.team_members.map((memberIdOrName: string, index: number) => {
+                // First, try to find by ID in API data (if team_members contains IDs)
+                const apiMember = projectMembers?.items?.find(m => m.id === memberIdOrName)
+                if (apiMember) {
+                  return {
+                    id: apiMember.id,
+                    originalId: memberIdOrName, // Store the original ID from API
+                    name: apiMember.name,
+                    role: apiMember.role.name,
+                    avatar: apiMember.avatar || apiMember.name.charAt(0).toUpperCase(),
+                    email: apiMember.email,
+                    department: apiMember.department
+                  }
+                }
+
+                // Then try to find by name in API data (if team_members contains names)
+                const apiMemberByName = projectMembers?.items?.find(m => m.name === memberIdOrName)
+                if (apiMemberByName) {
+                  return {
+                    id: apiMemberByName.id,
+                    originalId: apiMemberByName.id, // Store the ID
+                    name: apiMemberByName.name,
+                    role: apiMemberByName.role.name,
+                    avatar: apiMemberByName.avatar || apiMemberByName.name.charAt(0).toUpperCase(),
+                    email: apiMemberByName.email,
+                    department: apiMemberByName.department
+                  }
+                }
+
+                // Try to find in mockTeamMembers by name
+                const foundMember = mockTeamMembers.find(m => m.name === memberIdOrName)
+                if (foundMember) {
+                  return {
+                    ...foundMember,
+                    originalId: `mock-member-${foundMember.id}` // Store mock ID
+                  }
+                }
+
+                // Fallback to creating a basic member object
+                return {
+                  id: 1000 + index, // Use high IDs to avoid conflicts
+                  originalId: memberIdOrName, // Store whatever we received
+                  name: memberIdOrName,
+                  role: 'Developer',
+                  avatar: memberIdOrName.charAt(0).toUpperCase(),
+                  email: `${memberIdOrName.toLowerCase().replace(' ', '.')}@planora.com`,
+                  department: 'Development'
+                }
+              }) :
+              project.team || [],
         isPublic: project.isPublic !== undefined ? project.isPublic : true,
         notifications: project.notifications !== undefined ? project.notifications : true,
         autoArchive: project.autoArchive !== undefined ? project.autoArchive : false,
@@ -199,9 +256,14 @@ export function ProjectEditModal({ isOpen, onClose, project, onSave, user }: Pro
 
   const handleAddTeamMember = (member: any) => {
     if (!formData.team.find(m => m.id === member.id)) {
+      // Add originalId to the member object for proper ID tracking
+      const memberWithOriginalId = {
+        ...member,
+        originalId: member.id // Store the original ID for API calls
+      }
       setFormData(prev => ({
         ...prev,
-        team: [...prev.team, member]
+        team: [...prev.team, memberWithOriginalId]
       }))
     }
   }
@@ -214,12 +276,17 @@ export function ProjectEditModal({ isOpen, onClose, project, onSave, user }: Pro
   }
 
   const handleAddTag = () => {
-    if (newTag.trim() && !formData.tags.includes(newTag.trim())) {
+    const tagToAdd = newTag.trim()
+    if (tagToAdd && !formData.tags.includes(tagToAdd)) {
       setFormData(prev => ({
         ...prev,
-        tags: [...prev.tags, newTag.trim()]
+        tags: [...prev.tags, tagToAdd]
       }))
       setNewTag('')
+    } else if (tagToAdd && formData.tags.includes(tagToAdd)) {
+      toast.error('Tag already exists')
+    } else if (!tagToAdd) {
+      toast.error('Please enter a tag name')
     }
   }
 
@@ -265,19 +332,45 @@ export function ProjectEditModal({ isOpen, onClose, project, onSave, user }: Pro
     }
 
     try {
+      // Find customer and owner IDs from the selected names
+      const selectedCustomer = mockCustomers.find(c => c.name === formData.customer)
+      const selectedOwner = projectOwners?.items?.find(owner => owner.name === formData.owner)
+
       const updateData: UpdateProjectRequest = {
         name: formData.name,
         description: formData.description,
         status: formData.status as 'Active' | 'On Hold' | 'Completed' | 'Planning',
-        startDate: formData.startDate.toISOString().split('T')[0],
-        endDate: formData.dueDate.toISOString().split('T')[0],
+        start_date: formData.startDate.toISOString().split('T')[0],
+        end_date: formData.dueDate.toISOString().split('T')[0],
         budget: formData.budget,
+        customer_id: selectedCustomer?.id || 'default-customer',
+        customer: formData.customer,
         priority: formData.priority as 'Low' | 'Medium' | 'High' | 'Critical',
-        teamLead: formData.owner,
-        teamMembers: formData.team.map(member => member.name),
+        team_lead_id: selectedOwner?.id || formData.owner || 'default-lead',
+        team_members: formData.team.map(member => {
+          // First priority: use the stored originalId if available
+          if (member.originalId) {
+            return member.originalId
+          }
+
+          // Second priority: try to find the member ID from the API data
+          const apiMember = projectMembers?.items?.find(apiM => apiM.name === member.name)
+          if (apiMember?.id) {
+            return apiMember.id
+          }
+
+          // Third priority: try to find in mock data and use a generated ID
+          const mockMember = mockTeamMembers.find(mockM => mockM.name === member.name)
+          if (mockMember) {
+            return `mock-member-${mockMember.id}`
+          }
+
+          // Last resort: use the member's existing ID or generate one
+          return member.id || `member-${Date.now()}`
+        }),
         tags: formData.tags,
         methodology: formData.methodology as 'Agile' | 'Waterfall' | 'Scrum' | 'Kanban' | 'Lean' | 'Hybrid',
-        projectType: formData.type as 'Web Development' | 'Mobile App' | 'Desktop App' | 'API Development' | 'Data Analytics' | 'E-commerce' | 'CRM' | 'ERP' | 'DevOps' | 'Machine Learning' | 'Other'
+        project_type: formData.type as 'Web Development' | 'Mobile App' | 'Desktop App' | 'API Development' | 'Data Analytics' | 'E-commerce' | 'CRM' | 'ERP' | 'DevOps' | 'Machine Learning' | 'Other'
       }
 
       await dispatch(updateProject({ id: project.id, projectData: updateData })).unwrap()
@@ -308,7 +401,9 @@ export function ProjectEditModal({ isOpen, onClose, project, onSave, user }: Pro
     })) : mockMembers
 
     return allMembers.filter(
-      availableMember => !formData.team.find(teamMember => teamMember.id === availableMember.id)
+      availableMember => !formData.team.find(teamMember =>
+        teamMember.id === availableMember.id || teamMember.name === availableMember.name
+      )
     )
   }
 
@@ -479,13 +574,40 @@ export function ProjectEditModal({ isOpen, onClose, project, onSave, user }: Pro
 
                 <div>
                   <Label htmlFor="owner">Project Owner</Label>
-                  <Input
-                    id="owner"
-                    value={formData.owner}
-                    onChange={(e) => handleInputChange('owner', e.target.value)}
-                    placeholder="Enter project owner name"
-                    className="mt-1"
-                  />
+                  <Select value={formData.owner} onValueChange={(value) => handleInputChange('owner', value)}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="Select project owner" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ownersLoading ? (
+                        <SelectItem value="loading" disabled>
+                          Loading owners...
+                        </SelectItem>
+                      ) : projectOwners?.items?.length ? (
+                        projectOwners.items
+                          .filter(owner => owner.is_active)
+                          .map((owner) => (
+                            <SelectItem key={owner.id} value={owner.name}>
+                              <div className="flex items-center space-x-2">
+                                <div className="w-6 h-6 rounded-full bg-[#007BFF] text-white text-xs flex items-center justify-center">
+                                  {owner.avatar || owner.name.charAt(0).toUpperCase()}
+                                </div>
+                                <div>
+                                  <span className="font-medium">{owner.name}</span>
+                                  <span className="text-xs text-muted-foreground ml-2">
+                                    {owner.role.name} • {owner.department}
+                                  </span>
+                                </div>
+                              </div>
+                            </SelectItem>
+                          ))
+                      ) : (
+                        <SelectItem value="no-owners" disabled>
+                          No owners available
+                        </SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             </div>
@@ -512,9 +634,19 @@ export function ProjectEditModal({ isOpen, onClose, project, onSave, user }: Pro
                   value={newTag}
                   onChange={(e) => setNewTag(e.target.value)}
                   placeholder="Add a tag"
-                  onKeyPress={(e) => e.key === 'Enter' && handleAddTag()}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      handleAddTag()
+                    }
+                  }}
                 />
-                <Button onClick={handleAddTag} variant="outline" size="sm">
+                <Button
+                  onClick={handleAddTag}
+                  variant="outline"
+                  size="sm"
+                  disabled={!newTag.trim()}
+                >
                   <Plus className="w-4 h-4" />
                 </Button>
               </div>

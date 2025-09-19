@@ -126,13 +126,19 @@ export function ProjectDetails({ projectId, onBack, user }: ProjectDetailsProps)
     stories: (project as any).stories || 0,
     currentSprint: (project as any).currentSprint || 'No active sprint',
     nextMilestone: (project as any).nextMilestone || 'No upcoming milestones',
-    milestoneDue: (project as any).milestoneDue || project.endDate,
+    milestoneDue: (project as any).milestoneDue || (project as any).end_date || project.endDate,
     version: (project as any).version || 'v1.0.0',
     dependencies: (project as any).dependencies || [],
     // Map API fields to display fields for backward compatibility
-    type: project.projectType,
-    owner: project.teamLead,
-    dueDate: project.endDate
+    type: (project as any).project_type || project.projectType,
+    owner: (project as any).team_lead?.name || project.teamLead,
+    dueDate: (project as any).end_date || project.endDate,
+    // Ensure API response fields are preserved for ProjectEditModal
+    start_date: (project as any).start_date,
+    end_date: (project as any).end_date,
+    project_type: (project as any).project_type,
+    team_lead: (project as any).team_lead,
+    team_members: (project as any).team_members
   } : null
 
   const getStatusColor = (status: string) => {

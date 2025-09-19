@@ -72,16 +72,18 @@ export interface CreateProjectRequest {
   name: string;
   description: string;
   status: string;
-  startDate: string;
-  endDate: string;
+  start_date: string;
+  end_date: string;
   budget: number;
-  customerId: string;
+  customer_id: string;
+  customer: string;
   priority: string;
-  teamLead: string;
-  teamMembers: string[];
+  team_lead_id: string;
+  team_members: string[]; // Array of member IDs
   tags: string[];
   methodology: string;
-  projectType: string;
+  project_type: string;
+  color?: string;
 }
 
 export interface UpdateProjectRequest extends Partial<CreateProjectRequest> {

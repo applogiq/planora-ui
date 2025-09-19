@@ -1,12 +1,13 @@
-import React from 'react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../../components/ui/dialog'
-import { Button } from '../../components/ui/button'
-import { Input } from '../../components/ui/input'
-import { Label } from '../../components/ui/label'
-import { Textarea } from '../../components/ui/textarea'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select'
-import { Badge } from '../../components/ui/badge'
+import React, { useState } from 'react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../../../components/ui/dialog'
+import { Button } from '../../../components/ui/button'
+import { Input } from '../../../components/ui/input'
+import { Label } from '../../../components/ui/label'
+import { Textarea } from '../../../components/ui/textarea'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select'
+import { Badge } from '../../../components/ui/badge'
 import { Calendar, Zap, Users, Target, PlayCircle } from 'lucide-react'
+import { sprintApiService, CreateSprintRequest, Sprint } from '../../../services/sprintApi'
 
 interface SprintDialogProps {
   open: boolean
@@ -15,8 +16,10 @@ interface SprintDialogProps {
   setSprint: (sprint: any) => void
   projects: any[]
   teamMembers: any[]
-  onSave: () => void
+  onSave?: () => void
   isEdit: boolean
+  onSprintCreated?: (sprint: Sprint) => void
+  onSprintUpdated?: (sprint: Sprint) => void
 }
 
 export function SprintDialog({
@@ -27,8 +30,61 @@ export function SprintDialog({
   projects,
   teamMembers,
   onSave,
-  isEdit
+  isEdit,
+  onSprintCreated,
+  onSprintUpdated
 }: SprintDialogProps) {
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const handleSave = async () => {
+    if (!sprint.name || !sprint.goal || !sprint.startDate || !sprint.endDate || !sprint.projectId) {
+      setError('Please fill in all required fields')
+      return
+    }
+
+    setIsLoading(true)
+    setError(null)
+
+    try {
+      const sprintData: CreateSprintRequest = {
+        name: sprint.name,
+        status: sprint.status || 'Planning',
+        start_date: sprint.startDate,
+        end_date: sprint.endDate,
+        goal: sprint.goal,
+        total_points: sprint.totalPoints || 0,
+        completed_points: sprint.completedPoints || 0,
+        total_tasks: sprint.totalTasks || 0,
+        completed_tasks: sprint.completedTasks || 0,
+        velocity: sprint.velocity || 0,
+        project_id: sprint.projectId,
+        scrum_master_id: sprint.scrumMasterId || '',
+        team_size: sprint.teamSize || 1,
+        burndown_trend: sprint.burndownTrend || 'On Track'
+      }
+
+      if (isEdit && sprint.id) {
+        const updatedSprint = await sprintApiService.updateSprint(sprint.id, sprintData)
+        onSprintUpdated?.(updatedSprint)
+      } else {
+        const newSprint = await sprintApiService.createSprint(sprintData)
+        onSprintCreated?.(newSprint)
+      }
+
+      if (onSave) {
+        onSave()
+      }
+
+      onClose()
+    } catch (err) {
+      console.error('Error saving sprint:', err)
+      setError(err instanceof Error ? err.message : 'Failed to save sprint')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   const getSprintDuration = () => {
     if (sprint.startDate && sprint.endDate) {
       const start = new Date(sprint.startDate)
@@ -52,7 +108,13 @@ export function SprintDialog({
             {isEdit ? 'Update sprint details and timeline' : 'Define a new sprint with timeline and goals'}
           </DialogDescription>
         </DialogHeader>
-        
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+            <div className="text-red-800 text-sm">{error}</div>
+          </div>
+        )}
+
         <div className="space-y-6">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -260,11 +322,12 @@ export function SprintDialog({
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button 
-            onClick={onSave}
-            className="bg-orange-600 hover:bg-orange-700 text-white"
+          <Button
+            onClick={handleSave}
+            disabled={isLoading}
+            className="bg-orange-600 hover:bg-orange-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isEdit ? 'Update Sprint' : 'Create Sprint'}
+            {isLoading ? (isEdit ? 'Updating...' : 'Creating...') : (isEdit ? 'Update Sprint' : 'Create Sprint')}
           </Button>
         </div>
       </DialogContent>
