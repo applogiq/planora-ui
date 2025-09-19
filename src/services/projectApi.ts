@@ -279,6 +279,10 @@ export class ProjectApiService {
     return this.getProjectsByStatus('Planning');
   }
 
+  async getActiveProjectsList(): Promise<Project[]> {
+    return this.makeRequest<Project[]>('/api/v1/projects/active/list');
+  }
+
   async getProjectMasters(): Promise<ProjectMastersResponse> {
     return this.makeRequest<ProjectMastersResponse>('/api/v1/masters/project');
   }

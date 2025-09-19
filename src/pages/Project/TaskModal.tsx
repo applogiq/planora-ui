@@ -45,10 +45,11 @@ interface TaskModalProps {
   task?: any
   mode: 'create' | 'edit' | 'view'
   project: any
+  teamMembers?: any[]
   onSave: (taskData: any) => void
 }
 
-export function TaskModal({ isOpen, onClose, task, mode, project, onSave }: TaskModalProps) {
+export function TaskModal({ isOpen, onClose, task, mode, project, teamMembers = [], onSave }: TaskModalProps) {
   const [activeTab, setActiveTab] = useState('details')
   const [isEditing, setIsEditing] = useState(mode !== 'view')
   const [taskData, setTaskData] = useState({
@@ -56,7 +57,7 @@ export function TaskModal({ isOpen, onClose, task, mode, project, onSave }: Task
     description: task?.description || '',
     status: task?.status || 'To Do',
     priority: task?.priority || 'Medium',
-    assignee: task?.assignee?.name || '',
+    assignee_id: task?.assignee?.id || task?.assignee_id || '',
     startDate: task?.startDate ? new Date(task.startDate) : undefined,
     dueDate: task?.dueDate ? new Date(task.dueDate) : undefined,
     tags: task?.tags || [],
@@ -338,21 +339,24 @@ export function TaskModal({ isOpen, onClose, task, mode, project, onSave }: Task
                   <div className="space-y-4">
                     <div>
                       <Label>Assignee</Label>
-                      <Select 
-                        value={taskData.assignee} 
-                        onValueChange={(value) => setTaskData(prev => ({ ...prev, assignee: value }))}
+                      <Select
+                        value={taskData.assignee_id || "unassigned"}
+                        onValueChange={(value: string) => setTaskData(prev => ({ ...prev, assignee_id: value === "unassigned" ? "" : value }))}
                         disabled={!isEditing}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Select assignee" />
                         </SelectTrigger>
                         <SelectContent>
-                          {project.team.map((member: any) => (
-                            <SelectItem key={member.id} value={member.name}>
+                          <SelectItem value="unassigned">
+                            <span className="text-gray-500">No assignee</span>
+                          </SelectItem>
+                          {teamMembers.map((member: any) => (
+                            <SelectItem key={member.id} value={member.id}>
                               <div className="flex items-center space-x-2">
                                 <Avatar className="w-5 h-5">
                                   <AvatarFallback className="text-xs bg-[#007BFF] text-white">
-                                    {member.avatar}
+                                    {member.avatar || member.name?.charAt(0)}
                                   </AvatarFallback>
                                 </Avatar>
                                 <span>{member.name}</span>

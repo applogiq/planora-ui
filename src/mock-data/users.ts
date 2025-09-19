@@ -27,7 +27,6 @@ export interface Role {
   userCount: number;
 }
 
-export const mockRoles: Role[] = [];
 
 export interface AuditLog {
   id: string;

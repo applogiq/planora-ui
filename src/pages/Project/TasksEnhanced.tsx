@@ -33,10 +33,14 @@ import {
   TrendingUp
 } from 'lucide-react'
 import { toast } from 'sonner@2.0.3'
-import { BacklogDialog } from '../Planning/BacklogDialog'
-import { EpicDialog } from '../Planning/EpicDialog'
-import { SprintDialog } from '../Planning/SprintDialog'
-import { BacklogItemActions } from '../Planning/BacklogItemActions'
+import { BacklogDialog } from '../Planning/Backlog/BacklogDialog'
+import { EpicDialog } from '../Planning/Epic/EpicDialog'
+import { SprintDialog } from '../Planning/Sprint/SprintDialog'
+import { BacklogItemActions } from '../Planning/Backlog/BacklogItemActions'
+import { useEpics } from '../../hooks/useEpics'
+import { useActiveProjects } from '../../hooks/useActiveProjects'
+import { useProjectMembers } from '../../hooks/useProjectMembers'
+import { CreateEpicRequest } from '../../services/epicApi'
 
 // Enhanced sample data
 const projects = [
@@ -47,15 +51,6 @@ const projects = [
   { id: 'PROJ-005', name: 'Security Audit', color: '#6C757D', status: 'Completed' }
 ]
 
-const teamMembers = [
-  { id: 'USER-001', name: 'Rajesh Kumar', email: 'rajesh@planora.com', role: 'developer', avatar: 'RK', status: 'Online' },
-  { id: 'USER-002', name: 'Praveen Kumar', email: 'praveen@planora.com', role: 'tester', avatar: 'PK', status: 'Online' },
-  { id: 'USER-003', name: 'Sarah Wilson', email: 'sarah@planora.com', role: 'project_manager', avatar: 'SW', status: 'Away' },
-  { id: 'USER-004', name: 'Mike Johnson', email: 'mike@planora.com', role: 'developer', avatar: 'MJ', status: 'Online' },
-  { id: 'USER-005', name: 'Lisa Park', email: 'lisa@planora.com', role: 'developer', avatar: 'LP', status: 'Offline' },
-  { id: 'USER-006', name: 'Alex Chen', email: 'alex@planora.com', role: 'developer', avatar: 'AC', status: 'Online' },
-  { id: 'USER-007', name: 'Emma Davis', email: 'emma@planora.com', role: 'project_manager', avatar: 'ED', status: 'Online' }
-]
 
 interface TasksProps {
   user: any
@@ -66,6 +61,24 @@ export function Tasks({ user }: TasksProps) {
   const [selectedProjectId, setSelectedProjectId] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [activeTab, setActiveTab] = useState('backlog')
+
+  // Epic API integration
+  const {
+    data: epicsResponse,
+    loading: epicsLoading,
+    error: epicsError,
+    createEpic,
+    updateEpic,
+    deleteEpic,
+    refetch: refetchEpics
+  } = useEpics(selectedProjectId !== 'all' ? selectedProjectId : undefined)
+
+  // Active projects API integration
+  const { projects: activeProjects, loading: projectsLoading } = useActiveProjects()
+
+  // Project members API integration
+  const { data: projectMembersData, loading: membersLoading } = useProjectMembers()
+  const teamMembers = projectMembersData?.items || []
 
   // Data state
   const [backlogs, setBacklogs] = useState([
@@ -183,46 +196,8 @@ export function Tasks({ user }: TasksProps) {
     }
   ])
 
-  const [epics, setEpics] = useState([
-    {
-      id: 'EPIC-001',
-      title: 'User Management System',
-      description: 'Complete user authentication, authorization, and profile management system with advanced security features',
-      priority: 'High',
-      status: 'In Progress',
-      projectId: 'PROJ-001',
-      projectName: 'E-commerce Platform',
-      assigneeId: 'USER-003',
-      assigneeName: 'Sarah Wilson',
-      createdAt: '2025-01-01T09:00:00Z',
-      dueDate: '2025-02-15T17:00:00Z',
-      totalStoryPoints: 89,
-      completedStoryPoints: 45,
-      totalTasks: 24,
-      completedTasks: 12,
-      labels: ['Authentication', 'Security', 'Core Feature'],
-      businessValue: 'High - Foundation for all user interactions'
-    },
-    {
-      id: 'EPIC-002',
-      title: 'Mobile Banking Core Features',
-      description: 'Essential mobile banking features including account management, transactions, and security',
-      priority: 'Critical',
-      status: 'Planning',
-      projectId: 'PROJ-002',
-      projectName: 'Mobile Banking App',
-      assigneeId: 'USER-007',
-      assigneeName: 'Emma Davis',
-      createdAt: '2025-01-05T10:00:00Z',
-      dueDate: '2025-03-20T17:00:00Z',
-      totalStoryPoints: 144,
-      completedStoryPoints: 23,
-      totalTasks: 38,
-      completedTasks: 8,
-      labels: ['Mobile', 'Banking', 'Security', 'Core Feature'],
-      businessValue: 'Critical - Core revenue generating features'
-    }
-  ])
+  // Get epics from API response or fallback to empty array
+  const epics = epicsResponse?.items || []
 
   const [sprints, setSprints] = useState([
     {
@@ -300,17 +275,15 @@ export function Tasks({ user }: TasksProps) {
     description: '',
     priority: 'Medium',
     status: 'Planning',
-    projectId: '',
-    projectName: '',
-    assigneeId: '',
-    assigneeName: '',
-    dueDate: '',
+    project_id: '',
+    assignee_id: '',
+    due_date: '',
     labels: [],
-    businessValue: '',
-    totalStoryPoints: 0,
-    completedStoryPoints: 0,
-    totalTasks: 0,
-    completedTasks: 0
+    business_value: '',
+    total_story_points: 0,
+    completed_story_points: 0,
+    total_tasks: 0,
+    completed_tasks: 0
   })
 
   const [sprint, setSprint] = useState({
@@ -422,17 +395,15 @@ export function Tasks({ user }: TasksProps) {
       description: '',
       priority: 'Medium',
       status: 'Planning',
-      projectId: selectedProjectId !== 'all' ? selectedProjectId : '',
-      projectName: selectedProjectId !== 'all' ? projects.find(p => p.id === selectedProjectId)?.name || '' : '',
-      assigneeId: '',
-      assigneeName: '',
-      dueDate: '',
+      project_id: selectedProjectId !== 'all' ? selectedProjectId : '',
+      assignee_id: '',
+      due_date: '',
       labels: [],
-      businessValue: '',
-      totalStoryPoints: 0,
-      completedStoryPoints: 0,
-      totalTasks: 0,
-      completedTasks: 0
+      business_value: '',
+      total_story_points: 0,
+      completed_story_points: 0,
+      total_tasks: 0,
+      completed_tasks: 0
     })
   }
 
@@ -537,41 +508,73 @@ export function Tasks({ user }: TasksProps) {
   }
 
   const handleEditEpic = (item: any) => {
-    setEpic({ ...item })
+    // Map API response fields to form fields
+    setEpic({
+      id: item.id,
+      title: item.title,
+      description: item.description,
+      priority: item.priority,
+      status: item.status,
+      project_id: item.project_id,
+      assignee_id: item.assignee_id,
+      due_date: item.due_date,
+      labels: item.labels || [],
+      business_value: item.business_value,
+      total_story_points: item.total_story_points,
+      completed_story_points: item.completed_story_points,
+      total_tasks: item.total_tasks,
+      completed_tasks: item.completed_tasks
+    })
     setEditingItem(item)
     setShowEpicDialog(true)
   }
 
-  const handleSaveEpic = () => {
-    if (!epic.title || !epic.description || !epic.projectId) {
+  const handleSaveEpic = async () => {
+    if (!epic.title || !epic.description || !epic.project_id) {
       toast.error('Please fill in all required fields')
       return
     }
 
-    const newEpic = {
-      ...epic,
-      id: editingItem ? editingItem.id : `EPIC-${Date.now()}`,
-      projectName: projects.find(p => p.id === epic.projectId)?.name || '',
-      assigneeName: teamMembers.find(m => m.id === epic.assigneeId)?.name || '',
-      createdAt: editingItem ? editingItem.createdAt : new Date().toISOString()
-    }
+    try {
+      const epicData: CreateEpicRequest = {
+        title: epic.title,
+        description: epic.description,
+        priority: epic.priority,
+        status: epic.status,
+        project_id: epic.project_id,
+        assignee_id: epic.assignee_id || null,
+        due_date: epic.due_date || "",
+        labels: epic.labels,
+        business_value: epic.business_value,
+        total_story_points: epic.total_story_points,
+        completed_story_points: epic.completed_story_points,
+        total_tasks: epic.total_tasks,
+        completed_tasks: epic.completed_tasks
+      }
 
-    if (editingItem) {
-      setEpics(prev => prev.map(item => item.id === editingItem.id ? newEpic : item))
-      toast.success('Epic updated successfully')
-    } else {
-      setEpics(prev => [...prev, newEpic])
-      toast.success('Epic created successfully')
-    }
+      if (editingItem) {
+        await updateEpic(editingItem.id, epicData)
+        toast.success('Epic updated successfully')
+      } else {
+        await createEpic(epicData)
+        toast.success('Epic created successfully')
+      }
 
-    setShowEpicDialog(false)
-    resetEpicForm()
-    setEditingItem(null)
+      setShowEpicDialog(false)
+      resetEpicForm()
+      setEditingItem(null)
+    } catch (error) {
+      toast.error(`Failed to save epic: ${error}`)
+    }
   }
 
-  const handleDeleteEpic = (epicId: string) => {
-    setEpics(prev => prev.filter(e => e.id !== epicId))
-    toast.success('Epic deleted successfully')
+  const handleDeleteEpic = async (epicId: string) => {
+    try {
+      await deleteEpic(epicId)
+      toast.success('Epic deleted successfully')
+    } catch (error) {
+      toast.error(`Failed to delete epic: ${error}`)
+    }
   }
 
   // Sprint handlers
@@ -878,7 +881,32 @@ export function Tasks({ user }: TasksProps) {
 
         {/* Epics Tab */}
         <TabsContent value="epics" className="space-y-4">
-          {filteredEpics.length === 0 ? (
+          {epicsError && (
+            <Card className="border-red-200 bg-red-50">
+              <CardContent className="flex flex-col items-center justify-center py-8">
+                <div className="text-red-600 mb-2">Failed to load epics</div>
+                <p className="text-red-500 text-sm mb-4">{epicsError}</p>
+                <Button
+                  onClick={() => refetchEpics()}
+                  variant="outline"
+                  className="border-red-300 text-red-600 hover:bg-red-100"
+                >
+                  Retry
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {epicsLoading && (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <div className="w-8 h-8 border-2 border-purple-600 border-t-transparent rounded-full animate-spin mb-4" />
+                <p className="text-muted-foreground">Loading epics...</p>
+              </CardContent>
+            </Card>
+          )}
+
+          {!epicsLoading && !epicsError && filteredEpics.length === 0 ? (
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-12">
                 <Target className="w-12 h-12 text-muted-foreground mb-4" />
@@ -916,9 +944,9 @@ export function Tasks({ user }: TasksProps) {
                           <div className="flex items-center gap-1 text-sm text-muted-foreground">
                             <div 
                               className="w-3 h-3 rounded-full"
-                              style={{ backgroundColor: projects.find(p => p.id === epic.projectId)?.color }}
+                              style={{ backgroundColor: projects.find(p => p.id === epic.project_id)?.color }}
                             />
-                            <span>{epic.projectName}</span>
+                            <span>{epic.project_name}</span>
                           </div>
                         </div>
                         <p className="text-muted-foreground text-sm line-clamp-2 mb-4">
@@ -952,11 +980,11 @@ export function Tasks({ user }: TasksProps) {
                         <div className="text-sm text-muted-foreground mb-1">Progress</div>
                         <div className="flex items-center gap-2">
                           <Progress 
-                            value={epic.totalStoryPoints > 0 ? (epic.completedStoryPoints / epic.totalStoryPoints) * 100 : 0} 
+                            value={epic.total_story_points > 0 ? (epic.completed_story_points / epic.total_story_points) * 100 : 0} 
                             className="flex-1"
                           />
                           <span className="text-sm font-medium">
-                            {epic.totalStoryPoints > 0 ? Math.round((epic.completedStoryPoints / epic.totalStoryPoints) * 100) : 0}%
+                            {epic.total_story_points > 0 ? Math.round((epic.completed_story_points / epic.total_story_points) * 100) : 0}%
                           </span>
                         </div>
                       </div>
@@ -964,7 +992,7 @@ export function Tasks({ user }: TasksProps) {
                       <div>
                         <div className="text-sm text-muted-foreground mb-1">Story Points</div>
                         <div className="text-lg font-medium">
-                          {epic.completedStoryPoints} / {epic.totalStoryPoints}
+                          {epic.completed_story_points} / {epic.total_story_points}
                         </div>
                       </div>
                     </div>
@@ -972,12 +1000,12 @@ export function Tasks({ user }: TasksProps) {
                     <div className="flex items-center justify-between text-sm">
                       <div className="flex items-center gap-1">
                         <User className="w-4 h-4" />
-                        <span>{epic.assigneeName || 'Unassigned'}</span>
+                        <span>{epic.assignee_name || 'Unassigned'}</span>
                       </div>
-                      {epic.dueDate && (
+                      {epic.due_date && (
                         <div className="flex items-center gap-1 text-muted-foreground">
                           <Calendar className="w-4 h-4" />
-                          <span>{new Date(epic.dueDate).toLocaleDateString()}</span>
+                          <span>{new Date(epic.due_date).toLocaleDateString()}</span>
                         </div>
                       )}
                     </div>
@@ -1156,7 +1184,7 @@ export function Tasks({ user }: TasksProps) {
         }}
         epic={epic}
         setEpic={setEpic}
-        projects={projects}
+        projects={activeProjects}
         teamMembers={teamMembers}
         onSave={handleSaveEpic}
         isEdit={!!editingItem}

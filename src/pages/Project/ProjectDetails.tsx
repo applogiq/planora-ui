@@ -68,6 +68,9 @@ import { ActivityView } from './ActivityView'
 import { TaskModal } from './TaskModal'
 import { ProjectEditModal } from './ProjectEditModal'
 import { ProjectSettings } from './ProjectSettings'
+import { useTasks } from '../../hooks/useTasks'
+import { useProjectMembers } from '../../hooks/useProjectMembers'
+import { CreateTaskRequest } from '../../services/taskApi'
 
 interface ProjectDetailsProps {
   projectId: string
@@ -92,6 +95,19 @@ export function ProjectDetails({ projectId, onBack, user }: ProjectDetailsProps)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
 
+  // API hooks for tasks and team members
+  const {
+    tasks,
+    loading: tasksLoading,
+    createTask,
+    updateTask,
+    deleteTask: deleteTaskApi,
+    error: tasksError
+  } = useTasks({ projectId })
+
+  const { data: projectMembersData } = useProjectMembers()
+  const teamMembers = projectMembersData?.items || []
+
   // Fetch project details on component mount
   useEffect(() => {
     if (projectId) {
@@ -113,13 +129,14 @@ export function ProjectDetails({ projectId, onBack, user }: ProjectDetailsProps)
   // Use project from Redux state only and add computed properties for display
   const displayProject = project ? {
     ...project,
+    // Use real tasks data from API
+    tasks: tasks || [],
+    tasksCompleted: tasks.filter(task => task.status === 'Completed').length,
+    totalTasks: tasks.length,
     // Add computed properties for UI display if not already present (using any type for extension)
-    tasksCompleted: (project as any).tasksCompleted || 0,
-    totalTasks: (project as any).totalTasks || 0,
-    team: (project as any).team || [],
+    team: (project as any).team || teamMembers,
     milestones: (project as any).milestones || [],
     recentActivity: (project as any).recentActivity || [],
-    tasks: project.tasks || [],
     files: (project as any).files || [],
     timeEntries: (project as any).timeEntries || [],
     epics: (project as any).epics || 0,
@@ -178,10 +195,36 @@ export function ProjectDetails({ projectId, onBack, user }: ProjectDetailsProps)
     setShowTaskModal(true)
   }
 
-  const handleTaskSave = (taskData: any) => {
-    console.log('Saving task:', taskData)
-    setShowTaskModal(false)
-    // In a real app, this would save to the backend
+  const handleTaskSave = async (taskData: any) => {
+    try {
+      // Convert TaskModal data format to API format
+      const apiTaskData: CreateTaskRequest = {
+        title: taskData.title,
+        description: taskData.description,
+        status: taskData.status,
+        priority: taskData.priority,
+        project_id: projectId,
+        assignee_id: taskData.assignee_id || null,
+        start_date: taskData.startDate ? taskData.startDate.toISOString() : undefined,
+        due_date: taskData.dueDate ? taskData.dueDate.toISOString() : undefined,
+        progress: taskData.progress || 0,
+        tags: taskData.tags || []
+      }
+
+      if (taskModalMode === 'create') {
+        await createTask(apiTaskData)
+        toast.success('Task created successfully')
+      } else if (taskModalMode === 'edit' && selectedTask) {
+        await updateTask(selectedTask.id, apiTaskData)
+        toast.success('Task updated successfully')
+      }
+
+      setShowTaskModal(false)
+      setSelectedTask(null)
+    } catch (error) {
+      console.error('Error saving task:', error)
+      toast.error(`Failed to ${taskModalMode === 'create' ? 'create' : 'update'} task: ${error}`)
+    }
   }
 
   const handleProjectEdit = () => {
@@ -443,6 +486,7 @@ export function ProjectDetails({ projectId, onBack, user }: ProjectDetailsProps)
           task={selectedTask}
           mode={taskModalMode}
           project={displayProject}
+          teamMembers={teamMembers}
           onSave={handleTaskSave}
         />
       )}

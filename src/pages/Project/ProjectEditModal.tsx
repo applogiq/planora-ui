@@ -188,6 +188,8 @@ export function ProjectEditModal({ isOpen, onClose, project, onSave, user }: Pro
         // Map team_members to team array with proper structure and preserve original IDs
         team: project.team_members ?
               project.team_members.map((memberIdOrName: string, index: number) => {
+                console.log('Processing team member:', memberIdOrName, 'Type:', typeof memberIdOrName)
+
                 // First, try to find by ID in API data (if team_members contains IDs)
                 const apiMember = projectMembers?.items?.find(m => m.id === memberIdOrName)
                 if (apiMember) {
@@ -216,23 +218,54 @@ export function ProjectEditModal({ isOpen, onClose, project, onSave, user }: Pro
                   }
                 }
 
-                // Try to find in mockTeamMembers by name
-                const foundMember = mockTeamMembers.find(m => m.name === memberIdOrName)
-                if (foundMember) {
+                // Try to find in mockTeamMembers by ID first, then by name
+                const foundMemberById = mockTeamMembers.find(m => m.id.toString() === memberIdOrName)
+                if (foundMemberById) {
                   return {
-                    ...foundMember,
-                    originalId: `mock-member-${foundMember.id}` // Store mock ID
+                    ...foundMemberById,
+                    originalId: memberIdOrName // Store the original ID
                   }
                 }
 
-                // Fallback to creating a basic member object
+                const foundMemberByName = mockTeamMembers.find(m => m.name === memberIdOrName)
+                if (foundMemberByName) {
+                  return {
+                    ...foundMemberByName,
+                    originalId: foundMemberByName.id.toString() // Store mock ID as string
+                  }
+                }
+
+                // Special handling for UUID-like strings - create a mapping to mock users
+                if (memberIdOrName.match(/^[a-f0-9\-]{36}$|^[a-f0-9\-]{8,}$/)) {
+                  // It's a UUID, map it to a mock team member based on index
+                  const mockMemberIndex = index % mockTeamMembers.length
+                  const mockMember = mockTeamMembers[mockMemberIndex]
+
+                  return {
+                    id: mockMember.id,
+                    originalId: memberIdOrName, // Store the original UUID
+                    name: mockMember.name,
+                    role: mockMember.role,
+                    avatar: mockMember.avatar,
+                    email: mockMember.email,
+                    department: mockMember.department
+                  }
+                }
+
+                // Enhanced fallback: try to extract meaningful name if it looks like an ID
+                let displayName = memberIdOrName
+                if (memberIdOrName.includes('-') || memberIdOrName.match(/^\d+$/)) {
+                  // If it looks like an ID, try to find a better name
+                  displayName = `User ${memberIdOrName.slice(0, 8)}`
+                }
+
                 return {
                   id: 1000 + index, // Use high IDs to avoid conflicts
                   originalId: memberIdOrName, // Store whatever we received
-                  name: memberIdOrName,
+                  name: displayName,
                   role: 'Developer',
-                  avatar: memberIdOrName.charAt(0).toUpperCase(),
-                  email: `${memberIdOrName.toLowerCase().replace(' ', '.')}@planora.com`,
+                  avatar: displayName.charAt(0).toUpperCase(),
+                  email: `${displayName.toLowerCase().replace(/\s+/g, '.')}@planora.com`,
                   department: 'Development'
                 }
               }) :
@@ -400,11 +433,38 @@ export function ProjectEditModal({ isOpen, onClose, project, onSave, user }: Pro
       department: member.department
     })) : mockMembers
 
-    return allMembers.filter(
-      availableMember => !formData.team.find(teamMember =>
-        teamMember.id === availableMember.id || teamMember.name === availableMember.name
-      )
-    )
+    return allMembers.filter(availableMember => {
+      // Check if this member is already in the team by multiple criteria
+      const isAlreadyInTeam = formData.team.some(teamMember => {
+        // Check by ID (both string and number comparison)
+        if (teamMember.id === availableMember.id ||
+            teamMember.id.toString() === availableMember.id.toString()) {
+          return true
+        }
+
+        // Check by name
+        if (teamMember.name === availableMember.name) {
+          return true
+        }
+
+        // Check by originalId if it exists
+        if (teamMember.originalId &&
+            (teamMember.originalId === availableMember.id.toString() ||
+             teamMember.originalId === availableMember.id)) {
+          return true
+        }
+
+        // Check if the available member's ID matches any team member's originalId
+        if (availableMember.id.toString() === teamMember.originalId ||
+            availableMember.id === teamMember.originalId) {
+          return true
+        }
+
+        return false
+      })
+
+      return !isAlreadyInTeam
+    })
   }
 
   const availableMembers = getAvailableMembers()

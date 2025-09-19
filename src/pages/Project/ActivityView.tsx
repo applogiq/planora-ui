@@ -182,16 +182,17 @@ export function ActivityView({ project }: ActivityViewProps) {
   }
 
   const filteredActivities = allActivities.filter((activity) => {
+    const userName = typeof activity.user === 'string' ? activity.user : activity.user?.name || 'Unknown User'
     const matchesSearch = activity.target.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          activity.action.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         activity.user.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesUser = userFilter === 'all' || activity.user === userFilter
+                         userName.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesUser = userFilter === 'all' || userName === userFilter
     const matchesType = typeFilter === 'all' || activity.type === typeFilter
     return matchesSearch && matchesUser && matchesType
   })
 
   const activityTypes = [...new Set(allActivities.map(a => a.type))]
-  const users = [...new Set(allActivities.map(a => a.user))]
+  const users = [...new Set(allActivities.map(a => typeof a.user === 'string' ? a.user : a.user?.name || 'Unknown User'))]
 
   const activityStats = {
     total: allActivities.length,
@@ -335,10 +336,10 @@ export function ActivityView({ project }: ActivityViewProps) {
                 <div className="flex items-center space-x-2 mb-1">
                   <Avatar className="w-6 h-6">
                     <AvatarFallback className="text-xs bg-[#007BFF] text-white">
-                      {activity.user.split(' ').map((n: string) => n[0]).join('')}
+                      {(typeof activity.user === 'string' ? activity.user : activity.user?.name || 'Unknown User').split(' ').map((n: string) => n[0]).join('')}
                     </AvatarFallback>
                   </Avatar>
-                  <span className="font-medium text-sm">{activity.user}</span>
+                  <span className="font-medium text-sm">{typeof activity.user === 'string' ? activity.user : activity.user?.name || 'Unknown User'}</span>
                   <span className="text-sm text-muted-foreground">{activity.action}</span>
                   <span className="font-medium text-sm">{activity.target}</span>
                   <span className="text-xs text-muted-foreground ml-auto">{activity.timestamp}</span>
@@ -395,7 +396,7 @@ export function ActivityView({ project }: ActivityViewProps) {
           <h3 className="text-lg font-semibold mb-4">Most Active Users</h3>
           <div className="space-y-3">
             {users.map((user) => {
-              const count = allActivities.filter(a => a.user === user).length
+              const count = allActivities.filter(a => (typeof a.user === 'string' ? a.user : a.user?.name || 'Unknown User') === user).length
               return (
                 <div key={user} className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">

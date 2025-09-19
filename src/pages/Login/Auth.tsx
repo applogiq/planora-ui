@@ -314,7 +314,7 @@ export function Auth({ onLogin }: AuthProps) {
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  setFormData({ email: 'admin@planora.com', password: 'admin123' })
+                  setFormData({ email: 'superadmin@planora.com', password: 'super123' })
                   setTimeout(() => {
                     const form = document.querySelector('form') as HTMLFormElement
                     form?.requestSubmit()
@@ -328,7 +328,7 @@ export function Auth({ onLogin }: AuthProps) {
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  setFormData({ email: 'manager@planora.com', password: 'admin123' })
+                  setFormData({ email: 'admin@planora.com', password: 'admin123' })
                   setTimeout(() => {
                     const form = document.querySelector('form') as HTMLFormElement
                     form?.requestSubmit()
@@ -344,7 +344,7 @@ export function Auth({ onLogin }: AuthProps) {
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  setFormData({ email: 'pm@planora.com', password: 'pm123' })
+                  setFormData({ email: 'john.doe@planora.com', password: 'password123' })
                   setTimeout(() => {
                     const form = document.querySelector('form') as HTMLFormElement
                     form?.requestSubmit()
@@ -358,7 +358,7 @@ export function Auth({ onLogin }: AuthProps) {
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  setFormData({ email: 'dev@planora.com', password: 'dev123' })
+                  setFormData({ email: 'jane.smith@planora.com', password: 'password123' })
                   setTimeout(() => {
                     const form = document.querySelector('form') as HTMLFormElement
                     form?.requestSubmit()
@@ -374,7 +374,7 @@ export function Auth({ onLogin }: AuthProps) {
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  setFormData({ email: 'tester@planora.com', password: 'test123' })
+                  setFormData({ email: 'bob.wilson@planora.com', password: 'password123' })
                   setTimeout(() => {
                     const form = document.querySelector('form') as HTMLFormElement
                     form?.requestSubmit()

@@ -39,48 +39,6 @@ import {
 import { toast } from 'sonner@2.0.3'
 import { UserManagement } from './user-management'
 
-const mockUsers = [
-  {
-    id: 'USER-001',
-    name: 'Admin User',
-    email: 'admin@planora.com',
-    role: 'super_admin',
-    status: 'active',
-    lastLogin: '2025-01-14 09:30',
-    projects: 12,
-    tasksCompleted: 156
-  },
-  {
-    id: 'USER-002',
-    name: 'Project Manager',
-    email: 'pm@planora.com',
-    role: 'project_manager',
-    status: 'active',
-    lastLogin: '2025-01-14 08:15',
-    projects: 8,
-    tasksCompleted: 89
-  },
-  {
-    id: 'USER-003',
-    name: 'Rajesh Kumar',
-    email: 'dev@planora.com',
-    role: 'developer',
-    status: 'active',
-    lastLogin: '2025-01-13 17:45',
-    projects: 3,
-    tasksCompleted: 67
-  },
-  {
-    id: 'USER-004',
-    name: 'Praveen Kumar',
-    email: 'tester@planora.com',
-    role: 'tester',
-    status: 'active',
-    lastLogin: '2025-01-13 16:20',
-    projects: 3,
-    tasksCompleted: 45
-  }
-]
 
 const mockRoles = [
   {
