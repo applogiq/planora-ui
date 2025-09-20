@@ -1,0 +1,6 @@
+export { AgileMethodologyView } from './AgileMethodologyView'
+export { ScrumMethodologyView } from './ScrumMethodologyView'
+export { WaterfallMethodologyView } from './WaterfallMethodologyView'
+export { KanbanMethodologyView } from './KanbanMethodologyView'
+export { DevOpsMethodologyView } from './DevOpsMethodologyView'
+export { LeanMethodologyView } from './LeanMethodologyView'

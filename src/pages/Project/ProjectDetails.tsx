@@ -68,6 +68,7 @@ import { ActivityView } from './ActivityView'
 import { TaskModal } from './TaskModal'
 import { ProjectEditModal } from './ProjectEditModal'
 import { ProjectSettings } from './ProjectSettings'
+import { MethodologyViewRouter } from './MethodologyViews/MethodologyViewRouter'
 import { useTasks } from '../../hooks/useTasks'
 import { useProjectMembers } from '../../hooks/useProjectMembers'
 import { CreateTaskRequest } from '../../services/taskApi'
@@ -420,10 +421,14 @@ export function ProjectDetails({ projectId, onBack, user }: ProjectDetailsProps)
 
       {/* Main Content Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="dashboard" className="flex items-center space-x-2">
             <BarChart3 className="w-4 h-4" />
             <span>Dashboard</span>
+          </TabsTrigger>
+          <TabsTrigger value="methodology" className="flex items-center space-x-2">
+            <Zap className="w-4 h-4" />
+            <span>Methodology</span>
           </TabsTrigger>
           <TabsTrigger value="tasks" className="flex items-center space-x-2">
             <CheckCircle className="w-4 h-4" />
@@ -449,6 +454,15 @@ export function ProjectDetails({ projectId, onBack, user }: ProjectDetailsProps)
 
         <TabsContent value="dashboard">
           <ProjectDashboard project={displayProject} onTaskView={handleTaskView} />
+        </TabsContent>
+
+        <TabsContent value="methodology">
+          <MethodologyViewRouter
+            methodology={displayProject.methodology}
+            project={displayProject}
+            onTaskView={handleTaskView}
+            onTaskCreate={handleTaskCreate}
+          />
         </TabsContent>
 
         <TabsContent value="tasks">

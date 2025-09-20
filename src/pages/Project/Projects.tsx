@@ -6,6 +6,7 @@ import { Progress } from '../../components/ui/progress'
 import { Avatar, AvatarFallback } from '../../components/ui/avatar'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../../components/ui/dialog'
 import { Input } from '../../components/ui/input'
 import { Textarea } from '../../components/ui/textarea'
@@ -976,9 +977,27 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-6">
-            {/* General Tab Content */}
-            <div className="space-y-6">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger value="general" className="flex items-center space-x-2">
+                <FileText className="w-4 h-4" />
+                <span>General</span>
+              </TabsTrigger>
+              <TabsTrigger value="team" className="flex items-center space-x-2">
+                <Users className="w-4 h-4" />
+                <span>Team</span>
+              </TabsTrigger>
+              <TabsTrigger value="timeline" className="flex items-center space-x-2">
+                <CalendarDays className="w-4 h-4" />
+                <span>Timeline & Budget</span>
+              </TabsTrigger>
+              <TabsTrigger value="settings" className="flex items-center space-x-2">
+                <Settings className="w-4 h-4" />
+                <span>Settings</span>
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="general" className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-4">
                   <div>
@@ -1006,7 +1025,7 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
 
                   <div>
                     <Label htmlFor="customer">Customer</Label>
-                    <Select value={newProject.customer} onValueChange={(value) => handleInputChange('customer', value)}>
+                    <Select value={newProject.customer} onValueChange={(value: string) => handleInputChange('customer', value)}>
                       <SelectTrigger className="mt-1">
                         <SelectValue placeholder="Select customer" />
                       </SelectTrigger>
@@ -1040,7 +1059,7 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
                 <div className="space-y-4">
                   <div>
                     <Label htmlFor="status">Status</Label>
-                    <Select value={newProject.status} onValueChange={(value) => handleInputChange('status', value)}>
+                    <Select value={newProject.status} onValueChange={(value: string) => handleInputChange('status', value)}>
                       <SelectTrigger className="mt-1">
                         <SelectValue placeholder="Select status" />
                       </SelectTrigger>
@@ -1059,7 +1078,7 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
 
                   <div>
                     <Label htmlFor="priority">Priority</Label>
-                    <Select value={newProject.priority} onValueChange={(value) => handleInputChange('priority', value)}>
+                    <Select value={newProject.priority} onValueChange={(value: string) => handleInputChange('priority', value)}>
                       <SelectTrigger className="mt-1">
                         <SelectValue placeholder="Select priority" />
                       </SelectTrigger>
@@ -1078,7 +1097,7 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
 
                   <div>
                     <Label htmlFor="methodology">Methodology</Label>
-                    <Select value={newProject.methodology} onValueChange={(value) => handleInputChange('methodology', value)}>
+                    <Select value={newProject.methodology} onValueChange={(value: string) => handleInputChange('methodology', value)}>
                       <SelectTrigger className="mt-1">
                         <SelectValue placeholder="Select methodology" />
                       </SelectTrigger>
@@ -1094,7 +1113,7 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
 
                   <div>
                     <Label htmlFor="type">Project Type</Label>
-                    <Select value={newProject.type} onValueChange={(value) => handleInputChange('type', value)}>
+                    <Select value={newProject.type} onValueChange={(value: string) => handleInputChange('type', value)}>
                       <SelectTrigger className="mt-1">
                         <SelectValue placeholder="Select project type" />
                       </SelectTrigger>
@@ -1110,7 +1129,7 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
 
                   <div>
                     <Label htmlFor="owner">Project Owner</Label>
-                    <Select value={newProject.owner} onValueChange={(value) => handleInputChange('owner', value)}>
+                    <Select value={newProject.owner} onValueChange={(value: string) => handleInputChange('owner', value)}>
                       <SelectTrigger className="mt-1">
                         <SelectValue placeholder="Select project owner" />
                       </SelectTrigger>
@@ -1187,10 +1206,9 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
                   </Button>
                 </div>
               </div>
-            </div>
+            </TabsContent>
 
-            {/* Team Tab Content */}
-            <div className="space-y-6">
+            <TabsContent value="team" className="space-y-6">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <Card className="p-4">
                   <h3 className="font-medium mb-4 flex items-center space-x-2">
@@ -1267,10 +1285,9 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
                   </div>
                 </Card>
               </div>
-            </div>
+            </TabsContent>
 
-            {/* Timeline Tab Content */}
-            <div className="space-y-6">
+            <TabsContent value="timeline" className="space-y-6">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <Card className="p-4">
                   <h3 className="font-medium mb-4 flex items-center space-x-2">
@@ -1297,7 +1314,7 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
                           <CalendarComponent
                             mode="single"
                             selected={newProject.startDate}
-                            onSelect={(date) => {
+                            onSelect={(date: Date | undefined) => {
                               if (date) {
                                 handleInputChange('startDate', date)
                                 setShowStartDatePicker(false)
@@ -1328,14 +1345,14 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
                           <CalendarComponent
                             mode="single"
                             selected={newProject.dueDate}
-                            onSelect={(date) => {
+                            onSelect={(date: Date | undefined) => {
                               if (date) {
                                 handleInputChange('dueDate', date)
                                 setShowDueDatePicker(false)
                               }
                             }}
                             initialFocus
-                            disabled={(date) => date <= newProject.startDate}
+                            disabled={(date: Date) => date <= newProject.startDate}
                           />
                         </PopoverContent>
                       </Popover>
@@ -1372,10 +1389,9 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
                   </div>
                 </Card>
               </div>
-            </div>
+            </TabsContent>
 
-            {/* Settings Tab Content */}
-            <div className="space-y-6">
+            <TabsContent value="settings" className="space-y-6">
               <Card className="p-4">
                 <h3 className="font-medium mb-4 flex items-center space-x-2">
                   <Settings className="w-4 h-4" />
@@ -1389,7 +1405,7 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
                     </div>
                     <Switch
                       checked={newProject.isPublic}
-                      onCheckedChange={(checked) => handleInputChange('isPublic', checked)}
+                      onCheckedChange={(checked: boolean) => handleInputChange('isPublic', checked)}
                     />
                   </div>
 
@@ -1402,7 +1418,7 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
                     </div>
                     <Switch
                       checked={newProject.notifications}
-                      onCheckedChange={(checked) => handleInputChange('notifications', checked)}
+                      onCheckedChange={(checked: boolean) => handleInputChange('notifications', checked)}
                     />
                   </div>
 
@@ -1415,13 +1431,13 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
                     </div>
                     <Switch
                       checked={newProject.autoArchive}
-                      onCheckedChange={(checked) => handleInputChange('autoArchive', checked)}
+                      onCheckedChange={(checked: boolean) => handleInputChange('autoArchive', checked)}
                     />
                   </div>
                 </div>
               </Card>
-            </div>
-          </div>
+            </TabsContent>
+          </Tabs>
 
           <div className="flex justify-end space-x-3 pt-6 border-t">
             <Button variant="outline" onClick={() => setShowCreateProject(false)} disabled={isLoading}>

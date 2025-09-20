@@ -15,6 +15,12 @@ export * from './users';
 // Reports and Time Tracking
 export * from './reports';
 
+// Project-specific mock data
+export * from './methodology';
+export * from './activities';
+export * from './project-files';
+export * from './time-tracking';
+
 // Common data types and utilities
 export interface SearchResult {
   id: string;
@@ -120,5 +126,9 @@ export default {
   tasks: () => import('./tasks'),
   customers: () => import('./customers'),
   users: () => import('./users'),
-  reports: () => import('./reports')
+  reports: () => import('./reports'),
+  methodology: () => import('./methodology'),
+  activities: () => import('./activities'),
+  projectFiles: () => import('./project-files'),
+  timeTracking: () => import('./time-tracking')
 };
