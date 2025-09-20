@@ -55,7 +55,6 @@ import {
   Zap,
   BarChart3,
   Calendar as CalendarIcon,
-  CheckCircle,
   PlayCircle,
   PauseCircle,
   Grid3X3,
@@ -64,13 +63,7 @@ import {
   Trash2,
   Save,
   DollarSign,
-  Calendar as CalendarDays,
-  User,
-  Mail,
-  Phone,
-  MapPin,
-  Building,
-  Globe
+  Calendar as CalendarDays
 } from 'lucide-react'
 
 // Add computed properties for UI display

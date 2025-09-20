@@ -43,6 +43,20 @@ export interface UsersQueryParams {
   is_active?: boolean;
 }
 
+export interface CreateUserRequest {
+  name: string;
+  email: string;
+  role_id: string;
+  avatar: string;
+  avatar_file?: File;
+  is_active: boolean;
+  department: string;
+  skills: string[];
+  phone: string;
+  timezone: string;
+  password: string;
+}
+
 export interface RoleCount {
   role_name: string;
   count: number;
@@ -152,7 +166,7 @@ export class UserApiService {
     return this.makeRequest<User>(`/api/v1/users/${id}`);
   }
 
-  async createUser(userData: Omit<User, 'id' | 'created_at' | 'updated_at' | 'last_login'>): Promise<User> {
+  async createUser(userData: CreateUserRequest): Promise<User> {
     return this.makeRequest<User>('/api/v1/users/', {
       method: 'POST',
       body: JSON.stringify(userData),

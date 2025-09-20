@@ -1021,7 +1021,6 @@ export function Tasks({ user }: TasksProps) {
       createdBy: currentUser.id
     }
 
-    console.log('Creating sprint:', sprint)
     toast.success(`Sprint "${newSprint.name}" created successfully`)
     
     // Reset form
@@ -1058,7 +1057,6 @@ export function Tasks({ user }: TasksProps) {
       assigneeName: teamMembers.find(m => m.id === newEpic.assigneeId)?.name || ''
     }
 
-    console.log('Creating epic:', epic)
     toast.success(`Epic "${newEpic.title}" created successfully`)
     
     // Reset form
@@ -1119,7 +1117,6 @@ export function Tasks({ user }: TasksProps) {
       reporterName: teamMembers.find(m => m.id === newBacklogItem.reporterId)?.name || ''
     }
 
-    console.log('Creating backlog item:', backlogItem)
     toast.success(`${newBacklogItem.type} "${newBacklogItem.title}" created successfully`)
     
     // Reset form

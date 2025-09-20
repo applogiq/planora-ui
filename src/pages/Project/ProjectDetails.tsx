@@ -234,7 +234,6 @@ export function ProjectDetails({ projectId, onBack, user }: ProjectDetailsProps)
   }
 
   const handleProjectSave = (updatedProjectData: any) => {
-    console.log('Saving project:', updatedProjectData)
     setShowProjectEditModal(false)
     // The ProjectEditModal will handle the API call via Redux
   }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
@@ -55,24 +55,12 @@ import {
   Target,
   Eye,
   Edit3,
-  CoffeeIcon as Coffee,
   Zap,
   Award,
-  TrendingDown,
-  Calendar as CalendarCheck,
-  Clock3,
-  CheckSquare,
   AlertTriangle,
-  BookOpen,
   Send,
-  ArrowRight,
   MapPin,
-  Smartphone,
-  Laptop,
-  Globe,
   Star,
-  ThumbsUp,
-  MessageSquare,
   MoreHorizontal
 } from 'lucide-react'
 import { toast } from 'sonner@2.0.3'

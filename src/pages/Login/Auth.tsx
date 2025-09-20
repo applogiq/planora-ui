@@ -83,8 +83,6 @@ export function Auth({ onLogin }: AuthProps) {
 
     try {
       // API authentication
-      console.log('Login attempt:', { email: formData.email })
-
       const loginResponse = await authApiService.login({
         email: formData.email,
         password: formData.password
@@ -116,24 +114,10 @@ export function Auth({ onLogin }: AuthProps) {
       // Store user profile
       authApiService.setUserProfile(userProfile)
 
-      console.log('Audit Log: User login successful', {
-        userId: user.id,
-        email: user.email,
-        role: user.role,
-        timestamp: new Date().toISOString(),
-        rememberMe
-      })
-
       toast.success(`Welcome back, ${user.name}!`)
       onLogin(user)
 
     } catch (error) {
-      console.log('Audit Log: Failed login attempt', {
-        email: formData.email,
-        timestamp: new Date().toISOString(),
-        reason: error instanceof Error ? error.message : 'Unknown error'
-      })
-
       toast.error(error instanceof Error ? error.message : 'Login failed. Please try again.')
     } finally {
       setLoading(false)

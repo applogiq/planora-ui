@@ -188,8 +188,6 @@ export function ProjectEditModal({ isOpen, onClose, project, onSave, user }: Pro
         // Map team_members to team array with proper structure and preserve original IDs
         team: project.team_members ?
               project.team_members.map((memberIdOrName: string, index: number) => {
-                console.log('Processing team member:', memberIdOrName, 'Type:', typeof memberIdOrName)
-
                 // First, try to find by ID in API data (if team_members contains IDs)
                 const apiMember = projectMembers?.items?.find(m => m.id === memberIdOrName)
                 if (apiMember) {

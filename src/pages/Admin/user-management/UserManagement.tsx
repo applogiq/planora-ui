@@ -34,7 +34,8 @@ import {
 } from 'lucide-react'
 import { userRoles } from '../../Login/Auth'
 import { toast } from 'sonner@2.0.3'
-import { User } from '../../../services/userApi'
+import { User, CreateUserRequest } from '../../../services/userApi'
+import { authApiService } from '../../../services/authApi'
 import { RootState, AppDispatch } from '../../../store'
 import { fetchUserSummary } from '../../../store/slices/userSlice'
 
@@ -111,7 +112,6 @@ export function UserManagement() {
   // Check if current user has permission to edit users
   const getCurrentUserPermissions = () => {
     try {
-      const authApiService = require('../../../services/authApi').authApiService
       const currentUser = authApiService.getUserProfile()
 
       if (!currentUser) return { canEdit: false, canCreate: false }
@@ -151,20 +151,128 @@ export function UserManagement() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [showCreateUser, setShowCreateUser] = useState(false)
   const [showPermissionDialog, setShowPermissionDialog] = useState(false)
-  const [newUser, setNewUser] = useState({
+  const [newUser, setNewUser] = useState<CreateUserRequest>({
     name: '',
     email: '',
     role_id: 'role_developer',
     avatar: '',
+    avatar_file: undefined,
     is_active: true,
     department: '',
-    skills: [] as string[],
+    skills: [],
     phone: '',
     timezone: 'UTC',
     password: ''
   })
   const [editingUser, setEditingUser] = useState<User | null>(null)
   const [showEditUser, setShowEditUser] = useState(false)
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
+
+  // Validation states
+  const [createUserErrors, setCreateUserErrors] = useState({
+    email: '',
+    phone: '',
+    avatar_file: ''
+  })
+  const [editUserErrors, setEditUserErrors] = useState({
+    email: '',
+    phone: ''
+  })
+
+  // Validation functions
+  const validateEmail = (email: string): string => {
+    if (!email) return 'Email is required'
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email)) return 'Please enter a valid email address'
+    return ''
+  }
+
+  const validatePhone = (phone: string): string => {
+    if (!phone) return '' // Phone is optional
+    const phoneRegex = /^[\+]?[1-9][\d]{0,15}$/
+    if (!phoneRegex.test(phone.replace(/[\s\-\(\)]/g, ''))) {
+      return 'Please enter a valid phone number'
+    }
+    return ''
+  }
+
+  const validateAvatarFile = (file: File | undefined): string => {
+    if (!file) return '' // File is optional
+
+    // Check file type
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png']
+    if (!allowedTypes.includes(file.type)) {
+      return 'Please upload a JPEG or PNG image file'
+    }
+
+    // Check file size (2MB = 2 * 1024 * 1024 bytes)
+    const maxSize = 2 * 1024 * 1024
+    if (file.size > maxSize) {
+      return 'File size must be less than 2MB'
+    }
+
+    return ''
+  }
+
+  const validateCreateUserForm = (): boolean => {
+    const emailError = validateEmail(newUser.email)
+    const phoneError = validatePhone(newUser.phone)
+    const avatarFileError = validateAvatarFile(newUser.avatar_file)
+
+    setCreateUserErrors({
+      email: emailError,
+      phone: phoneError,
+      avatar_file: avatarFileError
+    })
+
+    return !emailError && !phoneError && !avatarFileError
+  }
+
+  // Handle avatar file selection
+  const handleAvatarFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+
+    if (file) {
+      // Validate file immediately
+      const error = validateAvatarFile(file)
+      setCreateUserErrors({ ...createUserErrors, avatar_file: error })
+
+      if (!error) {
+        // Create preview URL
+        const reader = new FileReader()
+        reader.onload = (e) => {
+          setAvatarPreview(e.target?.result as string)
+        }
+        reader.readAsDataURL(file)
+
+        // Update user state
+        setNewUser({ ...newUser, avatar_file: file })
+      } else {
+        // Clear preview and file if validation fails
+        setAvatarPreview(null)
+        setNewUser({ ...newUser, avatar_file: undefined })
+      }
+    } else {
+      // Clear preview and file if no file selected
+      setAvatarPreview(null)
+      setNewUser({ ...newUser, avatar_file: undefined })
+      setCreateUserErrors({ ...createUserErrors, avatar_file: '' })
+    }
+  }
+
+  const validateEditUserForm = (): boolean => {
+    if (!editingUser) return false
+
+    const emailError = validateEmail(editingUser.email)
+    const phoneError = validatePhone(editingUser.phone)
+
+    setEditUserErrors({
+      email: emailError,
+      phone: phoneError
+    })
+
+    return !emailError && !phoneError
+  }
 
   // Fetch users function
   const fetchUsers = async (params: { page?: number; per_page?: number; search?: string; role_id?: string } = {}) => {
@@ -226,20 +334,21 @@ export function UserManagement() {
   const filteredAuditLogs = auditLogs.slice(0, 10) // Show recent logs
 
   const handleCreateUser = async () => {
+    // Validate form before submission
+    if (!validateCreateUserForm()) {
+      toast.error('Please fix the validation errors before submitting')
+      return
+    }
+
     try {
       const userApiService = (await import('../../../services/userApi')).userApiService
-      await userApiService.createUser({
-        name: newUser.name,
-        email: newUser.email,
-        role_id: newUser.role_id,
-        avatar: newUser.avatar || newUser.name.split(' ').map(n => n[0]).join(''),
-        is_active: newUser.is_active,
-        department: newUser.department,
-        skills: newUser.skills,
-        phone: newUser.phone,
-        timezone: newUser.timezone,
-        password: newUser.password
-      })
+
+      const userData: CreateUserRequest = {
+        ...newUser,
+        avatar: newUser.avatar || newUser.name.split(' ').map(n => n[0]).join('')
+      }
+
+      await userApiService.createUser(userData)
 
       // Refresh the users list and summary
       await fetchUsers()
@@ -250,6 +359,7 @@ export function UserManagement() {
         email: '',
         role_id: 'role_developer',
         avatar: '',
+        avatar_file: undefined,
         is_active: true,
         department: '',
         skills: [],
@@ -257,6 +367,8 @@ export function UserManagement() {
         timezone: 'UTC',
         password: ''
       })
+      setCreateUserErrors({ email: '', phone: '', avatar_file: '' })
+      setAvatarPreview(null)
       setShowCreateUser(false)
 
       toast.success('User created successfully')
@@ -269,8 +381,13 @@ export function UserManagement() {
   const handleEditUser = async () => {
     if (!editingUser) return
 
+    // Validate form before submission
+    if (!validateEditUserForm()) {
+      toast.error('Please fix the validation errors before submitting')
+      return
+    }
+
     try {
-      console.log('Attempting to update user:', editingUser.id, editingUser)
       const userApiService = (await import('../../../services/userApi')).userApiService
 
       const updateData = {
@@ -285,8 +402,6 @@ export function UserManagement() {
         timezone: editingUser.timezone
       }
 
-      console.log('Update data:', updateData)
-
       await userApiService.updateUser(editingUser.id, updateData)
 
       // Refresh the users list and summary
@@ -294,6 +409,7 @@ export function UserManagement() {
       dispatch(fetchUserSummary())
 
       setEditingUser(null)
+      setEditUserErrors({ email: '', phone: '' })
       setShowEditUser(false)
 
       toast.success('User updated successfully')
@@ -321,14 +437,6 @@ export function UserManagement() {
 
       // Refresh the users list
       await fetchUsers()
-
-      console.log('Audit Log: User status changed', {
-        userId,
-        email: user?.email,
-        newStatus: !user.is_active ? 'active' : 'inactive',
-        timestamp: new Date().toISOString(),
-        performedBy: 'current_admin'
-      })
 
       toast.success('User status updated')
     } catch (error) {
@@ -428,12 +536,15 @@ export function UserManagement() {
               </select>
             </div>
             <Button
-              onClick={() => setShowCreateUser(true)}
-              className="flex items-center space-x-2"
+              onClick={() => {
+                setShowCreateUser(true)
+                setCreateUserErrors({ email: '', phone: '', avatar_file: '' })
+              }}
               disabled={!userPermissions.canCreate}
+              className="flex items-center space-x-2"
               title={!userPermissions.canCreate ? `You don't have permission to create users. Current role: ${userPermissions.role || 'Unknown'}` : 'Create new user'}
             >
-              <Plus className="h-4 w-4" />
+              <UserPlus className="h-4 w-4" />
               <span>Create User</span>
             </Button>
           </div>
@@ -508,6 +619,7 @@ export function UserManagement() {
                             size="sm"
                             onClick={() => {
                               setEditingUser(user)
+                              setEditUserErrors({ email: '', phone: '' })
                               setShowEditUser(true)
                             }}
                             className="h-8 w-8 p-0"
@@ -763,9 +875,23 @@ export function UserManagement() {
                 id="email"
                 type="email"
                 value={newUser.email}
-                onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                onChange={(e) => {
+                  setNewUser({ ...newUser, email: e.target.value })
+                  // Clear error when user starts typing
+                  if (createUserErrors.email) {
+                    setCreateUserErrors({ ...createUserErrors, email: '' })
+                  }
+                }}
+                onBlur={() => {
+                  const emailError = validateEmail(newUser.email)
+                  setCreateUserErrors({ ...createUserErrors, email: emailError })
+                }}
                 placeholder="john@company.com"
+                className={createUserErrors.email ? 'border-red-500' : ''}
               />
+              {createUserErrors.email && (
+                <p className="text-sm text-red-500">{createUserErrors.email}</p>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Password *</Label>
@@ -782,9 +908,23 @@ export function UserManagement() {
               <Input
                 id="phone"
                 value={newUser.phone}
-                onChange={(e) => setNewUser({ ...newUser, phone: e.target.value })}
+                onChange={(e) => {
+                  setNewUser({ ...newUser, phone: e.target.value })
+                  // Clear error when user starts typing
+                  if (createUserErrors.phone) {
+                    setCreateUserErrors({ ...createUserErrors, phone: '' })
+                  }
+                }}
+                onBlur={() => {
+                  const phoneError = validatePhone(newUser.phone)
+                  setCreateUserErrors({ ...createUserErrors, phone: phoneError })
+                }}
                 placeholder="+1 (555) 123-4567"
+                className={createUserErrors.phone ? 'border-red-500' : ''}
               />
+              {createUserErrors.phone && (
+                <p className="text-sm text-red-500">{createUserErrors.phone}</p>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="department">Department</Label>
@@ -827,13 +967,33 @@ export function UserManagement() {
               </select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="avatar">Avatar URL</Label>
-              <Input
-                id="avatar"
-                value={newUser.avatar}
-                onChange={(e) => setNewUser({ ...newUser, avatar: e.target.value })}
-                placeholder="https://example.com/avatar.jpg"
-              />
+              <Label htmlFor="avatar">Profile Picture</Label>
+              <div className="flex items-start space-x-4">
+                <div className="flex-1">
+                  <Input
+                    id="avatar"
+                    type="file"
+                    accept="image/jpeg,image/jpg,image/png"
+                    onChange={handleAvatarFileChange}
+                    className={createUserErrors.avatar_file ? 'border-red-500' : ''}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Upload a JPEG or PNG image (max 2MB)
+                  </p>
+                  {createUserErrors.avatar_file && (
+                    <p className="text-sm text-red-500 mt-1">{createUserErrors.avatar_file}</p>
+                  )}
+                </div>
+                {avatarPreview && (
+                  <div className="flex-shrink-0">
+                    <img
+                      src={avatarPreview}
+                      alt="Avatar preview"
+                      className="w-16 h-16 rounded-full object-cover border-2 border-gray-200"
+                    />
+                  </div>
+                )}
+              </div>
             </div>
             <div className="space-y-2 md:col-span-2">
               <Label htmlFor="skills">Skills (comma separated)</Label>
@@ -895,18 +1055,46 @@ export function UserManagement() {
                   id="edit-email"
                   type="email"
                   value={editingUser.email}
-                  onChange={(e) => setEditingUser({ ...editingUser, email: e.target.value })}
+                  onChange={(e) => {
+                    setEditingUser({ ...editingUser, email: e.target.value })
+                    // Clear error when user starts typing
+                    if (editUserErrors.email) {
+                      setEditUserErrors({ ...editUserErrors, email: '' })
+                    }
+                  }}
+                  onBlur={() => {
+                    const emailError = validateEmail(editingUser.email)
+                    setEditUserErrors({ ...editUserErrors, email: emailError })
+                  }}
                   placeholder="john@company.com"
+                  className={editUserErrors.email ? 'border-red-500' : ''}
                 />
+                {editUserErrors.email && (
+                  <p className="text-sm text-red-500">{editUserErrors.email}</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit-phone">Phone</Label>
                 <Input
                   id="edit-phone"
                   value={editingUser.phone}
-                  onChange={(e) => setEditingUser({ ...editingUser, phone: e.target.value })}
+                  onChange={(e) => {
+                    setEditingUser({ ...editingUser, phone: e.target.value })
+                    // Clear error when user starts typing
+                    if (editUserErrors.phone) {
+                      setEditUserErrors({ ...editUserErrors, phone: '' })
+                    }
+                  }}
+                  onBlur={() => {
+                    const phoneError = validatePhone(editingUser.phone)
+                    setEditUserErrors({ ...editUserErrors, phone: phoneError })
+                  }}
                   placeholder="+1 (555) 123-4567"
+                  className={editUserErrors.phone ? 'border-red-500' : ''}
                 />
+                {editUserErrors.phone && (
+                  <p className="text-sm text-red-500">{editUserErrors.phone}</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit-department">Department</Label>

@@ -23,8 +23,6 @@ import {
   Settings,
   Layout,
   Plus,
-  Eye,
-  EyeOff,
   Download,
   Filter,
   ArrowUp,
