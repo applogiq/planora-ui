@@ -134,10 +134,6 @@ export class EpicApiService {
     const token = authApiService.getAccessToken();
     const fullUrl = `${this.baseUrl}${endpoint}`;
 
-    console.log('EpicApiService: Making request to:', fullUrl);
-    console.log('EpicApiService: With token:', token ? 'Present' : 'Missing');
-    console.log('EpicApiService: Request options:', options);
-
     const response = await fetch(fullUrl, {
       ...options,
       headers: {
@@ -147,17 +143,12 @@ export class EpicApiService {
       },
     });
 
-    console.log('EpicApiService: Response status:', response.status);
-    console.log('EpicApiService: Response headers:', Object.fromEntries(response.headers.entries()));
-
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('EpicApiService: Error response:', errorText);
       throw new Error(`Epic API Error: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
-    console.log('EpicApiService: Success response:', data);
     return data;
   }
 
@@ -176,8 +167,6 @@ export class EpicApiService {
     }
 
     const url = `/?${params.toString()}`;
-    console.log('EpicApiService: Making request to:', `${this.baseUrl}${url}`);
-    console.log('EpicApiService: With params:', { page, per_page, project_id });
 
     return this.makeRequest<EpicsResponse>(url);
   }

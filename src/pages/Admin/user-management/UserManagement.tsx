@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card'
 import { Button } from '../../../components/ui/button'
@@ -30,84 +30,48 @@ import {
   Activity,
   UserPlus,
   Lock,
-  Unlock
+  Unlock,
+  X
 } from 'lucide-react'
 import { userRoles } from '../../Login/Auth'
 import { toast } from 'sonner@2.0.3'
-import { User, CreateUserRequest } from '../../../services/userApi'
+import { User, CreateUserRequest, userApiService } from '../../../services/userApi';
 import { authApiService } from '../../../services/authApi'
+import { getProfilePictureUrl, getUserInitials } from '../../../utils/profileUtils'
 import { RootState, AppDispatch } from '../../../store'
 import { fetchUserSummary } from '../../../store/slices/userSlice'
+import { masterApiService, Department } from '../../../services/masterApi'
 
 // Initial empty users array - will be populated from API
 const initialUsers: User[] = []
 
 // Mock audit logs
-const auditLogs = [
-  {
-    id: '1',
-    userId: '1',
-    userEmail: 'admin@pms.com',
-    action: 'login',
-    resource: 'authentication',
-    timestamp: '2025-01-13T10:30:00Z',
-    ip: '192.168.1.100',
-    userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
-    details: 'Successful login',
-    status: 'success'
-  },
-  {
-    id: '2',
-    userId: '2',
-    userEmail: 'pm@pms.com',
-    action: 'role_change',
-    resource: 'user_management',
-    timestamp: '2025-01-13T09:15:00Z',
-    ip: '192.168.1.101',
-    details: 'Role changed from developer to project_manager',
-    status: 'success',
-    performedBy: 'admin@pms.com'
-  },
-  {
-    id: '3',
-    userId: '999',
-    userEmail: 'unknown@test.com',
-    action: 'login_failed',
-    resource: 'authentication',
-    timestamp: '2025-01-13T08:45:00Z',
-    ip: '192.168.1.200',
-    details: 'Invalid credentials',
-    status: 'failed'
-  },
-  {
-    id: '4',
-    userId: '3',
-    userEmail: 'dev@pms.com',
-    action: 'permission_grant',
-    resource: 'permissions',
-    timestamp: '2025-01-13T08:00:00Z',
-    ip: '192.168.1.100',
-    details: 'Granted tasks:write permission',
-    status: 'success',
-    performedBy: 'admin@pms.com'
-  },
-  {
-    id: '5',
-    userId: '5',
-    userEmail: 'manager@pms.com',
-    action: 'oauth_login',
-    resource: 'authentication',
-    timestamp: '2025-01-13T11:45:00Z',
-    ip: '192.168.1.150',
-    details: 'Google OAuth login successful',
-    status: 'success',
-    authProvider: 'google'
-  }
-]
+const auditLogs = [];
 
 export function UserManagement() {
+  const instanceId = useRef(Math.random().toString(36).substr(2, 9))
   const dispatch = useDispatch<AppDispatch>()
   const { summary, summaryLoading } = useSelector((state: RootState) => state.users)
+  const isMountedRef = useRef(false)
+
+  // Component mount/unmount tracking
+  useEffect(() => {
+    return () => {}
+  }, [])
+
+  // Fetch departments on component mount
+  useEffect(() => {
+    const loadDepartments = async () => {
+      try {
+        const depts = await masterApiService.getDepartments()
+        setDepartments(depts)
+      } catch (error) {
+        toast.error('Failed to load departments')
+      }
+    }
+
+    loadDepartments()
+  }, [])
 
   // Check if current user has permission to edit users
   const getCurrentUserPermissions = () => {
@@ -129,7 +93,6 @@ export function UserManagement() {
 
       return { canEdit: canEditUsers, canCreate: canCreateUsers, role: userRole.name }
     } catch (error) {
-      console.error('Error checking user permissions:', error)
       return { canEdit: false, canCreate: false }
     }
   }
@@ -155,8 +118,8 @@ export function UserManagement() {
     name: '',
     email: '',
     role_id: 'role_developer',
-    avatar: '',
-    avatar_file: undefined,
+    user_profile: '',
+    user_profile_file: undefined,
     is_active: true,
     department: '',
     skills: [],
@@ -167,12 +130,18 @@ export function UserManagement() {
   const [editingUser, setEditingUser] = useState<User | null>(null)
   const [showEditUser, setShowEditUser] = useState(false)
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
+  const [editUserProfileFile, setEditUserProfileFile] = useState<File | null>(null)
+
+  // Department and skill management states
+  const [departments, setDepartments] = useState<Department[]>([])
+  const [newSkill, setNewSkill] = useState('')
+  const [editNewSkill, setEditNewSkill] = useState('')
 
   // Validation states
   const [createUserErrors, setCreateUserErrors] = useState({
     email: '',
     phone: '',
-    avatar_file: ''
+    user_profile_file: ''
   })
   const [editUserErrors, setEditUserErrors] = useState({
     email: '',
@@ -196,7 +165,7 @@ export function UserManagement() {
     return ''
   }
 
-  const validateAvatarFile = (file: File | undefined): string => {
+  const validateUserProfileFile = (file: File | undefined): string => {
     if (!file) return '' // File is optional
 
     // Check file type
@@ -217,25 +186,25 @@ export function UserManagement() {
   const validateCreateUserForm = (): boolean => {
     const emailError = validateEmail(newUser.email)
     const phoneError = validatePhone(newUser.phone)
-    const avatarFileError = validateAvatarFile(newUser.avatar_file)
+    const userProfileFileError = validateUserProfileFile(newUser.user_profile_file)
 
     setCreateUserErrors({
       email: emailError,
       phone: phoneError,
-      avatar_file: avatarFileError
+      user_profile_file: userProfileFileError
     })
 
-    return !emailError && !phoneError && !avatarFileError
+    return !emailError && !phoneError && !userProfileFileError
   }
 
-  // Handle avatar file selection
-  const handleAvatarFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle user profile file selection
+  const handleUserProfileFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
 
     if (file) {
       // Validate file immediately
-      const error = validateAvatarFile(file)
-      setCreateUserErrors({ ...createUserErrors, avatar_file: error })
+      const error = validateUserProfileFile(file)
+      setCreateUserErrors({ ...createUserErrors, user_profile_file: error })
 
       if (!error) {
         // Create preview URL
@@ -246,17 +215,17 @@ export function UserManagement() {
         reader.readAsDataURL(file)
 
         // Update user state
-        setNewUser({ ...newUser, avatar_file: file })
+        setNewUser({ ...newUser, user_profile_file: file })
       } else {
         // Clear preview and file if validation fails
         setAvatarPreview(null)
-        setNewUser({ ...newUser, avatar_file: undefined })
+        setNewUser({ ...newUser, user_profile_file: undefined })
       }
     } else {
       // Clear preview and file if no file selected
       setAvatarPreview(null)
-      setNewUser({ ...newUser, avatar_file: undefined })
-      setCreateUserErrors({ ...createUserErrors, avatar_file: '' })
+      setNewUser({ ...newUser, user_profile_file: undefined })
+      setCreateUserErrors({ ...createUserErrors, user_profile_file: '' })
     }
   }
 
@@ -274,16 +243,64 @@ export function UserManagement() {
     return !emailError && !phoneError
   }
 
+  // Skill management functions
+  const handleAddSkill = () => {
+    const skillToAdd = newSkill.trim()
+    if (skillToAdd && !newUser.skills.includes(skillToAdd)) {
+      setNewUser(prev => ({
+        ...prev,
+        skills: [...prev.skills, skillToAdd]
+      }))
+      setNewSkill('')
+    } else if (newUser.skills.includes(skillToAdd)) {
+      toast.error('Skill already added')
+    } else if (!skillToAdd) {
+      toast.error('Please enter a skill name')
+    }
+  }
+
+  const handleRemoveSkill = (skill: string) => {
+    setNewUser(prev => ({
+      ...prev,
+      skills: prev.skills.filter(s => s !== skill)
+    }))
+  }
+
+  const handleAddEditSkill = () => {
+    if (!editingUser) return
+
+    const skillToAdd = editNewSkill.trim()
+    if (skillToAdd && !editingUser.skills.includes(skillToAdd)) {
+      setEditingUser(prev => prev ? ({
+        ...prev,
+        skills: [...prev.skills, skillToAdd]
+      }) : null)
+      setEditNewSkill('')
+    } else if (editingUser.skills.includes(skillToAdd)) {
+      toast.error('Skill already added')
+    } else if (!skillToAdd) {
+      toast.error('Please enter a skill name')
+    }
+  }
+
+  const handleRemoveEditSkill = (skill: string) => {
+    if (!editingUser) return
+
+    setEditingUser(prev => prev ? ({
+      ...prev,
+      skills: prev.skills.filter(s => s !== skill)
+    }) : null)
+  }
+
   // Fetch users function
   const fetchUsers = async (params: { page?: number; per_page?: number; search?: string; role_id?: string } = {}) => {
     setLoading(true)
     try {
-      const userApiService = (await import('../../../services/userApi')).userApiService
       const response = await userApiService.getUsers({
         page: params.page || pagination.page,
         per_page: params.per_page || pagination.per_page,
-        search: params.search || searchTerm || undefined,
-        role_id: params.role_id || (selectedRole !== 'all' ? `role_${selectedRole}` : undefined)
+        search: params.search !== undefined ? params.search : (searchTerm || undefined),
+        role_id: params.role_id !== undefined ? params.role_id : (selectedRole !== 'all' ? `role_${selectedRole}` : undefined)
       })
 
       setUsers(response.items || [])
@@ -296,7 +313,6 @@ export function UserManagement() {
         has_prev: response.has_prev
       })
     } catch (error) {
-      console.error('Failed to fetch users:', error)
       toast.error('Failed to load users')
       setUsers([]) // Ensure users is always an array
     } finally {
@@ -304,16 +320,71 @@ export function UserManagement() {
     }
   }
 
-  // Fetch users and summary on component mount
+  // Initial fetch on component mount - only runs once
   useEffect(() => {
-    fetchUsers()
-    dispatch(fetchUserSummary())
+    const initialFetch = async () => {
+      setLoading(true)
+      try {
+        const response = await userApiService.getUsers({
+          page: 1,
+          per_page: 10
+        })
+        setUsers(response.items || [])
+        setPagination({
+          page: response.page,
+          per_page: response.per_page,
+          total: response.total,
+          total_pages: response.total_pages,
+          has_next: response.has_next,
+          has_prev: response.has_prev
+        })
+
+        // Fetch summary
+        dispatch(fetchUserSummary())
+        isMountedRef.current = true
+      } catch (error) {
+        toast.error('Failed to load users')
+        setUsers([])
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    initialFetch()
   }, [dispatch])
 
-  // Debounced search effect
+  // Debounced search effect - only run after component is mounted and when values actually change
   useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchUsers({ page: 1 }) // Reset to page 1 when searching
+    // Skip initial render
+    if (!isMountedRef.current) {
+      return
+    }
+
+    const timer = setTimeout(async () => {
+      setLoading(true)
+      try {
+        const response = await userApiService.getUsers({
+          page: 1,
+          per_page: pagination.per_page,
+          search: searchTerm || undefined,
+          role_id: selectedRole !== 'all' ? `role_${selectedRole}` : undefined
+        })
+
+        setUsers(response.items || [])
+        setPagination({
+          page: response.page,
+          per_page: response.per_page,
+          total: response.total,
+          total_pages: response.total_pages,
+          has_next: response.has_next,
+          has_prev: response.has_prev
+        })
+      } catch (error) {
+        toast.error('Failed to load users')
+        setUsers([])
+      } finally {
+        setLoading(false)
+      }
     }, 500) // 500ms delay
 
     return () => clearTimeout(timer)
@@ -324,11 +395,11 @@ export function UserManagement() {
 
   // Pagination handlers
   const handlePageChange = (newPage: number) => {
-    fetchUsers({ page: newPage })
+    fetchUsers({ page: newPage, search: searchTerm || undefined, role_id: selectedRole !== 'all' ? `role_${selectedRole}` : undefined })
   }
 
   const handlePerPageChange = (perPage: number) => {
-    fetchUsers({ page: 1, per_page: perPage })
+    fetchUsers({ page: 1, per_page: perPage, search: searchTerm || undefined, role_id: selectedRole !== 'all' ? `role_${selectedRole}` : undefined })
   }
 
   const filteredAuditLogs = auditLogs.slice(0, 10) // Show recent logs
@@ -341,25 +412,22 @@ export function UserManagement() {
     }
 
     try {
-      const userApiService = (await import('../../../services/userApi')).userApiService
-
       const userData: CreateUserRequest = {
         ...newUser,
-        avatar: newUser.avatar || newUser.name.split(' ').map(n => n[0]).join('')
+        user_profile: newUser.user_profile || '/public/user-profile/default.png'
       }
 
       await userApiService.createUser(userData)
 
       // Refresh the users list and summary
       await fetchUsers()
-      dispatch(fetchUserSummary())
 
       setNewUser({
         name: '',
         email: '',
         role_id: 'role_developer',
-        avatar: '',
-        avatar_file: undefined,
+        user_profile: '',
+        user_profile_file: undefined,
         is_active: true,
         department: '',
         skills: [],
@@ -367,13 +435,12 @@ export function UserManagement() {
         timezone: 'UTC',
         password: ''
       })
-      setCreateUserErrors({ email: '', phone: '', avatar_file: '' })
+      setCreateUserErrors({ email: '', phone: '', user_profile_file: '' })
       setAvatarPreview(null)
       setShowCreateUser(false)
 
       toast.success('User created successfully')
     } catch (error) {
-      console.error('Failed to create user:', error)
       toast.error('Failed to create user')
     }
   }
@@ -388,13 +455,11 @@ export function UserManagement() {
     }
 
     try {
-      const userApiService = (await import('../../../services/userApi')).userApiService
-
-      const updateData = {
+      // Only include user_profile in updateData if there's a file upload
+      const updateData: Partial<User> = {
         name: editingUser.name,
         email: editingUser.email,
         role_id: editingUser.role_id,
-        avatar: editingUser.avatar,
         is_active: editingUser.is_active,
         department: editingUser.department,
         skills: editingUser.skills,
@@ -402,20 +467,24 @@ export function UserManagement() {
         timezone: editingUser.timezone
       }
 
-      await userApiService.updateUser(editingUser.id, updateData)
+      // Only add user_profile if there's no file being uploaded
+      // (if file is uploaded, it will be handled separately)
+      if (!editUserProfileFile) {
+        // Don't include user_profile at all - let backend keep existing image
+      }
 
-      // Refresh the users list and summary
+      await userApiService.updateUser(editingUser.id, updateData, editUserProfileFile || undefined)
+
+      // Refresh the users list
       await fetchUsers()
-      dispatch(fetchUserSummary())
 
       setEditingUser(null)
       setEditUserErrors({ email: '', phone: '' })
+      setEditUserProfileFile(null)
       setShowEditUser(false)
 
       toast.success('User updated successfully')
     } catch (error: any) {
-      console.error('Failed to update user:', error)
-
       // Check for specific authorization errors
       if (error.message?.includes('Authentication failed') || error.message?.includes('401') || error.message?.includes('403')) {
         toast.error('You do not have permission to edit users. Please contact your administrator.')
@@ -432,7 +501,6 @@ export function UserManagement() {
       const user = users.find(u => u.id === userId)
       if (!user) return
 
-      const userApiService = (await import('../../../services/userApi')).userApiService
       await userApiService.toggleUserStatus(userId, !user.is_active)
 
       // Refresh the users list
@@ -440,7 +508,6 @@ export function UserManagement() {
 
       toast.success('User status updated')
     } catch (error) {
-      console.error('Failed to update user status:', error)
       toast.error('Failed to update user status')
     }
   }
@@ -513,39 +580,37 @@ export function UserManagement() {
 
         <TabsContent value="users" className="space-y-6">
           {/* Search and Filters */}
-          <div className="flex items-center justify-between space-x-4">
-            <div className="flex items-center space-x-4 flex-1">
-              <div className="relative flex-1 max-w-sm">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search users..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-              <select
-                value={selectedRole}
-                onChange={(e) => setSelectedRole(e.target.value)}
-                className="px-3 py-2 border border-border rounded-md bg-background text-foreground"
-              >
-                <option value="all">All Roles</option>
-                {Object.entries(userRoles).map(([key, role]) => (
-                  <option key={key} value={key}>{role.name}</option>
-                ))}
-              </select>
+          <div className="flex items-center justify-end space-x-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search users..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 w-64"
+              />
             </div>
+            <select
+              value={selectedRole}
+              onChange={(e) => setSelectedRole(e.target.value)}
+              className="px-3 py-2 border border-border rounded-md bg-background text-foreground min-w-[150px]"
+            >
+              <option value="all">All Roles</option>
+              {Object.entries(userRoles).map(([key, role]) => (
+                <option key={key} value={key}>{role.name}</option>
+              ))}
+            </select>
             <Button
               onClick={() => {
                 setShowCreateUser(true)
-                setCreateUserErrors({ email: '', phone: '', avatar_file: '' })
+                setCreateUserErrors({ email: '', phone: '', user_profile_file: '' })
               }}
               disabled={!userPermissions.canCreate}
-              className="flex items-center space-x-2"
-              title={!userPermissions.canCreate ? `You don't have permission to create users. Current role: ${userPermissions.role || 'Unknown'}` : 'Create new user'}
+              className="bg-[#28A745] hover:bg-[#218838]"
+              title={!userPermissions.canCreate ? `You don't have permission to Add users. Current role: ${userPermissions.role || 'Unknown'}` : 'Add new user'}
             >
               <UserPlus className="h-4 w-4" />
-              <span>Create User</span>
+              <span>Add User</span>
             </Button>
           </div>
 
@@ -554,7 +619,7 @@ export function UserManagement() {
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
                 <Users className="h-5 w-5" />
-                <span>System Users ({filteredUsers.length})</span>
+                <span>System Users</span>
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -565,7 +630,6 @@ export function UserManagement() {
                     <TableHead>Role</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Last Login</TableHead>
-                    <TableHead>Auth Provider</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -575,13 +639,9 @@ export function UserManagement() {
                       <TableCell>
                         <div className="flex items-center space-x-3">
                           <Avatar className="w-8 h-8">
-                            {user.avatar && user.avatar.startsWith('http') ? (
-                              <AvatarImage src={user.avatar} alt={user.name} />
-                            ) : null}
+                            <AvatarImage src={getProfilePictureUrl(user.user_profile)} alt={user.name} />
                             <AvatarFallback className="bg-[#28A745] text-white text-xs">
-                              {user.avatar && !user.avatar.startsWith('http')
-                                ? user.avatar
-                                : user.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                              {getUserInitials(user.name)}
                             </AvatarFallback>
                           </Avatar>
                           <div>
@@ -608,11 +668,6 @@ export function UserManagement() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="text-xs">
-                          <span className="text-muted-foreground">Email</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
                         <div className="flex items-center space-x-1">
                           <Button
                             variant="ghost"
@@ -620,6 +675,7 @@ export function UserManagement() {
                             onClick={() => {
                               setEditingUser(user)
                               setEditUserErrors({ email: '', phone: '' })
+                              setEditUserProfileFile(null)
                               setShowEditUser(true)
                             }}
                             className="h-8 w-8 p-0"
@@ -821,8 +877,9 @@ export function UserManagement() {
             <div className="space-y-4">
               <div className="flex items-center space-x-3 p-3 bg-muted/20 rounded-lg">
                 <Avatar className="w-10 h-10">
+                  <AvatarImage src={getProfilePictureUrl(selectedUser.user_profile)} alt={selectedUser.name} />
                   <AvatarFallback className="bg-[#28A745] text-white">
-                    {selectedUser.avatar}
+                    {getUserInitials(selectedUser.name)}
                   </AvatarFallback>
                 </Avatar>
                 <div>
@@ -928,12 +985,19 @@ export function UserManagement() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="department">Department</Label>
-              <Input
+              <select
                 id="department"
                 value={newUser.department}
                 onChange={(e) => setNewUser({ ...newUser, department: e.target.value })}
-                placeholder="Engineering"
-              />
+                className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground"
+              >
+                <option value="">Select Department</option>
+                {departments.map((dept) => (
+                  <option key={dept.id} value={dept.name}>
+                    {dept.name}
+                  </option>
+                ))}
+              </select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="timezone">Timezone</Label>
@@ -967,42 +1031,97 @@ export function UserManagement() {
               </select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="avatar">Profile Picture</Label>
+              <Label htmlFor="user_profile">Profile Picture</Label>
               <div className="flex items-start space-x-4">
                 <div className="flex-1">
                   <Input
-                    id="avatar"
+                    id="user_profile"
                     type="file"
                     accept="image/jpeg,image/jpg,image/png"
-                    onChange={handleAvatarFileChange}
-                    className={createUserErrors.avatar_file ? 'border-red-500' : ''}
+                    onChange={handleUserProfileFileChange}
+                    className={createUserErrors.user_profile_file ? 'border-red-500' : ''}
                   />
                   <p className="text-xs text-gray-500 mt-1">
                     Upload a JPEG or PNG image (max 2MB)
                   </p>
-                  {createUserErrors.avatar_file && (
-                    <p className="text-sm text-red-500 mt-1">{createUserErrors.avatar_file}</p>
+                  {createUserErrors.user_profile_file && (
+                    <p className="text-sm text-red-500 mt-1">{createUserErrors.user_profile_file}</p>
                   )}
                 </div>
                 {avatarPreview && (
                   <div className="flex-shrink-0">
                     <img
                       src={avatarPreview}
-                      alt="Avatar preview"
+                      alt="Profile preview"
                       className="w-16 h-16 rounded-full object-cover border-2 border-gray-200"
                     />
                   </div>
                 )}
               </div>
             </div>
-            <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="skills">Skills (comma separated)</Label>
-              <Input
-                id="skills"
-                value={newUser.skills.join(', ')}
-                onChange={(e) => setNewUser({ ...newUser, skills: e.target.value.split(', ').filter(s => s.trim()) })}
-                placeholder="JavaScript, React, Node.js"
-              />
+            <div className="space-y-4 md:col-span-2">
+              <Label className="text-base font-medium">Skills</Label>
+              <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                <div className="space-y-4">
+                  {/* Current skills display */}
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-700 mb-3">Added Skills</h4>
+                    <div className="flex flex-wrap gap-2 min-h-[40px]">
+                      {newUser.skills.length > 0 ? (
+                        newUser.skills.map((skill, index) => (
+                          <Badge
+                            key={index}
+                            variant="secondary"
+                            className="flex items-center space-x-2 px-3 py-1 bg-blue-100 text-blue-800 hover:bg-blue-200 transition-colors"
+                          >
+                            <span className="text-sm">{skill}</span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-4 w-4 p-0 hover:bg-red-500 hover:text-white rounded-full"
+                              onClick={() => handleRemoveSkill(skill)}
+                              title="Remove skill"
+                            >
+                              <X className="w-3 h-3" />
+                            </Button>
+                          </Badge>
+                        ))
+                      ) : (
+                        <p className="text-sm text-gray-500 italic">No skills added yet</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Add new skill */}
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-700 mb-3">Add Skills</h4>
+                    <div className="flex space-x-3">
+                      <Input
+                        value={newSkill}
+                        onChange={(e) => setNewSkill(e.target.value)}
+                        placeholder="Type a skill and press Enter"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault()
+                            handleAddSkill()
+                          }
+                        }}
+                        className="flex-1"
+                      />
+                      <Button
+                        onClick={handleAddSkill}
+                        variant="outline"
+                        size="default"
+                        disabled={!newSkill.trim()}
+                        className="bg-[#28A745] text-white hover:bg-[#218838] border-[#28A745]"
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Add
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
             <div className="flex items-center space-x-2 md:col-span-2">
               <input
@@ -1098,12 +1217,19 @@ export function UserManagement() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit-department">Department</Label>
-                <Input
+                <select
                   id="edit-department"
                   value={editingUser.department}
                   onChange={(e) => setEditingUser({ ...editingUser, department: e.target.value })}
-                  placeholder="Engineering"
-                />
+                  className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground"
+                >
+                  <option value="">Select Department</option>
+                  {departments.map((dept) => (
+                    <option key={dept.id} value={dept.name}>
+                      {dept.name}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit-timezone">Timezone</Label>
@@ -1136,23 +1262,115 @@ export function UserManagement() {
                   ))}
                 </select>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-avatar">Avatar URL</Label>
-                <Input
-                  id="edit-avatar"
-                  value={editingUser.avatar}
-                  onChange={(e) => setEditingUser({ ...editingUser, avatar: e.target.value })}
-                  placeholder="https://example.com/avatar.jpg"
-                />
+              <div className="space-y-4 md:col-span-2">
+                <Label className="text-base font-medium">Profile Picture</Label>
+                <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Current profile picture display */}
+                    <div className="space-y-3">
+                      <h4 className="text-sm font-medium text-gray-700">Current Picture</h4>
+                      <div className="flex items-center space-x-4">
+                        <Avatar className="w-20 h-20 border-2 border-gray-200">
+                          <AvatarImage src={getProfilePictureUrl(editingUser.user_profile)} alt={editingUser.name} />
+                          <AvatarFallback className="bg-[#28A745] text-white text-xl">
+                            {getUserInitials(editingUser.name)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1">
+                          <p className="text-sm text-gray-600 break-all">
+                            {editingUser.user_profile ? editingUser.user_profile.split('/').pop() : 'Default image'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Upload new image option */}
+                    <div className="space-y-3">
+                      <h4 className="text-sm font-medium text-gray-700">Upload New Picture</h4>
+                      <div className="space-y-3">
+                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-gray-400 transition-colors">
+                          <Input
+                            id="edit-user_profile_file"
+                            type="file"
+                            accept="image/jpeg,image/jpg,image/png"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              setEditUserProfileFile(file || null);
+                            }}
+                            className="file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-[#28A745] file:text-white hover:file:bg-[#218838]"
+                          />
+                        </div>
+                        <p className="text-xs text-gray-500">
+                          Supported formats: JPEG, PNG • Max size: 2MB
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="edit-skills">Skills (comma separated)</Label>
-                <Input
-                  id="edit-skills"
-                  value={editingUser.skills.join(', ')}
-                  onChange={(e) => setEditingUser({ ...editingUser, skills: e.target.value.split(', ').filter(s => s.trim()) })}
-                  placeholder="JavaScript, React, Node.js"
-                />
+              <div className="space-y-4 md:col-span-2">
+                <Label className="text-base font-medium">Skills</Label>
+                <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                  <div className="space-y-4">
+                    {/* Current skills display */}
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-700 mb-3">Current Skills</h4>
+                      <div className="flex flex-wrap gap-2 min-h-[40px]">
+                        {editingUser.skills.length > 0 ? (
+                          editingUser.skills.map((skill, index) => (
+                            <Badge
+                              key={index}
+                              variant="secondary"
+                              className="flex items-center space-x-2 px-3 py-1 bg-blue-100 text-blue-800 hover:bg-blue-200 transition-colors"
+                            >
+                              <span className="text-sm">{skill}</span>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-4 w-4 p-0 hover:bg-red-500 hover:text-white rounded-full"
+                                onClick={() => handleRemoveEditSkill(skill)}
+                                title="Remove skill"
+                              >
+                                <X className="w-3 h-3" />
+                              </Button>
+                            </Badge>
+                          ))
+                        ) : (
+                          <p className="text-sm text-gray-500 italic">No skills added yet</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Add new skill */}
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-700 mb-3">Add New Skill</h4>
+                      <div className="flex space-x-3">
+                        <Input
+                          value={editNewSkill}
+                          onChange={(e) => setEditNewSkill(e.target.value)}
+                          placeholder="Type a skill and press Enter"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault()
+                              handleAddEditSkill()
+                            }
+                          }}
+                          className="flex-1"
+                        />
+                        <Button
+                          onClick={handleAddEditSkill}
+                          variant="outline"
+                          size="default"
+                          disabled={!editNewSkill.trim()}
+                          className="bg-[#28A745] text-white hover:bg-[#218838] border-[#28A745]"
+                        >
+                          <Plus className="w-4 h-4 mr-2" />
+                          Add
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
               <div className="flex items-center space-x-2 md:col-span-2">
                 <input

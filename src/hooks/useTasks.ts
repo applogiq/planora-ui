@@ -20,7 +20,6 @@ export function useTasks(options: UseTasksOptions = {}) {
       const response = await taskApiService.getTasks(projectId, page, perPage);
       setData(response);
     } catch (err) {
-      console.error('Error fetching tasks:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch tasks');
     } finally {
       setLoading(false);
@@ -43,7 +42,6 @@ export function useTasks(options: UseTasksOptions = {}) {
 
       return newTask;
     } catch (err) {
-      console.error('Error creating task:', err);
       const errorMessage = err instanceof Error ? err.message : 'Failed to create task';
       setError(errorMessage);
       throw new Error(errorMessage);
@@ -65,7 +63,6 @@ export function useTasks(options: UseTasksOptions = {}) {
 
       return updatedTask;
     } catch (err) {
-      console.error('Error updating task:', err);
       const errorMessage = err instanceof Error ? err.message : 'Failed to update task';
       setError(errorMessage);
       throw new Error(errorMessage);
@@ -86,7 +83,6 @@ export function useTasks(options: UseTasksOptions = {}) {
         }));
       }
     } catch (err) {
-      console.error('Error deleting task:', err);
       const errorMessage = err instanceof Error ? err.message : 'Failed to delete task';
       setError(errorMessage);
       throw new Error(errorMessage);
@@ -108,7 +104,6 @@ export function useTasks(options: UseTasksOptions = {}) {
 
       return updatedTask;
     } catch (err) {
-      console.error('Error updating task status:', err);
       const errorMessage = err instanceof Error ? err.message : 'Failed to update task status';
       setError(errorMessage);
       throw new Error(errorMessage);

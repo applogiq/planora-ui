@@ -14,7 +14,7 @@ export interface UserProfile {
   email: string;
   name: string;
   role_id: string;
-  avatar: string;
+  user_profile: string;
   is_active: boolean;
   department: string;
   skills: string[];
@@ -96,7 +96,7 @@ export class AuthApiService {
           },
         });
       } catch (error) {
-        console.warn('Logout API call failed:', error);
+        // Logout API call failed - ignore error and continue with cleanup
       }
     }
     this.clearTokens();

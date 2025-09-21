@@ -225,7 +225,6 @@ export function ProjectDetails({ projectId, onBack, user }: ProjectDetailsProps)
       setShowTaskModal(false)
       setSelectedTask(null)
     } catch (error) {
-      console.error('Error saving task:', error)
       toast.error(`Failed to ${taskModalMode === 'create' ? 'create' : 'update'} task: ${error}`)
     }
   }

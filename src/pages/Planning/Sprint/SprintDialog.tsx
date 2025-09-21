@@ -78,7 +78,6 @@ export function SprintDialog({
 
       onClose()
     } catch (err) {
-      console.error('Error saving sprint:', err)
       setError(err instanceof Error ? err.message : 'Failed to save sprint')
     } finally {
       setIsLoading(false)

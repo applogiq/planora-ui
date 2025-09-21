@@ -22,7 +22,7 @@ export default function App() {
               email: userProfile.email,
               name: userProfile.name,
               role: userProfile.role_id.startsWith('role_') ? userProfile.role_id.replace('role_', '') : userProfile.role_id,
-              avatar: userProfile.avatar || userProfile.name.split(' ').map(n => n[0]).join(''),
+              user_profile: userProfile.user_profile || '/public/user-profile/default.png',
               lastLogin: userProfile.last_login,
               status: userProfile.is_active ? 'active' : 'inactive',
               department: userProfile.department,
@@ -56,7 +56,6 @@ export default function App() {
           }
         }
       } catch (error) {
-        console.log('Authentication check failed:', error)
         authApiService.clearTokens()
         authApiService.clearUserProfile()
       } finally {
@@ -69,22 +68,15 @@ export default function App() {
 
   const handleLogin = (userData: any) => {
     setUser(userData)
-    console.log('User authenticated:', userData)
   }
 
   const handleLogout = async () => {
     try {
-      console.log('Audit Log: User logout', {
-        userId: user?.id,
-        email: user?.email,
-        timestamp: new Date().toISOString()
-      })
 
       await authApiService.logout()
       setUser(null)
       toast.success('Logged out successfully')
     } catch (error) {
-      console.error('Logout error:', error)
       // Clear local state even if API call fails
       authApiService.clearTokens()
       authApiService.clearUserProfile()

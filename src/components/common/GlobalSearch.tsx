@@ -123,7 +123,6 @@ export function GlobalSearch({ isOpen, onClose, user }: GlobalSearchProps) {
 
   const handleResultClick = (type: string, id: string) => {
     // In a real app, this would navigate to the specific item
-    console.log(`Navigate to ${type}: ${id}`)
     onClose()
   }
 

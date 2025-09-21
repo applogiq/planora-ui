@@ -17,18 +17,14 @@ export const useEpics = (projectId?: string) => {
   // Create a memoized version of fetchEpics to avoid infinite loops
   const fetchEpics = useCallback(async () => {
     try {
-      console.log('useEpics: Starting to fetch epics for project:', projectId);
       setState(prev => ({ ...prev, loading: true, error: null }));
 
       const data = await epicApiService.getEpics(1, 50, projectId);
-      console.log('useEpics: Fetched epics successfully:', data);
       setState({ data, loading: false, error: null });
     } catch (error) {
-      console.error('useEpics: Failed to fetch epics:', error);
 
       // For development, provide mock data if API fails
       if (import.meta.env.DEV) {
-        console.log('useEpics: Using mock data for development');
         const mockData: EpicsResponse = {
           items: [
             {
@@ -74,7 +70,6 @@ export const useEpics = (projectId?: string) => {
   }, [projectId]);
 
   useEffect(() => {
-    console.log('useEpics: Effect triggered with projectId:', projectId);
     fetchEpics();
   }, [fetchEpics]);
 

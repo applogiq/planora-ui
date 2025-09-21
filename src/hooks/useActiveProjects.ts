@@ -14,7 +14,6 @@ export function useActiveProjects() {
       const activeProjects = await projectApiService.getActiveProjectsList();
       setProjects(activeProjects);
     } catch (err) {
-      console.error('Error fetching active projects:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch active projects');
     } finally {
       setLoading(false);

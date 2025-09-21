@@ -5,11 +5,12 @@ import { QuickCreate } from '../common/QuickCreate'
 import { GlobalSearch } from '../common/GlobalSearch'
 import { NotificationCenter } from '../common/NotificationCenter'
 import { Button } from '../ui/button'
-import { Avatar, AvatarFallback } from '../ui/avatar'
+import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar'
 import { Badge } from '../ui/badge'
 import { Search, Plus, Bell, Sun, Moon, LogOut, Settings, User } from 'lucide-react'
 import { toast, Toaster } from 'sonner@2.0.3'
 import logoImage from 'figma:asset/6748e9361ee0546a59b88c4fb2d8d612f9260020.png'
+import { getProfilePictureUrl, getUserInitials } from '../../utils/profileUtils'
 
 interface MainLayoutProps {
   user: any
@@ -211,8 +212,9 @@ export function MainLayout({ user, onLogout }: MainLayoutProps) {
                 className="flex items-center space-x-3 bg-gray-700/40 border-gray-500/40 hover:bg-gray-700/60 text-white hover:text-white backdrop-blur-sm px-3 py-2 h-10"
               >
                 <Avatar className="w-8 h-8 ring-2 ring-green-600/50">
+                  <AvatarImage src={getProfilePictureUrl(user.user_profile)} alt={user.name} />
                   <AvatarFallback className="bg-gradient-to-br from-[#28A745] to-[#20943a] text-white text-sm font-medium">
-                    {user.avatar}
+                    {getUserInitials(user.name)}
                   </AvatarFallback>
                 </Avatar>
                 <div className="hidden md:block text-left">
@@ -228,8 +230,9 @@ export function MainLayout({ user, onLogout }: MainLayoutProps) {
                   <div className="p-6 border-b border-gray-500/50">
                     <div className="flex items-center space-x-4">
                       <Avatar className="w-14 h-14 ring-4 ring-green-600/30">
+                        <AvatarImage src={getProfilePictureUrl(user.user_profile)} alt={user.name} />
                         <AvatarFallback className="bg-gradient-to-br from-[#28A745] to-[#20943a] text-white text-lg font-semibold">
-                          {user.avatar}
+                          {getUserInitials(user.name)}
                         </AvatarFallback>
                       </Avatar>
                       <div className="flex-1">

@@ -12,7 +12,7 @@ export interface User {
   email: string;
   name: string;
   role_id: string;
-  avatar: string;
+  user_profile: string;
   is_active: boolean;
   department: string;
   skills: string[];
@@ -47,8 +47,7 @@ export interface CreateUserRequest {
   name: string;
   email: string;
   role_id: string;
-  avatar: string;
-  avatar_file?: File;
+  user_profile: string | File;
   is_active: boolean;
   department: string;
   skills: string[];
@@ -116,10 +115,63 @@ export class UserApiService {
           }
         } catch (refreshError) {
           // Refresh failed, user needs to login again
-          console.error('Token refresh failed:', refreshError);
           authApiService.clearTokens();
           authApiService.clearUserProfile();
           // Could dispatch a logout action here or redirect to login
+          throw new Error('Authentication failed. Please login again.');
+        }
+      }
+
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || `API Error: ${response.status} ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+
+  private async makeRequestFormData<T>(endpoint: string, options?: RequestInit): Promise<T> {
+    const url = `${API_BASE_URL}${endpoint}`;
+
+    // Get the access token for authorization
+    const token = authApiService.getAccessToken();
+
+    const defaultHeaders: HeadersInit = {
+      ...(token && { Authorization: `Bearer ${token}` })
+      // Note: Don't set Content-Type for FormData - browser will set it automatically with boundary
+    };
+
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        ...defaultHeaders,
+        ...options?.headers,
+      },
+    });
+
+    if (!response.ok) {
+      // Handle unauthorized/forbidden errors
+      if (response.status === 401 || response.status === 403) {
+        // Token might be expired, try to refresh
+        try {
+          await authApiService.refreshToken();
+          // Retry the request with new token
+          const newToken = authApiService.getAccessToken();
+          const retryResponse = await fetch(url, {
+            ...options,
+            headers: {
+              ...defaultHeaders,
+              ...(newToken && { Authorization: `Bearer ${newToken}` }),
+              ...options?.headers,
+            },
+          });
+
+          if (retryResponse.ok) {
+            return retryResponse.json();
+          }
+        } catch (refreshError) {
+          // Refresh failed, user needs to login again
+          authApiService.clearTokens();
+          authApiService.clearUserProfile();
           throw new Error('Authentication failed. Please login again.');
         }
       }
@@ -141,7 +193,7 @@ export class UserApiService {
     if (params.is_active !== undefined) searchParams.append('is_active', params.is_active.toString());
 
     const queryString = searchParams.toString();
-    const endpoint = `/api/v1/users${queryString ? `?${queryString}` : ''}`;
+    const endpoint = `/api/v1/users/${queryString ? `?${queryString}` : ''}`;
 
     const response = await this.makeRequest<UsersResponse>(endpoint);
 
@@ -149,7 +201,6 @@ export class UserApiService {
     if (response && Array.isArray(response.items)) {
       return response;
     } else {
-      console.error('Unexpected API response format:', response);
       return {
         items: [],
         total: 0,
@@ -167,16 +218,65 @@ export class UserApiService {
   }
 
   async createUser(userData: CreateUserRequest): Promise<User> {
-    return this.makeRequest<User>('/api/v1/users/', {
+    const formData = new FormData();
+
+    // Add all user fields to FormData
+    formData.append('name', userData.name);
+    formData.append('email', userData.email);
+    formData.append('role_id', userData.role_id);
+    formData.append('is_active', userData.is_active.toString());
+    formData.append('department', userData.department);
+    formData.append('phone', userData.phone);
+    formData.append('timezone', userData.timezone);
+    formData.append('password', userData.password);
+
+    // Add skills as JSON string or individual items
+    if (userData.skills && userData.skills.length > 0) {
+      formData.append('skills', JSON.stringify(userData.skills));
+    }
+
+    // Add user_profile - handles both file upload and URL string
+    if (userData.user_profile_file) {
+      formData.append('user_profile', userData.user_profile_file);
+    } else if (userData.user_profile) {
+      formData.append('user_profile', userData.user_profile);
+    }
+
+    return this.makeRequestFormData<User>('/api/v1/users/', {
       method: 'POST',
-      body: JSON.stringify(userData),
+      body: formData,
     });
   }
 
-  async updateUser(id: string, userData: Partial<User>): Promise<User> {
-    return this.makeRequest<User>(`/api/v1/users/${id}`, {
+  async updateUser(id: string, userData: Partial<User>, userProfileFile?: File): Promise<User> {
+    // Always use FormData for consistency and to ensure all fields are handled properly
+    const formData = new FormData();
+
+    // Add user fields to FormData - explicitly handle all fields
+    if (userData.name !== undefined) formData.append('name', userData.name);
+    if (userData.email !== undefined) formData.append('email', userData.email);
+    if (userData.role_id !== undefined) formData.append('role_id', userData.role_id);
+    if (userData.is_active !== undefined) {
+      formData.append('is_active', userData.is_active.toString());
+    }
+    if (userData.department !== undefined) formData.append('department', userData.department || '');
+    if (userData.phone !== undefined) formData.append('phone', userData.phone || '');
+    if (userData.timezone !== undefined) formData.append('timezone', userData.timezone);
+
+    // Add skills if provided
+    if (userData.skills !== undefined) {
+      formData.append('skills', JSON.stringify(userData.skills));
+    }
+
+    // Add the profile picture file only if provided
+    if (userProfileFile) {
+      formData.append('user_profile', userProfileFile);
+    }
+    // Note: Don't send user_profile string unless there's an actual file upload
+
+    return this.makeRequestFormData<User>(`/api/v1/users/${id}`, {
       method: 'PUT',
-      body: JSON.stringify(userData),
+      body: formData,
     });
   }
 

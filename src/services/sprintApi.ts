@@ -123,7 +123,6 @@ export class SprintApiService {
     const tokenType = authApiService.getTokenType();
 
     if (!token) {
-      console.warn('No access token available for API request');
       throw new Error('Authentication required. Please login again.');
     }
 
@@ -142,7 +141,6 @@ export class SprintApiService {
 
     if (!response.ok) {
       if (response.status === 401 || response.status === 403) {
-        console.log('Authentication error, attempting to refresh token...');
         try {
           await authApiService.refreshToken();
           const newToken = authApiService.getAccessToken();
@@ -168,7 +166,6 @@ export class SprintApiService {
           const retryErrorData = await retryResponse.json().catch(() => ({}));
           throw new Error(retryErrorData.detail || `API Error after retry: ${retryResponse.status} ${retryResponse.statusText}`);
         } catch (refreshError) {
-          console.error('Token refresh failed:', refreshError);
           authApiService.clearTokens();
           authApiService.clearUserProfile();
           throw new Error('Authentication failed. Please login again.');
@@ -200,7 +197,6 @@ export class SprintApiService {
     if (response && Array.isArray(response.items)) {
       return response;
     } else {
-      console.error('Unexpected API response format:', response);
       return {
         items: [],
         total: 0,

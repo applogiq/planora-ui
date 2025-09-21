@@ -123,7 +123,6 @@ export class ProjectApiService {
     const tokenType = authApiService.getTokenType();
 
     if (!token) {
-      console.warn('No access token available for API request');
       throw new Error('Authentication required. Please login again.');
     }
 
@@ -143,7 +142,6 @@ export class ProjectApiService {
     if (!response.ok) {
       // Handle unauthorized/forbidden errors
       if (response.status === 401 || response.status === 403) {
-        console.log('Authentication error, attempting to refresh token...');
         try {
           await authApiService.refreshToken();
           // Retry the request with new token
@@ -172,7 +170,6 @@ export class ProjectApiService {
           throw new Error(retryErrorData.detail || `API Error after retry: ${retryResponse.status} ${retryResponse.statusText}`);
         } catch (refreshError) {
           // Refresh failed, user needs to login again
-          console.error('Token refresh failed:', refreshError);
           authApiService.clearTokens();
           authApiService.clearUserProfile();
           throw new Error('Authentication failed. Please login again.');
@@ -207,7 +204,6 @@ export class ProjectApiService {
     if (response && Array.isArray(response.items)) {
       return response;
     } else {
-      console.error('Unexpected API response format:', response);
       return {
         items: [],
         total: 0,

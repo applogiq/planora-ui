@@ -64,7 +64,6 @@ export function SprintList({ projects = [], teamMembers = [] }: SprintListProps)
       setSprints(response.items)
       setTotalPages(response.total_pages)
     } catch (err) {
-      console.error('Error loading sprints:', err)
       setError(err instanceof Error ? err.message : 'Failed to load sprints')
     } finally {
       setLoading(false)

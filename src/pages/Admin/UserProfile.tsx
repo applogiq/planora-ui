@@ -5,7 +5,7 @@ import { Badge } from '../../components/ui/badge'
 import { Input } from '../../components/ui/input'
 import { Label } from '../../components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs'
-import { Avatar, AvatarFallback } from '../../components/ui/avatar'
+import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar'
 import { Switch } from '../../components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select'
 import { Textarea } from '../../components/ui/textarea'
@@ -32,6 +32,7 @@ import {
   Target
 } from 'lucide-react'
 import { toast } from 'sonner@2.0.3'
+import { getProfilePictureUrl, getUserInitials } from '../../utils/profileUtils'
 
 interface UserProfileProps {
   user?: any
@@ -185,8 +186,9 @@ export function UserProfile({ user }: UserProfileProps) {
               <div className="flex items-center space-x-4">
                 <div className="relative">
                   <Avatar className="w-20 h-20">
+                    <AvatarImage src={getProfilePictureUrl(user?.user_profile)} alt={user?.name} />
                     <AvatarFallback className="bg-[#007BFF] text-white text-2xl">
-                      {user?.avatar || 'U'}
+                      {getUserInitials(user?.name || 'User')}
                     </AvatarFallback>
                   </Avatar>
                   <Button

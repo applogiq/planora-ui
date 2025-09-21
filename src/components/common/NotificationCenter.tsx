@@ -130,17 +130,14 @@ export function NotificationCenter({ isOpen, onClose, user }: NotificationCenter
 
   const handleMarkAsRead = (notificationId: string) => {
     // In a real app, this would update the notification status
-    console.log('Mark as read:', notificationId)
   }
 
   const handleMarkAllAsRead = () => {
     // In a real app, this would mark all notifications as read
-    console.log('Mark all as read')
   }
 
   const handleDeleteNotification = (notificationId: string) => {
     // In a real app, this would delete the notification
-    console.log('Delete notification:', notificationId)
   }
 
   const toggleNotificationSelection = (notificationId: string) => {

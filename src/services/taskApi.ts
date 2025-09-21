@@ -87,7 +87,6 @@ export class TaskApiService {
     const tokenType = authApiService.getTokenType();
 
     if (!token) {
-      console.warn('No access token available for API request');
       throw new Error('Authentication required. Please login again.');
     }
 
@@ -106,7 +105,6 @@ export class TaskApiService {
 
     if (!response.ok) {
       if (response.status === 401 || response.status === 403) {
-        console.log('Authentication error, attempting to refresh token...');
         try {
           await authApiService.refreshToken();
           const newToken = authApiService.getAccessToken();
@@ -132,7 +130,6 @@ export class TaskApiService {
           const retryErrorData = await retryResponse.json().catch(() => ({}));
           throw new Error(retryErrorData.detail || `API Error after retry: ${retryResponse.status} ${retryResponse.statusText}`);
         } catch (refreshError) {
-          console.error('Token refresh failed:', refreshError);
           authApiService.clearTokens();
           authApiService.clearUserProfile();
           throw new Error('Authentication failed. Please login again.');

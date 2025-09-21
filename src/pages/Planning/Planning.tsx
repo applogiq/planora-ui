@@ -38,7 +38,7 @@ export function Planning() {
         setProjects(projectsResponse.items)
         setTeamMembers(membersResponse.items)
       } catch (error) {
-        console.error('Error loading planning data:', error)
+        // Error is handled silently - could add toast notification here if needed
       } finally {
         setLoading(false)
       }
