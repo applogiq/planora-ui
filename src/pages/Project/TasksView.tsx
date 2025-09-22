@@ -66,7 +66,7 @@ export function TasksView({ project, onTaskCreate, onTaskEdit, onTaskView }: Tas
                          task.description.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesStatus = statusFilter === 'all' || task.status === statusFilter
     const matchesPriority = priorityFilter === 'all' || task.priority === priorityFilter
-    const matchesAssignee = assigneeFilter === 'all' || task.assignee.name === assigneeFilter
+    const matchesAssignee = assigneeFilter === 'all' || task.assignee?.name === assigneeFilter
 
     return matchesSearch && matchesStatus && matchesPriority && matchesAssignee
   })
@@ -116,10 +116,10 @@ export function TasksView({ project, onTaskCreate, onTaskEdit, onTaskView }: Tas
                   <div className="flex items-center space-x-1">
                     <Avatar className="w-5 h-5">
                       <AvatarFallback className="text-xs bg-[#007BFF] text-white">
-                        {task.assignee.avatar}
+                        {task.assignee?.name?.charAt(0) || 'U'}
                       </AvatarFallback>
                     </Avatar>
-                    <span className="text-xs text-muted-foreground">{task.assignee.name}</span>
+                    <span className="text-xs text-muted-foreground">{task.assignee?.name || 'Unassigned'}</span>
                   </div>
                   <div className="flex items-center space-x-1">
                     <Clock className="w-3 h-3 text-muted-foreground" />
@@ -184,7 +184,7 @@ export function TasksView({ project, onTaskCreate, onTaskEdit, onTaskView }: Tas
                   <div className="flex items-center justify-between">
                     <Avatar className="w-5 h-5">
                       <AvatarFallback className="text-xs bg-[#007BFF] text-white">
-                        {task.assignee.avatar}
+                        {task.assignee?.name?.charAt(0) || 'U'}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex items-center space-x-1">
@@ -245,10 +245,10 @@ export function TasksView({ project, onTaskCreate, onTaskEdit, onTaskView }: Tas
                       <div className="flex items-center space-x-2">
                         <Avatar className="w-4 h-4">
                           <AvatarFallback className="text-xs bg-[#007BFF] text-white">
-                            {task.assignee.avatar}
+                            {task.assignee?.name?.charAt(0) || 'U'}
                           </AvatarFallback>
                         </Avatar>
-                        <span className="text-xs text-muted-foreground">{task.assignee.name}</span>
+                        <span className="text-xs text-muted-foreground">{task.assignee?.name || 'Unassigned'}</span>
                         <Badge className={getPriorityColor(task.priority)} size="sm">
                           {task.priority}
                         </Badge>

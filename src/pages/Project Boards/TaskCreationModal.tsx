@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../../components/ui/dialog'
 import { Button } from '../../components/ui/button'
 import { Badge } from '../../components/ui/badge'
@@ -30,15 +30,20 @@ import {
 } from 'lucide-react'
 import { PROJECTS, SPRINTS, TEAM_MEMBERS } from '../../mock-data/tasks'
 import { toast } from 'sonner@2.0.3'
+import { useProjectOwners } from '../../hooks/useProjectOwners'
+import { getAssetUrl } from '../../config/api'
+import { masterApiService, TaskStatus } from '../../services/masterApi'
 
 interface TaskCreationModalProps {
   isOpen: boolean
   onClose: () => void
   onCreate: (taskData: any) => void
   initialData?: any
+  projectStatuses?: any[]
+  projectPriorities?: any[]
 }
 
-export function TaskCreationModal({ isOpen, onClose, onCreate, initialData }: TaskCreationModalProps) {
+export function TaskCreationModal({ isOpen, onClose, onCreate, initialData, projectStatuses = [], projectPriorities = [] }: TaskCreationModalProps) {
   const [taskData, setTaskData] = useState({
     title: '',
     description: '',
@@ -66,6 +71,33 @@ export function TaskCreationModal({ isOpen, onClose, onCreate, initialData }: Ta
   const [newLabel, setNewLabel] = useState('')
   const [newSubtask, setNewSubtask] = useState('')
   const [selectedDate, setSelectedDate] = useState<Date | undefined>()
+  const [attachments, setAttachments] = useState<any[]>([])
+  const [isUploading, setIsUploading] = useState(false)
+  const [taskStatuses, setTaskStatuses] = useState<TaskStatus[]>([])
+  const [loadingStatuses, setLoadingStatuses] = useState(true)
+
+  // Get project owners from API for Reporter selection
+  const { data: projectOwnersData, loading: ownersLoading } = useProjectOwners()
+  const projectOwners = projectOwnersData?.items || []
+
+  useEffect(() => {
+    const fetchTaskStatuses = async () => {
+      try {
+        setLoadingStatuses(true)
+        const statuses = await masterApiService.getTaskStatuses()
+        setTaskStatuses(statuses)
+      } catch (error) {
+        console.error('Failed to fetch task statuses:', error)
+        setTaskStatuses([])
+      } finally {
+        setLoadingStatuses(false)
+      }
+    }
+
+    if (isOpen) {
+      fetchTaskStatuses()
+    }
+  }, [isOpen])
 
   const taskTypes = [
     { value: 'task', label: '⚙️ Task', description: 'General development task' },
@@ -112,9 +144,11 @@ export function TaskCreationModal({ isOpen, onClose, onCreate, initialData }: Ta
     const newTask = {
       id: `TASK-${Date.now()}`,
       ...taskData,
+      type: taskData.type || 'task',
       dueDate: selectedDate?.toISOString().split('T')[0] || '',
       comments: 0,
-      attachments: 0,
+      attachments: attachments.length,
+      attachmentFiles: attachments,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     }
@@ -149,6 +183,8 @@ export function TaskCreationModal({ isOpen, onClose, onCreate, initialData }: Ta
     })
     setSelectedDate(undefined)
     setActiveTab('details')
+    setAttachments([])
+    setIsUploading(false)
   }
 
   const addLabel = () => {
@@ -198,6 +234,10 @@ export function TaskCreationModal({ isOpen, onClose, onCreate, initialData }: Ta
         subtasks: [...prev.subtasks, {
           id: Date.now(),
           title: newSubtask.trim(),
+          description: '',
+          assignee: '',
+          dueDate: '',
+          priority: 'medium',
           completed: false
         }]
       }))
@@ -210,6 +250,67 @@ export function TaskCreationModal({ isOpen, onClose, onCreate, initialData }: Ta
       ...prev,
       subtasks: prev.subtasks.filter(subtask => subtask.id !== id)
     }))
+  }
+
+  const updateSubtask = (id: number, field: string, value: any) => {
+    setTaskData(prev => ({
+      ...prev,
+      subtasks: prev.subtasks.map(subtask =>
+        subtask.id === id ? { ...subtask, [field]: value } : subtask
+      )
+    }))
+  }
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files
+    if (!files || files.length === 0) return
+
+    setIsUploading(true)
+
+    try {
+      for (const file of Array.from(files)) {
+        if (file.size > 10 * 1024 * 1024) {
+          toast.error(`File ${file.name} is too large. Maximum size is 10MB.`)
+          continue
+        }
+
+        const attachment = {
+          id: Date.now() + Math.random(),
+          name: file.name,
+          size: formatFileSize(file.size),
+          type: file.type,
+          url: URL.createObjectURL(file),
+          uploadedAt: new Date().toISOString(),
+          file: file
+        }
+
+        setAttachments(prev => [...prev, attachment])
+      }
+      toast.success(`${files.length} file(s) uploaded successfully`)
+    } catch (error) {
+      toast.error('Failed to upload files')
+    } finally {
+      setIsUploading(false)
+      event.target.value = ''
+    }
+  }
+
+  const removeAttachment = (id: number) => {
+    setAttachments(prev => {
+      const attachment = prev.find(att => att.id === id)
+      if (attachment?.url?.startsWith('blob:')) {
+        URL.revokeObjectURL(attachment.url)
+      }
+      return prev.filter(att => att.id !== id)
+    })
+  }
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return '0 Bytes'
+    const k = 1024
+    const sizes = ['Bytes', 'KB', 'MB', 'GB']
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
   }
 
   const getTypeIcon = (type: string) => {
@@ -295,7 +396,16 @@ export function TaskCreationModal({ isOpen, onClose, onCreate, initialData }: Ta
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {priorities.map(priority => (
+                        {projectPriorities.length > 0 ? projectPriorities.map((priority: any) => (
+                          <SelectItem key={priority.id} value={priority.name}>
+                            <div className="flex items-center space-x-2">
+                              {priority.color && (
+                                <div className={`w-3 h-3 rounded-full`} style={{ backgroundColor: priority.color }} />
+                              )}
+                              <span>{priority.name}</span>
+                            </div>
+                          </SelectItem>
+                        )) : priorities.map(priority => (
                           <SelectItem key={priority.value} value={priority.value}>
                             <div className="flex items-center space-x-2">
                               <div className={`w-3 h-3 rounded-full ${priority.color}`} />
@@ -314,11 +424,40 @@ export function TaskCreationModal({ isOpen, onClose, onCreate, initialData }: Ta
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {statuses.map(status => (
-                          <SelectItem key={status.value} value={status.value}>
-                            {status.label}
+                        {loadingStatuses ? (
+                          <SelectItem value="loading" disabled>
+                            <span className="text-gray-500">Loading statuses...</span>
                           </SelectItem>
-                        ))}
+                        ) : taskStatuses.length > 0 ? (
+                          taskStatuses.map((status: TaskStatus) => (
+                            <SelectItem key={status.id} value={status.name}>
+                              <div className="flex items-center space-x-2">
+                                <div
+                                  className="w-2 h-2 rounded-full"
+                                  style={{ backgroundColor: status.color }}
+                                />
+                                <span>{status.name}</span>
+                              </div>
+                            </SelectItem>
+                          ))
+                        ) : projectStatuses.length > 0 ? (
+                          projectStatuses.map((status: any) => (
+                            <SelectItem key={status.id} value={status.name}>
+                              <div className="flex items-center space-x-2">
+                                {status.color && (
+                                  <div className={`w-2 h-2 rounded-full`} style={{ backgroundColor: status.color }} />
+                                )}
+                                <span>{status.name}</span>
+                              </div>
+                            </SelectItem>
+                          ))
+                        ) : (
+                          statuses.map(status => (
+                            <SelectItem key={status.value} value={status.value}>
+                              {status.label}
+                            </SelectItem>
+                          ))
+                        )}
                       </SelectContent>
                     </Select>
                   </div>
@@ -331,11 +470,13 @@ export function TaskCreationModal({ isOpen, onClose, onCreate, initialData }: Ta
                       <SelectValue placeholder="Select assignee" />
                     </SelectTrigger>
                     <SelectContent>
-                      {TEAM_MEMBERS.slice(1).map(member => (
-                        <SelectItem key={member} value={member}>
+                      {TEAM_MEMBERS.map(member => (
+                        <SelectItem key={member.id || member.name || member} value={member.name || member}>
                           <div className="flex items-center space-x-2">
-                            <User className="w-4 h-4" />
-                            <span>{member}</span>
+                            <div className="w-6 h-6 rounded-full bg-[#007BFF] text-white text-xs flex items-center justify-center">
+                              {typeof member === 'object' ? member.avatar || member.name?.charAt(0) : member.charAt(0)}
+                            </div>
+                            <span>{typeof member === 'object' ? member.name : member}</span>
                           </div>
                         </SelectItem>
                       ))}
@@ -350,14 +491,43 @@ export function TaskCreationModal({ isOpen, onClose, onCreate, initialData }: Ta
                       <SelectValue placeholder="Select reporter" />
                     </SelectTrigger>
                     <SelectContent>
-                      {TEAM_MEMBERS.slice(1).map(member => (
-                        <SelectItem key={member} value={member}>
-                          <div className="flex items-center space-x-2">
-                            <User className="w-4 h-4" />
-                            <span>{member}</span>
-                          </div>
+                      <SelectItem value="">
+                        <span className="text-gray-500">No reporter</span>
+                      </SelectItem>
+                      {ownersLoading ? (
+                        <SelectItem value="loading" disabled>
+                          <span className="text-gray-500">Loading project owners...</span>
                         </SelectItem>
-                      ))}
+                      ) : (
+                        projectOwners.map(owner => (
+                          <SelectItem key={owner.id} value={owner.name}>
+                            <div className="flex items-center space-x-2">
+                              <Avatar className="w-6 h-6">
+                                {owner.user_profile && owner.user_profile !== '/public/user-profile/default.png' ? (
+                                  <img
+                                    src={getAssetUrl(owner.user_profile)}
+                                    alt={owner.name}
+                                    className="w-6 h-6 rounded-full object-cover"
+                                    onError={(e) => {
+                                      e.currentTarget.style.display = 'none';
+                                      e.currentTarget.nextElementSibling!.style.display = 'flex';
+                                    }}
+                                  />
+                                ) : null}
+                                <AvatarFallback className="text-xs bg-[#007BFF] text-white">
+                                  {owner.name?.charAt(0) || 'U'}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="flex flex-col">
+                                <span className="text-sm">{owner.name}</span>
+                                {owner.role?.name && (
+                                  <span className="text-xs text-gray-500">{owner.role.name}</span>
+                                )}
+                              </div>
+                            </div>
+                          </SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
@@ -530,16 +700,173 @@ export function TaskCreationModal({ isOpen, onClose, onCreate, initialData }: Ta
                       <Plus className="w-4 h-4" />
                     </Button>
                   </div>
-                  <div className="space-y-2 mt-2">
+                  <div className="space-y-3 mt-2">
                     {taskData.subtasks.map((subtask) => (
-                      <div key={subtask.id} className="flex items-center justify-between p-2 border rounded">
-                        <span className="text-sm">{subtask.title}</span>
-                        <Button variant="ghost" size="sm" onClick={() => removeSubtask(subtask.id)}>
-                          <X className="w-4 h-4" />
-                        </Button>
-                      </div>
+                      <Card key={subtask.id} className="p-4">
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <Input
+                              placeholder="Subtask title"
+                              value={subtask.title}
+                              onChange={(e) => updateSubtask(subtask.id, 'title', e.target.value)}
+                              className="flex-1 mr-2"
+                            />
+                            <Button variant="ghost" size="sm" onClick={() => removeSubtask(subtask.id)}>
+                              <X className="w-4 h-4" />
+                            </Button>
+                          </div>
+
+                          <Textarea
+                            placeholder="Subtask description"
+                            value={subtask.description}
+                            onChange={(e) => updateSubtask(subtask.id, 'description', e.target.value)}
+                            rows={2}
+                          />
+
+                          <div className="grid grid-cols-3 gap-2">
+                            <div>
+                              <Label className="text-xs">Assignee</Label>
+                              <Select
+                                value={subtask.assignee}
+                                onValueChange={(value) => updateSubtask(subtask.id, 'assignee', value)}
+                              >
+                                <SelectTrigger className="h-8">
+                                  <SelectValue placeholder="Assign" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {TEAM_MEMBERS.map(member => (
+                                    <SelectItem key={member.id || member.name || member} value={member.name || member}>
+                                      <div className="flex items-center space-x-2">
+                                        <div className="w-4 h-4 rounded-full bg-[#007BFF] text-white text-xs flex items-center justify-center">
+                                          {typeof member === 'object' ? member.avatar || member.name?.charAt(0) : member.charAt(0)}
+                                        </div>
+                                        <span className="text-xs">{typeof member === 'object' ? member.name : member}</span>
+                                      </div>
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            <div>
+                              <Label className="text-xs">Priority</Label>
+                              <Select
+                                value={subtask.priority}
+                                onValueChange={(value) => updateSubtask(subtask.id, 'priority', value)}
+                              >
+                                <SelectTrigger className="h-8">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {projectPriorities.length > 0 ? projectPriorities.map((priority: any) => (
+                                    <SelectItem key={priority.id} value={priority.name}>
+                                      <div className="flex items-center space-x-2">
+                                        {priority.color && (
+                                          <div className={`w-2 h-2 rounded-full`} style={{ backgroundColor: priority.color }} />
+                                        )}
+                                        <span className="text-xs">{priority.name}</span>
+                                      </div>
+                                    </SelectItem>
+                                  )) : priorities.map(priority => (
+                                    <SelectItem key={priority.value} value={priority.value}>
+                                      <div className="flex items-center space-x-2">
+                                        <div className={`w-2 h-2 rounded-full ${priority.color}`} />
+                                        <span className="text-xs">{priority.label}</span>
+                                      </div>
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            <div>
+                              <Label className="text-xs">Due Date</Label>
+                              <Input
+                                type="date"
+                                value={subtask.dueDate}
+                                onChange={(e) => updateSubtask(subtask.id, 'dueDate', e.target.value)}
+                                className="h-8 text-xs"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </Card>
                     ))}
                   </div>
+                </div>
+
+                <Separator />
+
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <Label>Attachments</Label>
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="file"
+                        multiple
+                        onChange={handleFileUpload}
+                        className="hidden"
+                        id="file-upload"
+                        accept="image/*,.pdf,.doc,.docx,.txt,.xlsx,.csv"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => document.getElementById('file-upload')?.click()}
+                        disabled={isUploading}
+                      >
+                        <Paperclip className="w-4 h-4 mr-2" />
+                        {isUploading ? 'Uploading...' : 'Add Files'}
+                      </Button>
+                    </div>
+                  </div>
+
+                  {attachments.length > 0 && (
+                    <div className="space-y-2">
+                      {attachments.map((attachment) => (
+                        <div key={attachment.id} className="flex items-center justify-between p-3 border border-border rounded-lg bg-muted/30">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-8 h-8 rounded bg-[#007BFF] text-white flex items-center justify-center">
+                              {attachment.type?.startsWith('image/') ? '🖼️' : '📄'}
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium">{attachment.name}</p>
+                              <p className="text-xs text-muted-foreground">{attachment.size}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            {attachment.type?.startsWith('image/') && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => window.open(attachment.url, '_blank')}
+                              >
+                                <Eye className="w-4 h-4" />
+                              </Button>
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeAttachment(attachment.id)}
+                            >
+                              <X className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {attachments.length === 0 && (
+                    <div className="text-center py-6 border-2 border-dashed border-border rounded-lg">
+                      <Paperclip className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
+                      <p className="text-sm text-muted-foreground">No attachments yet</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Click "Add Files" to upload documents, images, or other files
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex items-center space-x-2">

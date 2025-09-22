@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../../../components/ui/dialog'
 import { Button } from '../../../components/ui/button'
 import { Input } from '../../../components/ui/input'
@@ -6,7 +6,10 @@ import { Label } from '../../../components/ui/label'
 import { Textarea } from '../../../components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select'
 import { Badge } from '../../../components/ui/badge'
+import { Avatar, AvatarFallback } from '../../../components/ui/avatar'
 import { X, Plus, Target, Calendar } from 'lucide-react'
+import { getAssetUrl } from '../../../config/api'
+import { masterApiService, TaskStatus } from '../../../services/masterApi'
 
 interface EpicDialogProps {
   open: boolean
@@ -15,6 +18,7 @@ interface EpicDialogProps {
   setEpic: (epic: any) => void
   projects: any[]
   teamMembers: any[]
+  projectOwners?: any[]
   onSave: () => void
   isEdit: boolean
 }
@@ -26,11 +30,34 @@ export function EpicDialog({
   setEpic,
   projects,
   teamMembers,
+  projectOwners = [],
   onSave,
   isEdit
 }: EpicDialogProps) {
   const [showLabelInput, setShowLabelInput] = useState(false)
   const [newLabel, setNewLabel] = useState('')
+  const [taskStatuses, setTaskStatuses] = useState<TaskStatus[]>([])
+  const [loadingStatuses, setLoadingStatuses] = useState(true)
+
+  useEffect(() => {
+    const fetchTaskStatuses = async () => {
+      try {
+        setLoadingStatuses(true)
+        const statuses = await masterApiService.getTaskStatuses()
+        setTaskStatuses(statuses)
+      } catch (error) {
+        console.error('Failed to fetch task statuses:', error)
+        setTaskStatuses([])
+      } finally {
+        setLoadingStatuses(false)
+      }
+    }
+
+    if (open) {
+      fetchTaskStatuses()
+    }
+  }, [open])
+
 
   const handleAddLabel = () => {
     if (newLabel.trim() && !epic.labels.includes(newLabel.trim())) {
@@ -135,12 +162,27 @@ export function EpicDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Planning">Planning</SelectItem>
-                  <SelectItem value="Active">Active</SelectItem>
-                  <SelectItem value="In Progress">In Progress</SelectItem>
-                  <SelectItem value="On Hold">On Hold</SelectItem>
-                  <SelectItem value="Completed">Completed</SelectItem>
-                  <SelectItem value="Cancelled">Cancelled</SelectItem>
+                  {loadingStatuses ? (
+                    <SelectItem value="loading" disabled>
+                      <span className="text-gray-500">Loading statuses...</span>
+                    </SelectItem>
+                  ) : taskStatuses.length > 0 ? (
+                    taskStatuses.map(status => (
+                      <SelectItem key={status.id} value={status.name}>
+                        <div className="flex items-center space-x-2">
+                          <div
+                            className="w-3 h-3 rounded-full"
+                            style={{ backgroundColor: status.color }}
+                          />
+                          <span>{status.name}</span>
+                        </div>
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <SelectItem value="no-statuses" disabled>
+                      <span className="text-gray-500">No statuses available</span>
+                    </SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -155,16 +197,40 @@ export function EpicDialog({
                   <SelectItem value="unassigned">
                     <span className="text-gray-500">No assignee</span>
                   </SelectItem>
-                  {teamMembers.map(member => (
-                    <SelectItem key={member.id} value={member.id}>
-                      <div className="flex items-center space-x-2">
-                        <div className="w-6 h-6 rounded-full bg-blue-500 text-white text-xs flex items-center justify-center">
-                          {member.avatar}
-                        </div>
-                        <span>{member.name}</span>
-                      </div>
+                  {projectOwners.length === 0 ? (
+                    <SelectItem value="loading" disabled>
+                      <span className="text-gray-500">No project owners available...</span>
                     </SelectItem>
-                  ))}
+                  ) : (
+                    projectOwners.map(owner => (
+                      <SelectItem key={owner.id} value={owner.id}>
+                        <div className="flex items-center space-x-2">
+                          <Avatar className="w-6 h-6">
+                            {owner.user_profile && owner.user_profile !== '/public/user-profile/default.png' ? (
+                              <img
+                                src={getAssetUrl(owner.user_profile)}
+                                alt={owner.name}
+                                className="w-6 h-6 rounded-full object-cover"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = 'none';
+                                  e.currentTarget.nextElementSibling!.style.display = 'flex';
+                                }}
+                              />
+                            ) : null}
+                            <AvatarFallback className="text-xs bg-[#007BFF] text-white">
+                              {owner.name?.charAt(0) || 'U'}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex flex-col">
+                            <span className="text-sm">{owner.name}</span>
+                            {owner.role?.name && (
+                              <span className="text-xs text-gray-500">{owner.role.name}</span>
+                            )}
+                          </div>
+                        </div>
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
             </div>

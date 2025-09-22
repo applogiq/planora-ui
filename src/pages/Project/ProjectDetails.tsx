@@ -70,8 +70,9 @@ import { ProjectEditModal } from './ProjectEditModal'
 import { ProjectSettings } from './ProjectSettings'
 import { MethodologyViewRouter } from './MethodologyViews/MethodologyViewRouter'
 import { useTasks } from '../../hooks/useTasks'
-import { useProjectMembers } from '../../hooks/useProjectMembers'
+import { useProjectMasters } from '../../hooks/useProjectMasters'
 import { CreateTaskRequest } from '../../services/taskApi'
+import { getAssetUrl } from '../../config/api'
 
 interface ProjectDetailsProps {
   projectId: string
@@ -106,8 +107,13 @@ export function ProjectDetails({ projectId, onBack, user }: ProjectDetailsProps)
     error: tasksError
   } = useTasks({ projectId })
 
-  const { data: projectMembersData } = useProjectMembers()
-  const teamMembers = projectMembersData?.items || []
+  // Use team members from project data instead of separate API call
+  const teamMembers = (project as any)?.team_members_detail || (project as any)?.team_members || (project as any)?.team || []
+
+  // Get master project data for status and priority options
+  const { data: mastersData, loading: mastersLoading } = useProjectMasters()
+  const projectStatuses = mastersData?.statuses || []
+  const projectPriorities = mastersData?.priorities || []
 
   // Fetch project details on component mount
   useEffect(() => {
@@ -135,7 +141,7 @@ export function ProjectDetails({ projectId, onBack, user }: ProjectDetailsProps)
     tasksCompleted: tasks.filter(task => task.status === 'Completed').length,
     totalTasks: tasks.length,
     // Add computed properties for UI display if not already present (using any type for extension)
-    team: (project as any).team || teamMembers,
+    team: teamMembers,
     milestones: (project as any).milestones || [],
     recentActivity: (project as any).recentActivity || [],
     files: (project as any).files || [],
@@ -200,6 +206,8 @@ export function ProjectDetails({ projectId, onBack, user }: ProjectDetailsProps)
 
   const handleTaskSave = async (taskData: any) => {
     try {
+      console.log('Raw taskData from TaskModal:', taskData)
+
       // Convert TaskModal data format to API format
       const apiTaskData: CreateTaskRequest = {
         title: taskData.title,
@@ -211,8 +219,47 @@ export function ProjectDetails({ projectId, onBack, user }: ProjectDetailsProps)
         start_date: taskData.startDate ? taskData.startDate.toISOString() : undefined,
         due_date: taskData.dueDate ? taskData.dueDate.toISOString() : undefined,
         progress: taskData.progress || 0,
-        tags: taskData.tags || []
+        tags: taskData.tags || [],
+        subtasks: taskData.subtasks?.map((subtask: any) => ({
+          id: subtask.id?.toString(),
+          title: subtask.title,
+          description: subtask.description || '',
+          assignee: subtask.assignee || '',
+          priority: subtask.priority || 'Medium',
+          dueDate: subtask.dueDate || '',
+          completed: subtask.completed || false
+        })) || [],
+        comments: taskData.comments?.map((comment: any) => ({
+          id: comment.id?.toString(),
+          user_id: comment.user_id || 'current-user',
+          user_name: comment.user || comment.user_name || 'Current User',
+          text: comment.text,
+          created_at: comment.timestamp || new Date().toISOString()
+        })) || [],
+        attachments: taskData.attachmentFiles?.map((attachment: any) => ({
+          id: attachment.id?.toString(),
+          filename: attachment.name,
+          url: attachment.url,
+          size: attachment.file?.size || 0,
+          uploaded_at: attachment.uploadedAt || new Date().toISOString()
+        })) || []
       }
+
+      // Add activity logging for task creation
+      if (taskModalMode === 'create') {
+        apiTaskData.comments = [
+          ...(apiTaskData.comments || []),
+          {
+            id: `activity-${Date.now()}`,
+            user_id: 'system',
+            user_name: 'System',
+            text: `Task created by ${user?.name || 'Current User'}`,
+            created_at: new Date().toISOString()
+          }
+        ]
+      }
+
+      console.log('Final API payload:', apiTaskData)
 
       if (taskModalMode === 'create') {
         await createTask(apiTaskData)
@@ -383,8 +430,19 @@ export function ProjectDetails({ projectId, onBack, user }: ProjectDetailsProps)
           <div className="flex -space-x-1 mt-3">
             {(displayProject.team || []).slice(0, 4).map((member: any, index: number) => (
               <Avatar key={index} className="w-6 h-6 border-2 border-background">
+                {member.user_profile && member.user_profile !== '/public/user-profile/default.png' ? (
+                  <img
+                    src={getAssetUrl(member.user_profile)}
+                    alt={member.name || 'User'}
+                    className="w-6 h-6 rounded-full object-cover"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                      e.currentTarget.nextElementSibling!.style.display = 'flex';
+                    }}
+                  />
+                ) : null}
                 <AvatarFallback className="text-xs bg-[#007BFF] text-white">
-                  {member.avatar || member.name?.charAt(0) || 'U'}
+                  {member.name?.charAt(0) || 'U'}
                 </AvatarFallback>
               </Avatar>
             ))}
@@ -503,6 +561,8 @@ export function ProjectDetails({ projectId, onBack, user }: ProjectDetailsProps)
           mode={taskModalMode}
           project={displayProject}
           teamMembers={teamMembers}
+          projectStatuses={projectStatuses}
+          projectPriorities={projectPriorities}
           onSave={handleTaskSave}
         />
       )}

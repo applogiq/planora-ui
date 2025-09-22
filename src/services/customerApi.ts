@@ -73,12 +73,12 @@ export interface CreateCustomerRequest {
 export interface UpdateCustomerRequest extends Partial<CreateCustomerRequest> {}
 
 import { authApiService } from './authApi';
+import { getApiUrl } from '../config/api';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 export class CustomerApiService {
   private async makeRequest<T>(endpoint: string, options?: RequestInit): Promise<T> {
-    const url = `${API_BASE_URL}${endpoint}`;
+    const url = getApiUrl(endpoint);
 
     // Get the access token for authorization
     const token = authApiService.getAccessToken();

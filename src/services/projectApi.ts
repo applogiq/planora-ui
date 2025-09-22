@@ -1,5 +1,6 @@
 import { authApiService } from './authApi';
 import { Project } from '../mock-data/projects';
+import { getApiUrl } from '../config/api';
 
 export interface ProjectMasterItem {
   name: string;
@@ -66,7 +67,6 @@ export interface ProjectOwnersResponse {
 export type ProjectMember = ProjectOwner;
 export type ProjectMembersResponse = ProjectOwnersResponse;
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 export interface CreateProjectRequest {
   name: string;
@@ -116,7 +116,7 @@ export interface ProjectsQueryParams {
 
 export class ProjectApiService {
   private async makeRequest<T>(endpoint: string, options?: RequestInit): Promise<T> {
-    const url = `${API_BASE_URL}${endpoint}`;
+    const url = getApiUrl(endpoint);
 
     // Get the access token for authorization
     const token = authApiService.getAccessToken();

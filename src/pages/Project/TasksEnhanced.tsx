@@ -40,16 +40,9 @@ import { BacklogItemActions } from '../Planning/Backlog/BacklogItemActions'
 import { useEpics } from '../../hooks/useEpics'
 import { useActiveProjects } from '../../hooks/useActiveProjects'
 import { useProjectMembers } from '../../hooks/useProjectMembers'
+import { useProjectOwners } from '../../hooks/useProjectOwners'
 import { CreateEpicRequest } from '../../services/epicApi'
 
-// Enhanced sample data
-const projects = [
-  { id: 'PROJ-001', name: 'E-commerce Platform', color: '#28A745', status: 'Active' },
-  { id: 'PROJ-002', name: 'Mobile Banking App', color: '#007BFF', status: 'Active' },
-  { id: 'PROJ-003', name: 'CRM System', color: '#FFC107', status: 'Active' },
-  { id: 'PROJ-004', name: 'Analytics Dashboard', color: '#DC3545', status: 'Planning' },
-  { id: 'PROJ-005', name: 'Security Audit', color: '#6C757D', status: 'Completed' }
-]
 
 
 interface TasksProps {
@@ -74,11 +67,15 @@ export function Tasks({ user }: TasksProps) {
   } = useEpics(selectedProjectId !== 'all' ? selectedProjectId : undefined)
 
   // Active projects API integration
-  const { projects: activeProjects, loading: projectsLoading } = useActiveProjects()
+  const { projects, loading: projectsLoading } = useActiveProjects()
 
   // Project members API integration
   const { data: projectMembersData, loading: membersLoading } = useProjectMembers()
   const teamMembers = projectMembersData?.items || []
+
+  // Project owners API integration
+  const { data: projectOwnersData, loading: ownersLoading } = useProjectOwners()
+  const projectOwners = projectOwnersData?.items || []
 
   // Data state
   const [backlogs, setBacklogs] = useState([
@@ -1184,8 +1181,9 @@ export function Tasks({ user }: TasksProps) {
         }}
         epic={epic}
         setEpic={setEpic}
-        projects={activeProjects}
+        projects={projects}
         teamMembers={teamMembers}
+        projectOwners={projectOwners}
         onSave={handleSaveEpic}
         isEdit={!!editingItem}
       />
@@ -1201,6 +1199,7 @@ export function Tasks({ user }: TasksProps) {
         setSprint={setSprint}
         projects={projects}
         teamMembers={teamMembers}
+        projectOwners={projectOwners}
         onSave={handleSaveSprint}
         isEdit={!!editingItem}
       />

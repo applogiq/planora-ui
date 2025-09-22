@@ -1,3 +1,5 @@
+import { getApiUrl } from '../config/api';
+
 export interface LoginRequest {
   email: string;
   password: string;
@@ -25,11 +27,9 @@ export interface UserProfile {
   updated_at: string;
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
-
 export class AuthApiService {
   private async makeRequest<T>(endpoint: string, options?: RequestInit): Promise<T> {
-    const url = `${API_BASE_URL}${endpoint}`;
+    const url = getApiUrl(endpoint);
 
     const defaultHeaders = {
       'Content-Type': 'application/json',

@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+import { getAssetUrl } from '../config/api';
 
 /**
  * Get the full profile picture URL
@@ -7,7 +7,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000
  */
 export const getProfilePictureUrl = (user_profile: string | null | undefined): string => {
   if (!user_profile) {
-    return `${API_BASE_URL}/public/user-profile/default.png`;
+    return getAssetUrl('/public/user-profile/default.png');
   }
 
   // If it's already a full URL, return as is
@@ -17,11 +17,11 @@ export const getProfilePictureUrl = (user_profile: string | null | undefined): s
 
   // If it starts with /public, use as is with API base
   if (user_profile.startsWith('/public/')) {
-    return `${API_BASE_URL}${user_profile}`;
+    return getAssetUrl(user_profile);
   }
 
   // If it's just a filename, construct the full path
-  return `${API_BASE_URL}/public/user-profile/${user_profile}`;
+  return getAssetUrl(`/public/user-profile/${user_profile}`);
 };
 
 /**

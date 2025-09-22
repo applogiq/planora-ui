@@ -1,4 +1,5 @@
 import { authApiService } from './authApi';
+import { getApiUrl } from '../config/api';
 
 export interface Story {
   id: string;
@@ -75,11 +76,10 @@ export interface StoriesResponse {
   has_prev: boolean;
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 export class StoriesApiService {
   private async makeRequest<T>(endpoint: string, options?: RequestInit): Promise<T> {
-    const url = `${API_BASE_URL}${endpoint}`;
+    const url = getApiUrl(endpoint);
 
     const token = authApiService.getAccessToken();
 

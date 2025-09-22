@@ -7,6 +7,8 @@ import { Avatar, AvatarFallback } from '../../../components/ui/avatar'
 import { Input } from '../../../components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select'
 import { toast } from 'sonner@2.0.3'
+import { getAssetUrl } from '../../../config/api'
+import { epicApiService } from '../../../services/epicApi'
 import {
   Plus,
   Search,
@@ -32,7 +34,30 @@ interface Epic {
   completedStoryPoints: number
   totalStories: number
   completedStories: number
-  owner?: string
+  owner?: {
+    id: string
+    email: string
+    name: string
+    role_id: string
+    user_profile: string
+    is_active: boolean
+    department: string
+    skills: string[]
+    phone: string
+    timezone: string
+    last_login: string
+    created_at: string
+    updated_at: string
+    role: {
+      name: string
+      description: string
+      permissions: string[]
+      is_active: boolean
+      id: string
+      created_at: string
+      updated_at: string
+    }
+  }
   project: string
   createdAt: string
   updatedAt: string
@@ -41,9 +66,18 @@ interface Epic {
 interface EpicListProps {
   projects?: any[]
   teamMembers?: any[]
+  projectOwners?: any[]
+  masters?: any
+  filters?: {
+    project: string
+    status: string
+    priority: string
+    methodology: string
+    type: string
+  }
 }
 
-export function EpicList({ projects = [], teamMembers = [] }: EpicListProps) {
+export function EpicList({ projects = [], teamMembers = [], projectOwners = [], masters, filters }: EpicListProps) {
   const [epics, setEpics] = useState<Epic[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -52,70 +86,51 @@ export function EpicList({ projects = [], teamMembers = [] }: EpicListProps) {
   const [priorityFilter, setPriorityFilter] = useState('all')
   const [projectFilter, setProjectFilter] = useState('all')
 
-  // Mock data for demonstration
+  // Load epics from API
   useEffect(() => {
-    const mockEpics: Epic[] = [
-      {
-        id: 'EPIC-001',
-        title: 'User Management System',
-        description: 'Complete user authentication, profile management, and user administration features',
-        status: 'In Progress',
-        priority: 'High',
-        startDate: '2025-01-01T00:00:00Z',
-        endDate: '2025-03-31T23:59:59Z',
-        progress: 65,
-        totalStoryPoints: 42,
-        completedStoryPoints: 27,
-        totalStories: 8,
-        completedStories: 5,
-        owner: 'Sarah Wilson',
-        project: 'E-commerce Platform',
-        createdAt: '2024-12-15T09:00:00Z',
-        updatedAt: '2025-01-20T14:30:00Z'
-      },
-      {
-        id: 'EPIC-002',
-        title: 'Payment Integration',
-        description: 'Integrate multiple payment gateways including Stripe, PayPal, and Apple Pay',
-        status: 'Planning',
-        priority: 'Critical',
-        startDate: '2025-02-01T00:00:00Z',
-        endDate: '2025-04-30T23:59:59Z',
-        progress: 0,
-        totalStoryPoints: 35,
-        completedStoryPoints: 0,
-        totalStories: 6,
-        completedStories: 0,
-        owner: 'Mike Johnson',
-        project: 'E-commerce Platform',
-        createdAt: '2025-01-10T10:00:00Z',
-        updatedAt: '2025-01-18T16:45:00Z'
-      },
-      {
-        id: 'EPIC-003',
-        title: 'Mobile Responsive Design',
-        description: 'Redesign entire application for mobile-first responsive experience',
-        status: 'Completed',
-        priority: 'Medium',
-        startDate: '2024-11-01T00:00:00Z',
-        endDate: '2025-01-15T23:59:59Z',
-        progress: 100,
-        totalStoryPoints: 28,
-        completedStoryPoints: 28,
-        totalStories: 5,
-        completedStories: 5,
-        owner: 'Emma Davis',
-        project: 'Marketing Website',
-        createdAt: '2024-10-20T11:00:00Z',
-        updatedAt: '2025-01-15T17:30:00Z'
-      }
-    ]
+    const loadEpics = async () => {
+      try {
+        setLoading(true)
+        setError(null)
 
-    setTimeout(() => {
-      setEpics(mockEpics)
-      setLoading(false)
-    }, 1000)
-  }, [])
+        // Get the active project filter from filters prop
+        const activeProjectFilter = filters?.project || projectFilter
+        const selectedProjectId = activeProjectFilter !== 'all' ? activeProjectFilter : undefined
+
+        const response = await epicApiService.getEpics(1, 50, selectedProjectId)
+
+        // Transform API response to match component interface
+        const transformedEpics = response.items.map((epic: any) => ({
+          id: epic.id,
+          title: epic.title,
+          description: epic.description,
+          status: epic.status,
+          priority: epic.priority,
+          startDate: epic.created_at,
+          endDate: epic.due_date,
+          progress: epic.completion_percentage || 0,
+          totalStoryPoints: epic.total_story_points || 0,
+          completedStoryPoints: epic.completed_story_points || 0,
+          totalStories: epic.total_tasks || 0,
+          completedStories: epic.completed_tasks || 0,
+          owner: epic.assignee || projectOwners.find(owner => owner.id === epic.assignee_id),
+          project: epic.project_name || epic.project?.name || 'Unknown Project',
+          createdAt: epic.created_at,
+          updatedAt: epic.updated_at
+        }))
+
+        setEpics(transformedEpics)
+      } catch (error) {
+        console.error('Failed to load epics:', error)
+        setError('Failed to load epics. Please try again.')
+        setEpics([])
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadEpics()
+  }, [filters?.project, projectFilter, projectOwners])
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
@@ -150,7 +165,18 @@ export function EpicList({ projects = [], teamMembers = [] }: EpicListProps) {
                          epic.description.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesStatus = statusFilter === 'all' || epic.status.toLowerCase() === statusFilter.toLowerCase()
     const matchesPriority = priorityFilter === 'all' || epic.priority.toLowerCase() === priorityFilter.toLowerCase()
-    const matchesProject = projectFilter === 'all' || epic.project === projectFilter
+
+    // Project filtering is handled by the API call, so we don't need to filter locally
+    // unless using the local project filter dropdown
+    let matchesProject = true
+    if (projectFilter !== 'all') {
+      const selectedProject = projects.find(p => p.id === projectFilter)
+      if (selectedProject) {
+        matchesProject = epic.project === selectedProject.name
+      } else {
+        matchesProject = epic.project === projectFilter
+      }
+    }
 
     return matchesSearch && matchesStatus && matchesPriority && matchesProject
   })
@@ -214,10 +240,17 @@ export function EpicList({ projects = [], teamMembers = [] }: EpicListProps) {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Statuses</SelectItem>
-              <SelectItem value="planning">Planning</SelectItem>
-              <SelectItem value="in progress">In Progress</SelectItem>
-              <SelectItem value="completed">Completed</SelectItem>
-              <SelectItem value="on hold">On Hold</SelectItem>
+              {masters?.statuses?.filter((status: any) => status.is_active).map((status: any) => (
+                <SelectItem key={status.id} value={status.name.toLowerCase()}>
+                  <div className="flex items-center space-x-2">
+                    <div
+                      className="w-2 h-2 rounded-full"
+                      style={{ backgroundColor: status.color }}
+                    />
+                    <span>{status.name}</span>
+                  </div>
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
           <Select value={priorityFilter} onValueChange={setPriorityFilter}>
@@ -226,10 +259,17 @@ export function EpicList({ projects = [], teamMembers = [] }: EpicListProps) {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Priorities</SelectItem>
-              <SelectItem value="critical">Critical</SelectItem>
-              <SelectItem value="high">High</SelectItem>
-              <SelectItem value="medium">Medium</SelectItem>
-              <SelectItem value="low">Low</SelectItem>
+              {masters?.priorities?.filter((priority: any) => priority.is_active).map((priority: any) => (
+                <SelectItem key={priority.id} value={priority.name.toLowerCase()}>
+                  <div className="flex items-center space-x-2">
+                    <div
+                      className="w-2 h-2 rounded-full"
+                      style={{ backgroundColor: priority.color }}
+                    />
+                    <span>{priority.name}</span>
+                  </div>
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
           <Select value={projectFilter} onValueChange={setProjectFilter}>
@@ -238,8 +278,19 @@ export function EpicList({ projects = [], teamMembers = [] }: EpicListProps) {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Projects</SelectItem>
-              <SelectItem value="E-commerce Platform">E-commerce Platform</SelectItem>
-              <SelectItem value="Marketing Website">Marketing Website</SelectItem>
+              {projects.map((project: any) => (
+                <SelectItem key={project.id} value={project.id}>
+                  <div className="flex items-center space-x-2">
+                    {project.color && (
+                      <div
+                        className="w-2 h-2 rounded-full"
+                        style={{ backgroundColor: project.color }}
+                      />
+                    )}
+                    <span className="truncate">{project.name}</span>
+                  </div>
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -317,11 +368,27 @@ export function EpicList({ projects = [], teamMembers = [] }: EpicListProps) {
                 {epic.owner && (
                   <div className="flex items-center space-x-2">
                     <Avatar className="w-6 h-6">
-                      <AvatarFallback className="text-xs">
-                        {epic.owner.split(' ').map(n => n[0]).join('')}
+                      {epic.owner.user_profile && epic.owner.user_profile !== '/public/user-profile/default.png' ? (
+                        <img
+                          src={getAssetUrl(epic.owner.user_profile)}
+                          alt={epic.owner.name}
+                          className="w-6 h-6 rounded-full object-cover"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                            e.currentTarget.nextElementSibling!.style.display = 'flex';
+                          }}
+                        />
+                      ) : null}
+                      <AvatarFallback className="text-xs bg-[#007BFF] text-white">
+                        {epic.owner.name?.charAt(0) || 'U'}
                       </AvatarFallback>
                     </Avatar>
-                    <span className="text-sm text-gray-600">{epic.owner}</span>
+                    <div className="flex flex-col">
+                      <span className="text-sm text-gray-600">{epic.owner.name}</span>
+                      {epic.owner.role?.name && (
+                        <span className="text-xs text-gray-400">{epic.owner.role.name}</span>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>

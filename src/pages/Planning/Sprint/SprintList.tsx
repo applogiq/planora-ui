@@ -14,9 +14,17 @@ import { SprintFilters } from './SprintFilters'
 interface SprintListProps {
   projects?: any[]
   teamMembers?: any[]
+  projectOwners?: any[]
+  filters?: {
+    project: string
+    status: string
+    priority: string
+    methodology: string
+    type: string
+  }
 }
 
-export function SprintList({ projects = [], teamMembers = [] }: SprintListProps) {
+export function SprintList({ projects = [], teamMembers = [], projectOwners = [], filters }: SprintListProps) {
   const [sprints, setSprints] = useState<Sprint[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -246,6 +254,7 @@ export function SprintList({ projects = [], teamMembers = [] }: SprintListProps)
         setSprint={isEditMode ? setSelectedSprint : setNewSprint}
         projects={projects}
         teamMembers={teamMembers}
+        projectOwners={projectOwners}
         isEdit={isEditMode}
         onSprintCreated={handleSprintCreated}
         onSprintUpdated={handleSprintUpdated}

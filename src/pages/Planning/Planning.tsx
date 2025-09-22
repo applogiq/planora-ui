@@ -8,6 +8,7 @@ import { EpicList } from './Epic'
 import { TeamList } from './Team'
 import { projectApiService } from '../../services/projectApi'
 import { useProjectMasters } from '../../hooks/useProjectMasters'
+import { useProjectOwners } from '../../hooks/useProjectOwners'
 import { Zap, GitBranch, Users, Target, Filter } from 'lucide-react'
 
 export function Planning() {
@@ -16,6 +17,7 @@ export function Planning() {
   const [loading, setLoading] = useState(true)
 
   // Filter states
+  const [projectFilter, setProjectFilter] = useState<string>('all')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [priorityFilter, setPriorityFilter] = useState<string>('all')
   const [methodologyFilter, setMethodologyFilter] = useState<string>('all')
@@ -24,18 +26,23 @@ export function Planning() {
   // Get masters data for filters
   const { data: mastersData, loading: mastersLoading, error: mastersError } = useProjectMasters()
 
+  // Get project owners data
+  const { data: projectOwnersData, loading: ownersLoading } = useProjectOwners()
+  const projectOwners = projectOwnersData?.items || []
+
   useEffect(() => {
     const loadData = async () => {
       try {
         setLoading(true)
 
-        // Load projects and team members in parallel
+        // Load active projects and team members in parallel
         const [projectsResponse, membersResponse] = await Promise.all([
-          projectApiService.getProjects({ per_page: 100 }),
+          projectApiService.getActiveProjectsList(),
           projectApiService.getProjectMembers()
         ])
 
-        setProjects(projectsResponse.items)
+        console.log('Loaded active projects from API:', projectsResponse)
+        setProjects(projectsResponse)
         setTeamMembers(membersResponse.items)
       } catch (error) {
         // Error is handled silently - could add toast notification here if needed
@@ -47,7 +54,7 @@ export function Planning() {
     loadData()
   }, [])
 
-  if (loading) {
+  if (loading || mastersLoading || ownersLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
@@ -77,6 +84,32 @@ export function Planning() {
           <div className="flex items-center space-x-2">
             <Filter className="w-4 h-4 text-gray-500" />
             <span className="text-sm font-medium text-gray-700">Filters:</span>
+          </div>
+
+          {/* Project Filter */}
+          <div className="flex flex-col space-y-1">
+            <label className="text-xs text-gray-500">Project</label>
+            <Select value={projectFilter} onValueChange={setProjectFilter}>
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="All Projects" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Projects</SelectItem>
+                {projects.map((project: any) => (
+                  <SelectItem key={project.id} value={project.id}>
+                    <div className="flex items-center space-x-2">
+                      {project.color && (
+                        <div
+                          className="w-2 h-2 rounded-full"
+                          style={{ backgroundColor: project.color }}
+                        />
+                      )}
+                      <span className="truncate">{project.name}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Status Filter */}
@@ -190,7 +223,9 @@ export function Planning() {
           <SprintList
             projects={projects}
             teamMembers={teamMembers}
+            projectOwners={projectOwners}
             filters={{
+              project: projectFilter,
               status: statusFilter,
               priority: priorityFilter,
               methodology: methodologyFilter,
@@ -204,6 +239,7 @@ export function Planning() {
             projects={projects}
             teamMembers={teamMembers}
             filters={{
+              project: projectFilter,
               status: statusFilter,
               priority: priorityFilter,
               methodology: methodologyFilter,
@@ -216,7 +252,10 @@ export function Planning() {
           <EpicList
             projects={projects}
             teamMembers={teamMembers}
+            projectOwners={projectOwners}
+            masters={mastersData}
             filters={{
+              project: projectFilter,
               status: statusFilter,
               priority: priorityFilter,
               methodology: methodologyFilter,
@@ -230,6 +269,7 @@ export function Planning() {
             projects={projects}
             teamMembers={teamMembers}
             filters={{
+              project: projectFilter,
               status: statusFilter,
               priority: priorityFilter,
               methodology: methodologyFilter,

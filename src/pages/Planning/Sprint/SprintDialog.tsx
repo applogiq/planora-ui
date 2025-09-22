@@ -6,8 +6,10 @@ import { Label } from '../../../components/ui/label'
 import { Textarea } from '../../../components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select'
 import { Badge } from '../../../components/ui/badge'
+import { Avatar, AvatarFallback } from '../../../components/ui/avatar'
 import { Calendar, Zap, Users, Target, PlayCircle } from 'lucide-react'
 import { sprintApiService, CreateSprintRequest, Sprint } from '../../../services/sprintApi'
+import { getAssetUrl } from '../../../config/api'
 
 interface SprintDialogProps {
   open: boolean
@@ -16,6 +18,7 @@ interface SprintDialogProps {
   setSprint: (sprint: any) => void
   projects: any[]
   teamMembers: any[]
+  projectOwners?: any[]
   onSave?: () => void
   isEdit: boolean
   onSprintCreated?: (sprint: Sprint) => void
@@ -29,6 +32,7 @@ export function SprintDialog({
   setSprint,
   projects,
   teamMembers,
+  projectOwners = [],
   onSave,
   isEdit,
   onSprintCreated,
@@ -36,6 +40,7 @@ export function SprintDialog({
 }: SprintDialogProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
 
   const handleSave = async () => {
     if (!sprint.name || !sprint.goal || !sprint.startDate || !sprint.endDate || !sprint.projectId) {
@@ -209,17 +214,43 @@ export function SprintDialog({
                   <SelectValue placeholder="Assign scrum master" />
                 </SelectTrigger>
                 <SelectContent>
-                  {teamMembers.filter(m => ['project_manager', 'admin', 'super_admin'].includes(m.role)).map(member => (
-                    <SelectItem key={member.id} value={member.id}>
-                      <div className="flex items-center space-x-2">
-                        <div className="w-6 h-6 rounded-full bg-blue-500 text-white text-xs flex items-center justify-center">
-                          {member.avatar}
-                        </div>
-                        <span>{member.name}</span>
-                        <Badge variant="outline" className="text-xs">{member.role.replace('_', ' ')}</Badge>
-                      </div>
+                  <SelectItem value="">
+                    <span className="text-gray-500">No scrum master</span>
+                  </SelectItem>
+                  {projectOwners.length === 0 ? (
+                    <SelectItem value="loading" disabled>
+                      <span className="text-gray-500">No project owners available...</span>
                     </SelectItem>
-                  ))}
+                  ) : (
+                    projectOwners.map(owner => (
+                      <SelectItem key={owner.id} value={owner.id}>
+                        <div className="flex items-center space-x-2">
+                          <Avatar className="w-6 h-6">
+                            {owner.user_profile && owner.user_profile !== '/public/user-profile/default.png' ? (
+                              <img
+                                src={getAssetUrl(owner.user_profile)}
+                                alt={owner.name}
+                                className="w-6 h-6 rounded-full object-cover"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = 'none';
+                                  e.currentTarget.nextElementSibling!.style.display = 'flex';
+                                }}
+                              />
+                            ) : null}
+                            <AvatarFallback className="text-xs bg-[#007BFF] text-white">
+                              {owner.name?.charAt(0) || 'U'}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex flex-col">
+                            <span className="text-sm">{owner.name}</span>
+                            {owner.role?.name && (
+                              <span className="text-xs text-gray-500">{owner.role.name}</span>
+                            )}
+                          </div>
+                        </div>
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
             </div>

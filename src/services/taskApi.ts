@@ -1,4 +1,5 @@
 import { authApiService } from './authApi';
+import { getApiUrl } from '../config/api';
 
 export interface Task {
   id: string;
@@ -30,6 +31,10 @@ export interface Task {
 export interface Subtask {
   id: string;
   title: string;
+  description?: string;
+  assignee?: string;
+  priority?: string;
+  dueDate?: string;
   completed: boolean;
 }
 
@@ -61,6 +66,9 @@ export interface CreateTaskRequest {
   due_date?: string;
   progress?: number;
   tags?: string[];
+  subtasks?: Subtask[];
+  comments?: Comment[];
+  attachments?: Attachment[];
 }
 
 export interface UpdateTaskRequest extends Partial<CreateTaskRequest> {
@@ -77,11 +85,9 @@ export interface TasksResponse {
   has_prev: boolean;
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
-
 export class TaskApiService {
   private async makeRequest<T>(endpoint: string, options?: RequestInit): Promise<T> {
-    const url = `${API_BASE_URL}${endpoint}`;
+    const url = getApiUrl(endpoint);
 
     const token = authApiService.getAccessToken();
     const tokenType = authApiService.getTokenType();

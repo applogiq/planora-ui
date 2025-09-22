@@ -6,6 +6,7 @@ import { Input } from '../../../components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs'
 import { toast } from 'sonner@2.0.3'
+import { storiesApiService, Story } from '../../../services/storiesApi'
 import {
   Plus,
   Search,
@@ -17,27 +18,20 @@ import {
   ArrowUpDown
 } from 'lucide-react'
 
-interface BacklogItem {
-  id: string
-  title: string
-  description: string
-  type: 'User Story' | 'Bug' | 'Task' | 'Epic'
-  priority: 'Low' | 'Medium' | 'High' | 'Critical'
-  status: 'Backlog' | 'Ready' | 'In Progress' | 'Done'
-  storyPoints: number
-  assignee?: string
-  sprint?: string
-  createdAt: string
-  updatedAt: string
-}
-
 interface BacklogListProps {
   projects?: any[]
   teamMembers?: any[]
+  filters?: {
+    project: string
+    status: string
+    priority: string
+    methodology: string
+    type: string
+  }
 }
 
-export function BacklogList({ projects = [], teamMembers = [] }: BacklogListProps) {
-  const [backlogItems, setBacklogItems] = useState<BacklogItem[]>([])
+export function BacklogList({ projects = [], teamMembers = [], filters }: BacklogListProps) {
+  const [backlogItems, setBacklogItems] = useState<Story[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
@@ -46,51 +40,30 @@ export function BacklogList({ projects = [], teamMembers = [] }: BacklogListProp
   const [statusFilter, setStatusFilter] = useState('all')
   const [activeTab, setActiveTab] = useState('backlog')
 
-  // Mock data for demonstration
+  // Load backlog items from API
   useEffect(() => {
-    const mockBacklogItems: BacklogItem[] = [
-      {
-        id: 'BL-001',
-        title: 'User Authentication System',
-        description: 'Implement OAuth 2.0 authentication with Google and GitHub',
-        type: 'User Story',
-        priority: 'High',
-        status: 'Backlog',
-        storyPoints: 8,
-        assignee: 'John Doe',
-        createdAt: '2025-01-15T09:00:00Z',
-        updatedAt: '2025-01-20T14:30:00Z'
-      },
-      {
-        id: 'BL-002',
-        title: 'Fix login page CSS issues',
-        description: 'Responsive design broken on mobile devices',
-        type: 'Bug',
-        priority: 'Medium',
-        status: 'Ready',
-        storyPoints: 3,
-        assignee: 'Jane Smith',
-        createdAt: '2025-01-16T10:00:00Z',
-        updatedAt: '2025-01-21T15:30:00Z'
-      },
-      {
-        id: 'BL-003',
-        title: 'Database optimization',
-        description: 'Optimize database queries for better performance',
-        type: 'Task',
-        priority: 'Low',
-        status: 'Backlog',
-        storyPoints: 5,
-        createdAt: '2025-01-17T11:00:00Z',
-        updatedAt: '2025-01-22T16:30:00Z'
-      }
-    ]
+    const loadBacklogItems = async () => {
+      try {
+        setLoading(true)
+        setError(null)
 
-    setTimeout(() => {
-      setBacklogItems(mockBacklogItems)
-      setLoading(false)
-    }, 1000)
-  }, [])
+        // Get the active project filter from filters prop
+        const activeProjectFilter = filters?.project || 'all'
+        const selectedProjectId = activeProjectFilter !== 'all' ? activeProjectFilter : undefined
+
+        const response = await storiesApiService.getStories(1, 50, selectedProjectId)
+        setBacklogItems(response.items)
+      } catch (error) {
+        console.error('Failed to load backlog items:', error)
+        setError('Failed to load backlog items. Please try again.')
+        setBacklogItems([])
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadBacklogItems()
+  }, [filters?.project])
 
   const getPriorityColor = (priority: string) => {
     switch (priority.toLowerCase()) {
@@ -125,11 +98,12 @@ export function BacklogList({ projects = [], teamMembers = [] }: BacklogListProp
   const filteredItems = backlogItems.filter(item => {
     const matchesSearch = item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          item.description.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesType = typeFilter === 'all' || item.type.toLowerCase() === typeFilter.toLowerCase()
+    // For now, treat all stories as "User Story" type - can be enhanced later
+    const matchesType = typeFilter === 'all' || typeFilter === 'user story'
     const matchesPriority = priorityFilter === 'all' || item.priority.toLowerCase() === priorityFilter.toLowerCase()
     const matchesStatus = statusFilter === 'all' || item.status.toLowerCase() === statusFilter.toLowerCase()
     const matchesTab = activeTab === 'all' ||
-                      (activeTab === 'backlog' && item.status === 'Backlog') ||
+                      (activeTab === 'backlog' && (item.status === 'Backlog' || item.status === 'To Do')) ||
                       (activeTab === 'ready' && item.status === 'Ready') ||
                       (activeTab === 'progress' && item.status === 'In Progress')
 
@@ -219,7 +193,7 @@ export function BacklogList({ projects = [], teamMembers = [] }: BacklogListProp
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
-          <TabsTrigger value="backlog">Backlog ({backlogItems.filter(i => i.status === 'Backlog').length})</TabsTrigger>
+          <TabsTrigger value="backlog">Backlog ({backlogItems.filter(i => i.status === 'Backlog' || i.status === 'To Do').length})</TabsTrigger>
           <TabsTrigger value="ready">Ready ({backlogItems.filter(i => i.status === 'Ready').length})</TabsTrigger>
           <TabsTrigger value="progress">In Progress ({backlogItems.filter(i => i.status === 'In Progress').length})</TabsTrigger>
           <TabsTrigger value="all">All Items ({backlogItems.length})</TabsTrigger>
@@ -243,8 +217,8 @@ export function BacklogList({ projects = [], teamMembers = [] }: BacklogListProp
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center space-x-3 mb-2">
-                        <Badge className={getTypeColor(item.type)}>
-                          {item.type}
+                        <Badge className={getTypeColor('User Story')}>
+                          User Story
                         </Badge>
                         <Badge className={getPriorityColor(item.priority)}>
                           {item.priority}
@@ -259,17 +233,17 @@ export function BacklogList({ projects = [], teamMembers = [] }: BacklogListProp
                       <div className="flex items-center space-x-6 text-sm text-gray-500">
                         <div className="flex items-center space-x-1">
                           <Target className="w-4 h-4" />
-                          <span>{item.storyPoints} points</span>
+                          <span>{item.story_points || 0} points</span>
                         </div>
                         {item.assignee && (
                           <div className="flex items-center space-x-1">
                             <User className="w-4 h-4" />
-                            <span>{item.assignee}</span>
+                            <span>{item.assignee.name}</span>
                           </div>
                         )}
                         <div className="flex items-center space-x-1">
                           <Calendar className="w-4 h-4" />
-                          <span>Created {new Date(item.createdAt).toLocaleDateString()}</span>
+                          <span>Created {new Date(item.created_at).toLocaleDateString()}</span>
                         </div>
                       </div>
                     </div>

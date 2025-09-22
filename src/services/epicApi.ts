@@ -1,4 +1,5 @@
 import { authApiService } from './authApi';
+import { getApiUrl } from '../config/api';
 
 export interface Epic {
   title: string;
@@ -122,10 +123,9 @@ export interface UpdateEpicRequest extends Partial<CreateEpicRequest> {
   id: string;
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 export class EpicApiService {
-  private baseUrl = `${API_BASE_URL}/api/v1/epics`;
+  private baseUrl = getApiUrl('/api/v1/epics');
 
   private async makeRequest<T>(
     endpoint: string,

@@ -1,4 +1,5 @@
 import { authApiService } from './authApi';
+import { getApiUrl } from '../config/api';
 
 export interface UserRole {
   name: string;
@@ -113,11 +114,10 @@ export interface SprintsQueryParams {
   scrum_master_id?: string;
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 export class SprintApiService {
   private async makeRequest<T>(endpoint: string, options?: RequestInit): Promise<T> {
-    const url = `${API_BASE_URL}${endpoint}`;
+    const url = getApiUrl(endpoint);
 
     const token = authApiService.getAccessToken();
     const tokenType = authApiService.getTokenType();

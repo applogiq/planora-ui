@@ -13,8 +13,11 @@ import { Label } from '../../components/ui/label'
 import { Separator } from '../../components/ui/separator'
 import { Calendar } from '../../components/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '../../components/ui/popover'
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card'
 import { format } from 'date-fns'
-import { 
+import { getAssetUrl } from '../../config/api'
+import { masterApiService, TaskStatus } from '../../services/masterApi'
+import {
   X,
   Save,
   Edit,
@@ -46,15 +49,18 @@ interface TaskModalProps {
   mode: 'create' | 'edit' | 'view'
   project: any
   teamMembers?: any[]
+  projectStatuses?: any[]
+  projectPriorities?: any[]
   onSave: (taskData: any) => void
 }
 
-export function TaskModal({ isOpen, onClose, task, mode, project, teamMembers = [], onSave }: TaskModalProps) {
+export function TaskModal({ isOpen, onClose, task, mode, project, teamMembers = [], projectStatuses = [], projectPriorities = [], onSave }: TaskModalProps) {
   const [activeTab, setActiveTab] = useState('details')
   const [isEditing, setIsEditing] = useState(mode !== 'view')
   const [taskData, setTaskData] = useState({
     title: task?.title || '',
     description: task?.description || '',
+    type: task?.type || 'task',
     status: task?.status || 'To Do',
     priority: task?.priority || 'Medium',
     assignee_id: task?.assignee?.id || task?.assignee_id || '',
@@ -71,7 +77,29 @@ export function TaskModal({ isOpen, onClose, task, mode, project, teamMembers = 
   const [newSubtask, setNewSubtask] = useState('')
   const [subtasks, setSubtasks] = useState(task?.subtasks || [])
   const [comments, setComments] = useState(task?.comments || [])
-  const [attachments, setAttachments] = useState(task?.attachments || [])
+  const [attachments, setAttachments] = useState(task?.attachmentFiles || task?.attachments || [])
+  const [isUploading, setIsUploading] = useState(false)
+  const [taskStatuses, setTaskStatuses] = useState<TaskStatus[]>([])
+  const [loadingStatuses, setLoadingStatuses] = useState(true)
+
+  useEffect(() => {
+    const fetchTaskStatuses = async () => {
+      try {
+        setLoadingStatuses(true)
+        const statuses = await masterApiService.getTaskStatuses()
+        setTaskStatuses(statuses)
+      } catch (error) {
+        console.error('Failed to fetch task statuses:', error)
+        setTaskStatuses([])
+      } finally {
+        setLoadingStatuses(false)
+      }
+    }
+
+    if (isOpen) {
+      fetchTaskStatuses()
+    }
+  }, [isOpen])
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -94,9 +122,11 @@ export function TaskModal({ isOpen, onClose, task, mode, project, teamMembers = 
   const handleSave = () => {
     const saveData = {
       ...taskData,
+      type: taskData.type || 'task',
       subtasks,
       comments,
-      attachments,
+      attachmentFiles: attachments,
+      attachments: attachments.length,
       id: task?.id || `TASK-${Date.now()}`
     }
     onSave(saveData)
@@ -124,10 +154,20 @@ export function TaskModal({ isOpen, onClose, task, mode, project, teamMembers = 
       setSubtasks(prev => [...prev, {
         id: `ST-${Date.now()}`,
         title: newSubtask,
+        description: '',
+        assignee: '',
+        dueDate: '',
+        priority: 'Medium',
         completed: false
       }])
       setNewSubtask('')
     }
+  }
+
+  const updateSubtask = (subtaskId: string, field: string, value: any) => {
+    setSubtasks(prev => prev.map((st: any) =>
+      st.id === subtaskId ? { ...st, [field]: value } : st
+    ))
   }
 
   const toggleSubtask = (subtaskId: string) => {
@@ -146,6 +186,57 @@ export function TaskModal({ isOpen, onClose, task, mode, project, teamMembers = 
       }])
       setNewComment('')
     }
+  }
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files
+    if (!files || files.length === 0) return
+
+    setIsUploading(true)
+
+    try {
+      for (const file of Array.from(files)) {
+        if (file.size > 10 * 1024 * 1024) {
+          console.error(`File ${file.name} is too large. Maximum size is 10MB.`)
+          continue
+        }
+
+        const attachment = {
+          id: Date.now() + Math.random(),
+          name: file.name,
+          size: formatFileSize(file.size),
+          type: file.type,
+          url: URL.createObjectURL(file),
+          uploadedAt: new Date().toISOString(),
+          file: file
+        }
+
+        setAttachments(prev => [...prev, attachment])
+      }
+    } catch (error) {
+      console.error('Failed to upload files')
+    } finally {
+      setIsUploading(false)
+      event.target.value = ''
+    }
+  }
+
+  const removeAttachment = (id: number) => {
+    setAttachments(prev => {
+      const attachment = prev.find(att => att.id === id)
+      if (attachment?.url?.startsWith('blob:')) {
+        URL.revokeObjectURL(attachment.url)
+      }
+      return prev.filter(att => att.id !== id)
+    })
+  }
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return '0 Bytes'
+    const k = 1024
+    const sizes = ['Bytes', 'KB', 'MB', 'GB']
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
   }
 
   const modalTitle = mode === 'create' ? 'Create New Task' : 
@@ -241,18 +332,121 @@ export function TaskModal({ isOpen, onClose, task, mode, project, teamMembers = 
                       </div>
                     )}
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     {subtasks.map((subtask: any) => (
-                      <div key={subtask.id} className="flex items-center space-x-2">
-                        <Checkbox
-                          checked={subtask.completed}
-                          onCheckedChange={() => toggleSubtask(subtask.id)}
-                          disabled={!isEditing}
-                        />
-                        <span className={subtask.completed ? 'line-through text-muted-foreground' : ''}>
-                          {subtask.title}
-                        </span>
-                      </div>
+                      <Card key={subtask.id} className="p-3">
+                        <div className="space-y-3">
+                          <div className="flex items-center space-x-2">
+                            <Checkbox
+                              checked={subtask.completed}
+                              onCheckedChange={() => toggleSubtask(subtask.id)}
+                              disabled={!isEditing}
+                            />
+                            <Input
+                              value={subtask.title}
+                              onChange={(e) => updateSubtask(subtask.id, 'title', e.target.value)}
+                              disabled={!isEditing}
+                              className={`flex-1 ${subtask.completed ? 'line-through text-muted-foreground' : ''}`}
+                              placeholder="Subtask title"
+                            />
+                            {isEditing && (
+                              <Button variant="ghost" size="sm" onClick={() => setSubtasks(prev => prev.filter((st: any) => st.id !== subtask.id))}>
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            )}
+                          </div>
+
+                          {isEditing && (
+                            <>
+                              <Textarea
+                                value={subtask.description || ''}
+                                onChange={(e) => updateSubtask(subtask.id, 'description', e.target.value)}
+                                placeholder="Subtask description"
+                                rows={2}
+                              />
+
+                              <div className="grid grid-cols-3 gap-2">
+                                <div>
+                                  <Label className="text-xs">Assignee</Label>
+                                  <Select
+                                    value={subtask.assignee || ''}
+                                    onValueChange={(value) => updateSubtask(subtask.id, 'assignee', value)}
+                                  >
+                                    <SelectTrigger className="h-8">
+                                      <SelectValue placeholder="Assign" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {teamMembers.map((member: any) => (
+                                        <SelectItem key={member.id} value={member.name}>
+                                          <div className="flex items-center space-x-2">
+                                            <Avatar className="w-4 h-4">
+                                              {member.user_profile && member.user_profile !== '/public/user-profile/default.png' ? (
+                                                <img
+                                                  src={getAssetUrl(member.user_profile)}
+                                                  alt={member.name || 'User'}
+                                                  className="w-4 h-4 rounded-full object-cover"
+                                                  onError={(e) => {
+                                                    e.currentTarget.style.display = 'none';
+                                                    e.currentTarget.nextElementSibling!.style.display = 'flex';
+                                                  }}
+                                                />
+                                              ) : null}
+                                              <AvatarFallback className="text-xs bg-[#007BFF] text-white">
+                                                {member.name?.charAt(0) || 'U'}
+                                              </AvatarFallback>
+                                            </Avatar>
+                                            <span className="text-xs">{member.name}</span>
+                                          </div>
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+
+                                <div>
+                                  <Label className="text-xs">Priority</Label>
+                                  <Select
+                                    value={subtask.priority || 'Medium'}
+                                    onValueChange={(value) => updateSubtask(subtask.id, 'priority', value)}
+                                  >
+                                    <SelectTrigger className="h-8">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {projectPriorities.length > 0 ? projectPriorities.map((priority: any) => (
+                                        <SelectItem key={priority.id} value={priority.name}>
+                                          <div className="flex items-center space-x-2">
+                                            {priority.color && (
+                                              <div className={`w-2 h-2 rounded-full`} style={{ backgroundColor: priority.color }} />
+                                            )}
+                                            <span className="text-xs">{priority.name}</span>
+                                          </div>
+                                        </SelectItem>
+                                      )) : (
+                                        <>
+                                          <SelectItem value="Low">Low</SelectItem>
+                                          <SelectItem value="Medium">Medium</SelectItem>
+                                          <SelectItem value="High">High</SelectItem>
+                                        </>
+                                      )}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+
+                                <div>
+                                  <Label className="text-xs">Due Date</Label>
+                                  <Input
+                                    type="date"
+                                    value={subtask.dueDate || ''}
+                                    onChange={(e) => updateSubtask(subtask.id, 'dueDate', e.target.value)}
+                                    className="h-8 text-xs"
+                                  />
+                                </div>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </Card>
                     ))}
                   </div>
                 </div>
@@ -267,12 +461,12 @@ export function TaskModal({ isOpen, onClose, task, mode, project, teamMembers = 
                       <div key={comment.id} className="flex space-x-3 p-3 bg-muted/30 rounded-lg">
                         <Avatar className="w-8 h-8">
                           <AvatarFallback className="bg-[#007BFF] text-white text-xs">
-                            {comment.user.split(' ').map((n: string) => n[0]).join('')}
+                            {comment.user ? comment.user.split(' ').map((n: string) => n[0]).join('') : 'U'}
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex-1">
                           <div className="flex items-center space-x-2 mb-1">
-                            <span className="font-medium text-sm">{comment.user}</span>
+                            <span className="font-medium text-sm">{comment.user || 'Unknown User'}</span>
                             <span className="text-xs text-muted-foreground">{comment.timestamp}</span>
                           </div>
                           <p className="text-sm">{comment.text}</p>
@@ -303,32 +497,71 @@ export function TaskModal({ isOpen, onClose, task, mode, project, teamMembers = 
                   <div className="flex items-center justify-between mb-4">
                     <Label>Attachments</Label>
                     {isEditing && (
-                      <Button variant="outline" size="sm">
-                        <Upload className="w-4 h-4 mr-2" />
-                        Upload File
-                      </Button>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="file"
+                          multiple
+                          onChange={handleFileUpload}
+                          className="hidden"
+                          id="file-upload-modal"
+                          accept="image/*,.pdf,.doc,.docx,.txt,.xlsx,.csv"
+                        />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => document.getElementById('file-upload-modal')?.click()}
+                          disabled={isUploading}
+                        >
+                          <Upload className="w-4 h-4 mr-2" />
+                          {isUploading ? 'Uploading...' : 'Upload File'}
+                        </Button>
+                      </div>
                     )}
                   </div>
                   <div className="space-y-2">
-                    {attachments.map((attachment: any, index: number) => (
-                      <div key={index} className="flex items-center justify-between p-2 border border-border rounded">
-                        <div className="flex items-center space-x-2">
-                          <Paperclip className="w-4 h-4 text-muted-foreground" />
-                          <span className="text-sm">{attachment.name}</span>
-                          <span className="text-xs text-muted-foreground">({attachment.size})</span>
+                    {attachments.length > 0 ? attachments.map((attachment: any, index: number) => (
+                      <div key={attachment.id || index} className="flex items-center justify-between p-3 border border-border rounded-lg bg-muted/30">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-8 h-8 rounded bg-[#007BFF] text-white flex items-center justify-center">
+                            {attachment.type?.startsWith('image/') ? '🖼️' : '📄'}
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium">{attachment.name}</p>
+                            <p className="text-xs text-muted-foreground">{attachment.size}</p>
+                          </div>
                         </div>
                         <div className="flex space-x-1">
-                          <Button variant="outline" size="sm">
-                            <Eye className="w-4 h-4" />
-                          </Button>
+                          {attachment.url && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => window.open(attachment.url, '_blank')}
+                            >
+                              <Eye className="w-4 h-4" />
+                            </Button>
+                          )}
                           {isEditing && (
-                            <Button variant="outline" size="sm">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => removeAttachment(attachment.id)}
+                            >
                               <Trash2 className="w-4 h-4" />
                             </Button>
                           )}
                         </div>
                       </div>
-                    ))}
+                    )) : (
+                      <div className="text-center py-6 border-2 border-dashed border-border rounded-lg">
+                        <Paperclip className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
+                        <p className="text-sm text-muted-foreground">No attachments yet</p>
+                        {isEditing && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Click "Upload File" to add documents, images, or other files
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               </TabsContent>
@@ -351,18 +584,38 @@ export function TaskModal({ isOpen, onClose, task, mode, project, teamMembers = 
                           <SelectItem value="unassigned">
                             <span className="text-gray-500">No assignee</span>
                           </SelectItem>
-                          {teamMembers.map((member: any) => (
-                            <SelectItem key={member.id} value={member.id}>
+                          {teamMembers.length > 0 ? teamMembers.map((member: any) => (
+                            <SelectItem key={member.id || member.name} value={member.id || member.name}>
                               <div className="flex items-center space-x-2">
                                 <Avatar className="w-5 h-5">
+                                  {member.user_profile && member.user_profile !== '/public/user-profile/default.png' ? (
+                                    <img
+                                      src={getAssetUrl(member.user_profile)}
+                                      alt={member.name || 'User'}
+                                      className="w-5 h-5 rounded-full object-cover"
+                                      onError={(e) => {
+                                        e.currentTarget.style.display = 'none';
+                                        e.currentTarget.nextElementSibling!.style.display = 'flex';
+                                      }}
+                                    />
+                                  ) : null}
                                   <AvatarFallback className="text-xs bg-[#007BFF] text-white">
-                                    {member.avatar || member.name?.charAt(0)}
+                                    {member.name?.charAt(0) || 'U'}
                                   </AvatarFallback>
                                 </Avatar>
-                                <span>{member.name}</span>
+                                <div className="flex flex-col">
+                                  <span className="text-sm">{member.name || 'Unknown User'}</span>
+                                  {member.role_name && (
+                                    <span className="text-xs text-muted-foreground">{member.role_name}</span>
+                                  )}
+                                </div>
                               </div>
                             </SelectItem>
-                          ))}
+                          )) : (
+                            <SelectItem value="no-members" disabled>
+                              <span className="text-gray-500">No team members available</span>
+                            </SelectItem>
+                          )}
                         </SelectContent>
                       </Select>
                     </div>
@@ -378,9 +631,40 @@ export function TaskModal({ isOpen, onClose, task, mode, project, teamMembers = 
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="To Do">To Do</SelectItem>
-                          <SelectItem value="In Progress">In Progress</SelectItem>
-                          <SelectItem value="Completed">Completed</SelectItem>
+                          {loadingStatuses ? (
+                            <SelectItem value="loading" disabled>
+                              <span className="text-gray-500">Loading statuses...</span>
+                            </SelectItem>
+                          ) : taskStatuses.length > 0 ? (
+                            taskStatuses.map((status: TaskStatus) => (
+                              <SelectItem key={status.id} value={status.name}>
+                                <div className="flex items-center space-x-2">
+                                  <div
+                                    className="w-2 h-2 rounded-full"
+                                    style={{ backgroundColor: status.color }}
+                                  />
+                                  <span>{status.name}</span>
+                                </div>
+                              </SelectItem>
+                            ))
+                          ) : projectStatuses.length > 0 ? (
+                            projectStatuses.map((status: any) => (
+                              <SelectItem key={status.id} value={status.name}>
+                                <div className="flex items-center space-x-2">
+                                  {status.color && (
+                                    <div className={`w-2 h-2 rounded-full`} style={{ backgroundColor: status.color }} />
+                                  )}
+                                  <span>{status.name}</span>
+                                </div>
+                              </SelectItem>
+                            ))
+                          ) : (
+                            <>
+                              <SelectItem value="To Do">To Do</SelectItem>
+                              <SelectItem value="In Progress">In Progress</SelectItem>
+                              <SelectItem value="Completed">Completed</SelectItem>
+                            </>
+                          )}
                         </SelectContent>
                       </Select>
                     </div>
@@ -396,9 +680,22 @@ export function TaskModal({ isOpen, onClose, task, mode, project, teamMembers = 
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="Low">Low</SelectItem>
-                          <SelectItem value="Medium">Medium</SelectItem>
-                          <SelectItem value="High">High</SelectItem>
+                          {projectPriorities.length > 0 ? projectPriorities.map((priority: any) => (
+                            <SelectItem key={priority.id} value={priority.name}>
+                              <div className="flex items-center space-x-2">
+                                {priority.color && (
+                                  <div className={`w-2 h-2 rounded-full`} style={{ backgroundColor: priority.color }} />
+                                )}
+                                <span>{priority.name}</span>
+                              </div>
+                            </SelectItem>
+                          )) : (
+                            <>
+                              <SelectItem value="Low">Low</SelectItem>
+                              <SelectItem value="Medium">Medium</SelectItem>
+                              <SelectItem value="High">High</SelectItem>
+                            </>
+                          )}
                         </SelectContent>
                       </Select>
                     </div>
@@ -525,12 +822,12 @@ export function TaskModal({ isOpen, onClose, task, mode, project, teamMembers = 
                     <div key={comment.id} className="flex space-x-3 p-3 bg-muted/30 rounded-lg">
                       <Avatar className="w-8 h-8">
                         <AvatarFallback className="bg-[#007BFF] text-white text-xs">
-                          {comment.user.split(' ').map((n: string) => n[0]).join('')}
+                          {comment.user ? comment.user.split(' ').map((n: string) => n[0]).join('') : 'U'}
                         </AvatarFallback>
                       </Avatar>
                       <div className="flex-1">
                         <div className="flex items-center space-x-2 mb-1">
-                          <span className="font-medium text-sm">{comment.user}</span>
+                          <span className="font-medium text-sm">{comment.user || 'Unknown User'}</span>
                           <span className="text-xs text-muted-foreground">{comment.timestamp}</span>
                         </div>
                         <p className="text-sm">{comment.text}</p>
@@ -548,7 +845,7 @@ export function TaskModal({ isOpen, onClose, task, mode, project, teamMembers = 
                         <span className="font-medium text-sm">System</span>
                         <span className="text-xs text-muted-foreground">2 hours ago</span>
                       </div>
-                      <p className="text-sm">Task created by {typeof project.owner === 'object' ? project.owner?.name || 'Unknown' : project.owner}</p>
+                      <p className="text-sm">Task created by {typeof project?.owner === 'object' ? project.owner?.name || 'Unknown' : project?.owner || 'Unknown'}</p>
                     </div>
                   </div>
                 </div>

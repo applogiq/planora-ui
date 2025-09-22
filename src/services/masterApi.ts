@@ -1,6 +1,6 @@
 import { authApiService } from './authApi';
+import { getApiUrl } from '../config/api';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 export interface Department {
   id: string;
@@ -21,6 +21,17 @@ export interface Industry {
   updated_at: string;
 }
 
+export interface TaskStatus {
+  id: string;
+  name: string;
+  description: string;
+  color: string;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface DepartmentsResponse {
   items: Department[];
   total: number;
@@ -33,7 +44,7 @@ export interface DepartmentsResponse {
 
 export class MasterApiService {
   private async makeRequest<T>(endpoint: string, options?: RequestInit): Promise<T> {
-    const url = `${API_BASE_URL}${endpoint}`;
+    const url = getApiUrl(endpoint);
 
     // Get the access token for authorization
     const token = authApiService.getAccessToken();
@@ -119,6 +130,25 @@ export class MasterApiService {
       // Return empty array as fallback
       return [];
     }
+  }
+
+  async getTaskStatuses(): Promise<TaskStatus[]> {
+    const response = await this.makeRequest<any>('/api/v1/masters/project');
+
+    // Handle response and extract task_status if it exists in the response
+    if (response && typeof response === 'object' && 'task_status' in response) {
+      const taskStatuses = response.task_status;
+      if (Array.isArray(taskStatuses)) {
+        return taskStatuses.filter((status: TaskStatus) => status.is_active)
+                          .sort((a: TaskStatus, b: TaskStatus) => a.sort_order - b.sort_order);
+      }
+    }
+
+    return [];
+  }
+
+  async getProjectMastersWithTaskStatus(): Promise<any> {
+    return this.makeRequest<any>('/api/v1/masters/project');
   }
 }
 
