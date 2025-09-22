@@ -16,10 +16,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '../../components/ui/pop
 import { useAppDispatch } from '../../store/hooks'
 import { updateProject } from '../../store/slices/projectSlice'
 import { UpdateProjectRequest } from '../../services/projectApi'
-import {
-  mockCustomers,
-  mockTeamMembers
-} from '../../mock-data/master'
+import { customerApiService, Customer } from '../../services/customerApi'
+import { userApiService, User } from '../../services/userApi'
 import { useProjectMasters } from '../../hooks/useProjectMasters'
 import { useProjectOwners } from '../../hooks/useProjectOwners'
 import { useProjectMembers } from '../../hooks/useProjectMembers'
@@ -75,6 +73,15 @@ export function ProjectEditModal({ isOpen, onClose, project, onSave, user }: Pro
     loading: membersLoading,
     error: membersError
   } = useProjectMembers()
+
+  // Customer state management
+  const [customers, setCustomers] = useState<Customer[]>([])
+  const [loadingCustomers, setLoadingCustomers] = useState(false)
+
+  // Team members state management
+  const [teamMembers, setTeamMembers] = useState<User[]>([])
+  const [loadingTeamMembers, setLoadingTeamMembers] = useState(false)
+
   const [activeTab, setActiveTab] = useState('general')
   const [formData, setFormData] = useState({
     name: '',
@@ -188,6 +195,10 @@ export function ProjectEditModal({ isOpen, onClose, project, onSave, user }: Pro
         // Map team_members to team array with proper structure and preserve original IDs
         team: project.team_members ?
               project.team_members.map((memberIdOrName: string, index: number) => {
+                // Skip empty or invalid entries
+                if (!memberIdOrName || typeof memberIdOrName !== 'string') {
+                  return null
+                }
                 // First, try to find by ID in API data (if team_members contains IDs)
                 const apiMember = projectMembers?.items?.find(m => m.id === memberIdOrName)
                 if (apiMember) {
@@ -216,8 +227,8 @@ export function ProjectEditModal({ isOpen, onClose, project, onSave, user }: Pro
                   }
                 }
 
-                // Try to find in mockTeamMembers by ID first, then by name
-                const foundMemberById = mockTeamMembers.find(m => m.id.toString() === memberIdOrName)
+                // Try to find in teamMembers by ID first, then by name
+                const foundMemberById = teamMembers.find(m => m.id.toString() === memberIdOrName)
                 if (foundMemberById) {
                   return {
                     ...foundMemberById,
@@ -225,7 +236,7 @@ export function ProjectEditModal({ isOpen, onClose, project, onSave, user }: Pro
                   }
                 }
 
-                const foundMemberByName = mockTeamMembers.find(m => m.name === memberIdOrName)
+                const foundMemberByName = teamMembers.find(m => m.name === memberIdOrName)
                 if (foundMemberByName) {
                   return {
                     ...foundMemberByName,
@@ -236,17 +247,23 @@ export function ProjectEditModal({ isOpen, onClose, project, onSave, user }: Pro
                 // Special handling for UUID-like strings - create a mapping to mock users
                 if (memberIdOrName.match(/^[a-f0-9\-]{36}$|^[a-f0-9\-]{8,}$/)) {
                   // It's a UUID, map it to a mock team member based on index
-                  const mockMemberIndex = index % mockTeamMembers.length
-                  const mockMember = mockTeamMembers[mockMemberIndex]
+                  const teamMemberIndex = index % Math.max(teamMembers.length, 1)
+                  const teamMember = teamMembers[teamMemberIndex] || {
+                    id: `temp-${index}`,
+                    name: `Team Member ${index + 1}`,
+                    role: { name: 'Member' },
+                    email: `member${index + 1}@example.com`,
+                    department: 'Unknown'
+                  }
 
                   return {
-                    id: mockMember.id,
+                    id: teamMember.id,
                     originalId: memberIdOrName, // Store the original UUID
-                    name: mockMember.name,
-                    role: mockMember.role,
-                    avatar: mockMember.avatar,
-                    email: mockMember.email,
-                    department: mockMember.department
+                    name: teamMember.name,
+                    role: typeof teamMember.role === 'object' ? teamMember.role.name : teamMember.role,
+                    avatar: teamMember.name.charAt(0).toUpperCase(),
+                    email: teamMember.email,
+                    department: teamMember.department
                   }
                 }
 
@@ -266,7 +283,7 @@ export function ProjectEditModal({ isOpen, onClose, project, onSave, user }: Pro
                   email: `${displayName.toLowerCase().replace(/\s+/g, '.')}@planora.com`,
                   department: 'Development'
                 }
-              }) :
+              }).filter(Boolean) : // Remove null/undefined entries
               project.team || [],
         isPublic: project.isPublic !== undefined ? project.isPublic : true,
         notifications: project.notifications !== undefined ? project.notifications : true,
@@ -277,6 +294,38 @@ export function ProjectEditModal({ isOpen, onClose, project, onSave, user }: Pro
       })
     }
   }, [project, user])
+
+  // Load customers from API
+  useEffect(() => {
+    const loadCustomers = async () => {
+      setLoadingCustomers(true)
+      try {
+        const response = await customerApiService.getCustomers({ size: 100 })
+        setCustomers(response.customers || [])
+      } catch (error) {
+        console.error('Failed to load customers:', error)
+      } finally {
+        setLoadingCustomers(false)
+      }
+    }
+    loadCustomers()
+  }, [])
+
+  // Load team members from API
+  useEffect(() => {
+    const loadTeamMembers = async () => {
+      setLoadingTeamMembers(true)
+      try {
+        const response = await userApiService.getTeamMembers({ per_page: 100, is_active: true })
+        setTeamMembers(response.items || [])
+      } catch (error) {
+        console.error('Failed to load team members:', error)
+      } finally {
+        setLoadingTeamMembers(false)
+      }
+    }
+    loadTeamMembers()
+  }, [])
 
   const handleInputChange = (field: string, value: any) => {
     setFormData(prev => ({
@@ -364,7 +413,7 @@ export function ProjectEditModal({ isOpen, onClose, project, onSave, user }: Pro
 
     try {
       // Find customer and owner IDs from the selected names
-      const selectedCustomer = mockCustomers.find(c => c.name === formData.customer)
+      const selectedCustomer = customers.find(c => c.name === formData.customer)
       const selectedOwner = projectOwners?.items?.find(owner => owner.name === formData.owner)
 
       const updateData: UpdateProjectRequest = {
@@ -374,31 +423,34 @@ export function ProjectEditModal({ isOpen, onClose, project, onSave, user }: Pro
         start_date: formData.startDate.toISOString().split('T')[0],
         end_date: formData.dueDate.toISOString().split('T')[0],
         budget: formData.budget,
-        customer_id: selectedCustomer?.id || 'default-customer',
+        customer_id: selectedCustomer?.id || null,
         customer: formData.customer,
         priority: formData.priority as 'Low' | 'Medium' | 'High' | 'Critical',
-        team_lead_id: selectedOwner?.id || formData.owner || 'default-lead',
-        team_members: formData.team.map(member => {
-          // First priority: use the stored originalId if available
-          if (member.originalId) {
-            return member.originalId
-          }
+        team_lead_id: selectedOwner?.id || null,
+        team_members: formData.team
+          .map(member => {
+            // First priority: try to find the member ID from the API data
+            const apiMember = projectMembers?.items?.find(apiM => apiM.name === member.name)
+            if (apiMember?.id) {
+              return apiMember.id
+            }
 
-          // Second priority: try to find the member ID from the API data
-          const apiMember = projectMembers?.items?.find(apiM => apiM.name === member.name)
-          if (apiMember?.id) {
-            return apiMember.id
-          }
+            // Second priority: try to find in team members data
+            const teamMember = teamMembers.find(tm => tm.name === member.name)
+            if (teamMember?.id) {
+              return teamMember.id
+            }
 
-          // Third priority: try to find in mock data and use a generated ID
-          const mockMember = mockTeamMembers.find(mockM => mockM.name === member.name)
-          if (mockMember) {
-            return `mock-member-${mockMember.id}`
-          }
+            // Third priority: use the stored originalId only if it looks like a valid UUID
+            if (member.originalId && member.originalId.match(/^[a-f0-9\-]{8,}$/)) {
+              return member.originalId
+            }
 
-          // Last resort: use the member's existing ID or generate one
-          return member.id || `member-${Date.now()}`
-        }),
+            // If we can't find a valid ID, don't include this member
+            console.warn(`Could not find valid ID for team member: ${member.name}`)
+            return null
+          })
+          .filter(Boolean), // Remove null entries
         tags: formData.tags,
         methodology: formData.methodology as 'Agile' | 'Waterfall' | 'Scrum' | 'Kanban' | 'Lean' | 'Hybrid',
         project_type: formData.type as 'Web Development' | 'Mobile App' | 'Desktop App' | 'API Development' | 'Data Analytics' | 'E-commerce' | 'CRM' | 'ERP' | 'DevOps' | 'Machine Learning' | 'Other'
@@ -416,20 +468,27 @@ export function ProjectEditModal({ isOpen, onClose, project, onSave, user }: Pro
     }
   }
 
-  // Get available team members from API data, fallback to mock data
+  // Get available team members from API data
   const getAvailableMembers = () => {
     const apiMembers = projectMembers?.items?.filter(member => member.is_active) || []
-    const mockMembers = mockTeamMembers
+    const availableTeamMembers = teamMembers.filter(member => member.is_active) || []
 
-    // Use API data if available, otherwise fallback to mock data
+    // Use API data if available, otherwise fallback to team members data
     const allMembers = apiMembers.length > 0 ? apiMembers.map(member => ({
       id: member.id,
       name: member.name,
       role: member.role.name,
-      avatar: member.avatar || member.name.charAt(0).toUpperCase(),
+      avatar: member.user_profile || member.name.charAt(0).toUpperCase(),
       email: member.email,
       department: member.department
-    })) : mockMembers
+    })) : availableTeamMembers.map(member => ({
+      id: member.id,
+      name: member.name,
+      role: typeof member.role === 'object' ? member.role.name : member.role,
+      avatar: member.user_profile || member.name.charAt(0).toUpperCase(),
+      email: member.email,
+      department: member.department
+    }))
 
     return allMembers.filter(availableMember => {
       // Check if this member is already in the team by multiple criteria
@@ -533,16 +592,22 @@ export function ProjectEditModal({ isOpen, onClose, project, onSave, user }: Pro
                       <SelectValue placeholder="Select customer" />
                     </SelectTrigger>
                     <SelectContent>
-                      {mockCustomers.map((customer) => (
-                        <SelectItem key={customer.id} value={customer.name}>
-                          <div className="flex items-center space-x-2">
-                            <span>{customer.name}</span>
-                            <Badge variant="outline" className="text-xs">
-                              {customer.type}
-                            </Badge>
-                          </div>
-                        </SelectItem>
-                      ))}
+                      {loadingCustomers ? (
+                        <SelectItem value="loading" disabled>Loading customers...</SelectItem>
+                      ) : customers.length === 0 ? (
+                        <SelectItem value="empty" disabled>No customers available</SelectItem>
+                      ) : (
+                        customers.map((customer) => (
+                          <SelectItem key={customer.id} value={customer.name}>
+                            <div className="flex items-center space-x-2">
+                              <span>{customer.name}</span>
+                              <Badge variant="outline" className="text-xs">
+                                {customer.industry}
+                              </Badge>
+                            </div>
+                          </SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
@@ -755,7 +820,7 @@ export function ProjectEditModal({ isOpen, onClose, project, onSave, user }: Pro
                   <span>Available Team Members</span>
                 </h3>
                 <div className="space-y-3 max-h-80 overflow-y-auto">
-                  {membersLoading ? (
+                  {membersLoading || loadingTeamMembers ? (
                     <p className="text-muted-foreground text-sm">Loading team members...</p>
                   ) : availableMembers.length === 0 ? (
                     <p className="text-muted-foreground text-sm">All team members are already assigned</p>

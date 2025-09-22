@@ -10,6 +10,8 @@ import { Textarea } from '../../components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select'
 import { Progress } from '../../components/ui/progress'
 import { Separator } from '../../components/ui/separator'
+import { Popover, PopoverContent, PopoverTrigger } from '../../components/ui/popover'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table'
 import { toast } from 'sonner@2.0.3'
 import { 
   Plus, 
@@ -41,12 +43,18 @@ import {
   Activity,
   Briefcase,
   MessageSquare,
-  Edit
+  Edit,
+  Grid3X3,
+  List,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react'
 import { masterApiService, Industry } from '../../services/masterApi'
-import { customerApiService, Customer, CreateCustomerRequest, UpdateCustomerRequest } from '../../services/customerApi'
+import { customerApiService, Customer, CreateCustomerRequest, UpdateCustomerRequest, CustomerListParams } from '../../services/customerApi'
 
-const customers = [
+// Mock customers array removed - now using API data
+
+const mockCustomersForMockingOtherFeatures = [
   {
     id: 'CUST-001',
     name: 'Acme Corporation',
@@ -264,6 +272,24 @@ const recentActivities = [
     activity: 'Invoice payment received',
     time: '1 day ago',
     type: 'payment'
+  },
+   {
+    customer: 'Acme Corporation',
+    activity: 'New project milestone reached',
+    time: '2 hours ago',
+    type: 'milestone'
+  },
+  {
+    customer: 'Tech Solutions Inc',
+    activity: 'SLA deadline approaching',
+    time: '4 hours ago',
+    type: 'alert'
+  },
+  {
+    customer: 'Acme Corporation',
+    activity: 'Invoice payment received',
+    time: '1 day ago',
+    type: 'payment'
   }
 ]
 
@@ -282,8 +308,17 @@ export function Customers({ user }: CustomersProps) {
   const [industryFilter, setIndustryFilter] = useState('All')
   const [priorityFilter, setPriorityFilter] = useState('All')
   const [showFilters, setShowFilters] = useState(false)
+  const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage] = useState(6)
   const [industries, setIndustries] = useState<Industry[]>([])
   const [loadingIndustries, setLoadingIndustries] = useState(false)
+  const [customers, setCustomers] = useState<Customer[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [totalCustomers, setTotalCustomers] = useState(0)
+  const [hasNextPage, setHasNextPage] = useState(false)
+  const [hasPrevPage, setHasPrevPage] = useState(false)
   const [editingCustomer, setEditingCustomer] = useState<typeof customers[0] | null>(null)
   const [showEditCustomer, setShowEditCustomer] = useState(false)
   const [showCustomerForm, setShowCustomerForm] = useState(false)
@@ -307,6 +342,43 @@ export function Customers({ user }: CustomersProps) {
     notes: ''
   })
 
+  // Load customers from API
+  const loadCustomers = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const params: CustomerListParams = {
+        page: currentPage,
+        size: itemsPerPage,
+        search: searchTerm || undefined,
+        status: statusFilter !== 'All' ? statusFilter : undefined,
+        industry: industryFilter !== 'All' ? industryFilter : undefined,
+        priority: priorityFilter !== 'All' ? priorityFilter : undefined,
+      }
+
+      const response = await customerApiService.getCustomers(params)
+
+      // Add defensive checks for API response
+      if (response && response.customers && Array.isArray(response.customers)) {
+        setCustomers(response.customers)
+        setTotalCustomers(response.total || 0)
+        setHasNextPage(response.has_next || false)
+        setHasPrevPage(response.has_prev || false)
+      } else {
+        console.warn('Unexpected API response format:', response)
+        setCustomers([])
+        setTotalCustomers(0)
+        setHasNextPage(false)
+        setHasPrevPage(false)
+      }
+    } catch (error) {
+      setError('Failed to load customers')
+      toast.error('Failed to load customers')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   // Load industries on component mount
   useEffect(() => {
     const loadIndustries = async () => {
@@ -323,6 +395,11 @@ export function Customers({ user }: CustomersProps) {
 
     loadIndustries()
   }, [])
+
+  // Load customers when component mounts or filters change
+  useEffect(() => {
+    loadCustomers()
+  }, [currentPage, itemsPerPage, searchTerm, statusFilter, industryFilter, priorityFilter])
 
   const handleCreateCustomer = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -351,8 +428,8 @@ export function Customers({ user }: CustomersProps) {
           country: newCustomer.country
         },
         status: 'Active',
-        totalRevenue: 0,
-        projectIds: [],
+        total_revenue: 0,
+        project_ids: [],
         priority: newCustomer.priority,
         notes: newCustomer.notes
       }
@@ -361,7 +438,8 @@ export function Customers({ user }: CustomersProps) {
       toast.success('Customer created successfully!')
       setShowCustomerForm(false)
       resetNewCustomerForm()
-      // TODO: Refresh customer list
+      // Refresh customer list
+      loadCustomers()
     } catch (error) {
       toast.error('Failed to create customer')
     } finally {
@@ -482,57 +560,142 @@ export function Customers({ user }: CustomersProps) {
     }
   }
 
-  // Filter customers based on search and filter criteria
-  const filteredCustomers = customers.filter((customer) => {
-    const matchesSearch = customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         customer.contact.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         customer.industry.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         customer.contact.name.toLowerCase().includes(searchTerm.toLowerCase())
+  // Pagination calculation - now handled by API
+  const totalPages = Math.ceil(totalCustomers / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const endIndex = Math.min(startIndex + itemsPerPage, totalCustomers)
 
-    const matchesStatus = statusFilter === 'All' || customer.status === statusFilter
-    const matchesIndustry = industryFilter === 'All' || customer.industry === industryFilter
-    const matchesPriority = priorityFilter === 'All' || customer.priority === priorityFilter
+  // Use customers directly from API (already filtered and paginated)
+  const filteredCustomers = customers || []
 
-    return matchesSearch && matchesStatus && matchesIndustry && matchesPriority
-  })
+  // Reset to first page when filters change
+  useEffect(() => {
+    if (currentPage !== 1) {
+      setCurrentPage(1)
+    }
+  }, [searchTerm, statusFilter, industryFilter, priorityFilter])
 
   // Get unique values for filter dropdowns
-  const uniqueStatuses = ['All', ...Array.from(new Set(customers.map(c => c.status)))]
-  const uniqueIndustries = ['All', ...industries.map(i => i.name), ...Array.from(new Set(customers.map(c => c.industry)))]
-  const uniquePriorities = ['All', ...Array.from(new Set(customers.map(c => c.priority)))]
+  const uniqueStatuses = ['All', ...Array.from(new Set((customers || []).map(c => c.status).filter(Boolean)))]
+  const uniqueIndustries = [
+    'All',
+    ...Array.from(new Set([
+      ...industries.map(i => i.name),
+      ...(customers || []).map(c => c.industry).filter(Boolean)
+    ]))
+  ]
+  const uniquePriorities = ['All', ...Array.from(new Set((customers || []).map(c => c.priority).filter(Boolean)))]
 
   return (
     <div className="space-y-6">
+      {/* Loading State */}
+      {loading && customers.length === 0 && (
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <div className="animate-spin w-8 h-8 mx-auto mb-4 border-2 border-current border-t-transparent rounded-full" />
+            <p className="text-muted-foreground">Loading customers...</p>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-foreground">Customer</h1>
           <p className="text-muted-foreground">Lightweight CRM with client portal access & project transparency</p>
         </div>
-        <div className="flex items-center space-x-2">
-          <div className="relative">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Search customers..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 w-64"
-            />
+        <div className="flex flex-col items-end space-y-3">
+          <div className="flex items-center space-x-2">
+            <div className="relative">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search customers..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 w-64"
+              />
+            </div>
+
+            {/* Filter Popover */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Filter className="w-4 h-4 mr-2" />
+                  Filter
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80" align="end">
+                <div className="space-y-4">
+                  <h4 className="font-medium leading-none">Filter Customers</h4>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-sm font-medium mb-1 block">Status</label>
+                      <Select value={statusFilter} onValueChange={setStatusFilter}>
+                        <SelectTrigger className="h-8">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {uniqueStatuses.map(status => (
+                            <SelectItem key={status} value={status}>{status}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <label className="text-sm font-medium mb-1 block">Priority</label>
+                      <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+                        <SelectTrigger className="h-8">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {uniquePriorities.map(priority => (
+                            <SelectItem key={priority} value={priority}>{priority}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="col-span-2">
+                      <label className="text-sm font-medium mb-1 block">Industry</label>
+                      <Select value={industryFilter} onValueChange={setIndustryFilter}>
+                        <SelectTrigger className="h-8">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {uniqueIndustries.map(industry => (
+                            <SelectItem key={industry} value={industry}>{industry}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={() => {
+                      setSearchTerm('')
+                      setStatusFilter('All')
+                      setIndustryFilter('All')
+                      setPriorityFilter('All')
+                    }}
+                  >
+                    Clear Filters
+                  </Button>
+                </div>
+              </PopoverContent>
+            </Popover>
+
+            <Button variant="outline" size="sm" onClick={() => setShowClientPortal(true)}>
+              <ExternalLink className="w-4 h-4 mr-2" />
+              Client Portal
+            </Button>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowFilters(!showFilters)}
-            className={showFilters ? 'bg-muted' : ''}
-          >
-            <Filter className="w-4 h-4 mr-2" />
-            Filter
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => setShowClientPortal(true)}>
-            <ExternalLink className="w-4 h-4 mr-2" />
-            Client Portal
-          </Button>
-          <Button size="sm" className="bg-[#28A745] hover:bg-[#218838] text-white" onClick={() => {
+
+          <Button className="bg-[#28A745] hover:bg-[#218838] text-white" onClick={() => {
             setCustomerFormMode('create')
             setActiveFormTab('basic')
             resetNewCustomerForm()
@@ -544,72 +707,6 @@ export function Customers({ user }: CustomersProps) {
         </div>
       </div>
 
-      {/* Filter Section */}
-      {showFilters && (
-        <Card>
-          <div className="p-6">
-            <h3 className="text-lg font-semibold mb-4">Filters</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">Status</label>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {uniqueStatuses.map(status => (
-                      <SelectItem key={status} value={status}>{status}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">Industry</label>
-                <Select value={industryFilter} onValueChange={setIndustryFilter}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {uniqueIndustries.map(industry => (
-                      <SelectItem key={industry} value={industry}>{industry}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">Priority</label>
-                <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {uniquePriorities.map(priority => (
-                      <SelectItem key={priority} value={priority}>{priority}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="flex items-center justify-between mt-4">
-              <p className="text-sm text-muted-foreground">
-                Showing {filteredCustomers.length} of {customers.length} customers
-              </p>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setSearchTerm('')
-                  setStatusFilter('All')
-                  setIndustryFilter('All')
-                  setPriorityFilter('All')
-                }}
-              >
-                Clear Filters
-              </Button>
-            </div>
-          </div>
-        </Card>
-      )}
 
       <Tabs defaultValue="overview" className="space-y-6">
         <TabsList>
@@ -626,8 +723,8 @@ export function Customers({ user }: CustomersProps) {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Total Customers</p>
-                  <p className="text-2xl font-semibold">{filteredCustomers.length}</p>
-                  <p className="text-xs text-muted-foreground mt-1">2 new this month</p>
+                  <p className="text-2xl font-semibold">{totalCustomers}</p>
+                  <p className="text-xs text-muted-foreground mt-1">Across all pages</p>
                 </div>
                 <div className="p-3 bg-[#007BFF]/10 rounded-full">
                   <Building className="w-6 h-6 text-[#007BFF]" />
@@ -638,9 +735,9 @@ export function Customers({ user }: CustomersProps) {
             <Card className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Active Projects</p>
-                  <p className="text-2xl font-semibold">3</p>
-                  <p className="text-xs text-muted-foreground mt-1">Across 2 customers</p>
+                  <p className="text-sm font-medium text-muted-foreground">Active Customers</p>
+                  <p className="text-2xl font-semibold">{(customers || []).filter(c => c.status === 'Active').length}</p>
+                  <p className="text-xs text-muted-foreground mt-1">Currently active</p>
                 </div>
                 <div className="p-3 bg-[#28A745]/10 rounded-full">
                   <TrendingUp className="w-6 h-6 text-[#28A745]" />
@@ -651,9 +748,9 @@ export function Customers({ user }: CustomersProps) {
             <Card className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Contract Value</p>
-                  <p className="text-2xl font-semibold">$485k</p>
-                  <p className="text-xs text-muted-foreground mt-1">Total active contracts</p>
+                  <p className="text-sm font-medium text-muted-foreground">Total Revenue</p>
+                  <p className="text-2xl font-semibold">${((customers || []).reduce((sum, c) => sum + (c.total_revenue || 0), 0) / 1000).toFixed(0)}k</p>
+                  <p className="text-xs text-muted-foreground mt-1">From all customers</p>
                 </div>
                 <div className="p-3 bg-[#FFC107]/10 rounded-full">
                   <DollarSign className="w-6 h-6 text-[#FFC107]" />
@@ -664,8 +761,8 @@ export function Customers({ user }: CustomersProps) {
             <Card className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">SLA Alerts</p>
-                  <p className="text-2xl font-semibold">1</p>
+                  <p className="text-sm font-medium text-muted-foreground">High Priority</p>
+                  <p className="text-2xl font-semibold">{(customers || []).filter(c => c.priority === 'High').length}</p>
                   <p className="text-xs text-muted-foreground mt-1">Requires attention</p>
                 </div>
                 <div className="p-3 bg-[#DC3545]/10 rounded-full">
@@ -680,10 +777,54 @@ export function Customers({ user }: CustomersProps) {
             <div className="lg:col-span-2">
               <Card>
                 <div className="p-6 pb-4">
-                  <h3 className="text-lg font-semibold mb-4">Customer Directory</h3>
-                  
-                  <div className="space-y-4">
-                    {filteredCustomers.length === 0 ? (
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center space-x-2">
+                      <h3 className="text-lg font-semibold">Customer Directory ({totalCustomers})</h3>
+                      <Badge variant="outline" className="ml-2">
+                        {viewMode === 'grid' ? 'Card View' : 'Table View'}
+                      </Badge>
+                      {loading && <Badge variant="outline" className="animate-pulse">Loading...</Badge>}
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Button
+                        variant={viewMode === 'grid' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setViewMode('grid')}
+                        className={viewMode === 'grid' ? 'bg-[#007BFF] hover:bg-[#0056b3]' : ''}
+                      >
+                        <Grid3X3 className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant={viewMode === 'table' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setViewMode('table')}
+                        className={viewMode === 'table' ? 'bg-[#007BFF] hover:bg-[#0056b3]' : ''}
+                      >
+                        <List className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Error State */}
+                  {error && (
+                    <div className="text-center py-8 text-red-500">
+                      <AlertTriangle className="w-8 h-8 mx-auto mb-2" />
+                      <p className="text-sm">{error}</p>
+                      <Button variant="outline" size="sm" onClick={loadCustomers} className="mt-2">
+                        Try Again
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* Card View */}
+                  {!error && viewMode === 'grid' && (
+                    <div className="space-y-4">
+                    {loading ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <div className="animate-spin w-8 h-8 mx-auto mb-2 border-2 border-current border-t-transparent rounded-full" />
+                        <p className="text-sm">Loading customers...</p>
+                      </div>
+                    ) : filteredCustomers.length === 0 ? (
                       <div className="text-center py-8 text-muted-foreground">
                         <Building className="w-8 h-8 mx-auto mb-2 opacity-50" />
                         <p className="text-sm">No customers found</p>
@@ -703,7 +844,7 @@ export function Customers({ user }: CustomersProps) {
                             <div className="flex items-center space-x-3">
                               <Avatar className="w-10 h-10">
                                 <AvatarFallback className="bg-[#007BFF] text-white">
-                                  {customer.name.split(' ').map(n => n[0]).join('')}
+                                  {customer.name ? customer.name.split(' ').map(n => n[0]).join('').substring(0, 2) : 'CU'}
                                 </AvatarFallback>
                               </Avatar>
                               <div>
@@ -737,13 +878,13 @@ export function Customers({ user }: CustomersProps) {
 
                           <div className="flex items-center justify-between pt-3 border-t border-border/20">
                             <div className="flex items-center space-x-4 text-sm text-muted-foreground">
-                              <span>{customer.projectsActive} active projects</span>
-                              <span>{customer.projectsCompleted} completed</span>
+                              <span>{customer.project_ids?.length || 0} linked projects</span>
+                              <span>${((customer.total_revenue || 0) / 1000).toFixed(0)}k revenue</span>
                             </div>
                             <div className="flex items-center space-x-2">
-                              <span className="text-sm text-muted-foreground">SLA:</span>
-                              <span className={`text-sm font-medium ${getSLAColor(customer.slaStatus)}`}>
-                                {customer.slaStatus}
+                              <span className="text-sm text-muted-foreground">Last Activity:</span>
+                              <span className="text-sm font-medium">
+                                {customer.last_activity ? new Date(customer.last_activity).toLocaleDateString() : 'N/A'}
                               </span>
                             </div>
                           </div>
@@ -751,11 +892,12 @@ export function Customers({ user }: CustomersProps) {
                           {/* Tags and Actions */}
                           <div className="flex items-center justify-between mt-3">
                             <div className="flex items-center space-x-2">
-                              {customer.tags.map((tag) => (
-                                <Badge key={tag} variant="outline" className="text-xs">
-                                  {tag}
-                                </Badge>
-                              ))}
+                              <Badge variant="outline" className="text-xs">
+                                {customer.industry}
+                              </Badge>
+                              <Badge variant="outline" className="text-xs">
+                                {customer.status}
+                              </Badge>
                             </div>
                             <Button
                               variant="outline"
@@ -773,7 +915,171 @@ export function Customers({ user }: CustomersProps) {
                         </div>
                       ))
                     )}
-                  </div>
+                    </div>
+                  )}
+
+                  {/* Table View */}
+                  {!error && viewMode === 'table' && (
+                    <>
+                      {loading ? (
+                        <div className="text-center py-8 text-muted-foreground">
+                          <div className="animate-spin w-8 h-8 mx-auto mb-2 border-2 border-current border-t-transparent rounded-full" />
+                          <p className="text-sm">Loading customers...</p>
+                        </div>
+                      ) : filteredCustomers.length === 0 ? (
+                        <div className="text-center py-8 text-muted-foreground">
+                          <Building className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                          <p className="text-sm">No customers found</p>
+                          <p className="text-xs">Try adjusting your search or filter criteria</p>
+                        </div>
+                      ) : (
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="w-[200px]">Customer</TableHead>
+                              <TableHead>Industry</TableHead>
+                              <TableHead>Status</TableHead>
+                              <TableHead>Priority</TableHead>
+                              <TableHead>Contact</TableHead>
+                              <TableHead>Revenue</TableHead>
+                              <TableHead>Projects</TableHead>
+                              <TableHead>Last Activity</TableHead>
+                              <TableHead className="w-[50px]"></TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {filteredCustomers.map((customer) => (
+                              <TableRow
+                                key={customer.id}
+                                className="cursor-pointer hover:bg-muted/50"
+                                onClick={() => {
+                                  setSelectedCustomer(customer.id)
+                                  setShowCustomerDetail(true)
+                                }}
+                              >
+                                <TableCell>
+                                  <div className="flex items-center space-x-3">
+                                    <Avatar className="w-8 h-8">
+                                      <AvatarFallback className="bg-[#007BFF] text-white text-xs">
+                                        {customer.name ? customer.name.split(' ').map(n => n[0]).join('').substring(0, 2) : 'CU'}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                    <div>
+                                      <div className="font-medium text-sm">{customer.name}</div>
+                                      <div className="text-xs text-muted-foreground">{customer.contact.name}</div>
+                                    </div>
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <span className="text-sm">{customer.industry}</span>
+                                </TableCell>
+                                <TableCell>
+                                  <Badge className={getStatusColor(customer.status)}>
+                                    {customer.status}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>
+                                  <Badge variant="outline" className={`text-xs ${customer.priority === 'High' ? 'border-[#DC3545] text-[#DC3545]' : customer.priority === 'Medium' ? 'border-[#FFC107] text-[#FFC107]' : 'border-[#28A745] text-[#28A745]'}`}>
+                                    {customer.priority}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>
+                                  <div>
+                                    <div className="text-sm font-medium">{customer.contact.email}</div>
+                                    <div className="text-xs text-muted-foreground">{customer.contact.phone}</div>
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <span className="text-sm font-medium">${((customer.total_revenue || 0) / 1000).toFixed(0)}k</span>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="text-sm">
+                                    <span className="font-medium">{customer.project_ids?.length || 0}</span> linked
+                                    <span className="text-muted-foreground"> projects</span>
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <span className="text-sm font-medium">
+                                    {customer.last_activity ? new Date(customer.last_activity).toLocaleDateString() : 'N/A'}
+                                  </span>
+                                </TableCell>
+                                <TableCell>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      openEditCustomer(customer)
+                                    }}
+                                    className="text-xs"
+                                  >
+                                    <Edit className="w-3 h-3 mr-1" />
+                                    Edit
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      )}
+                    </>
+                  )}
+
+                  {/* Pagination */}
+                  {!error && !loading && totalPages > 1 && (
+                    <div className="flex items-center justify-between pt-4 border-t mt-4">
+                      <div className="text-sm text-muted-foreground">
+                        Showing {startIndex + 1} to {endIndex} of {totalCustomers} customers
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                          disabled={currentPage === 1}
+                        >
+                          <ChevronLeft className="w-4 h-4" />
+                          Previous
+                        </Button>
+                        <div className="flex items-center space-x-1">
+                          {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => {
+                            // Show first page, last page, current page, and pages around current
+                            const showPage = page === 1 || page === totalPages ||
+                                           (page >= currentPage - 1 && page <= currentPage + 1)
+                            const showEllipsis = (page === 2 && currentPage > 4) ||
+                                               (page === totalPages - 1 && currentPage < totalPages - 3)
+
+                            if (showEllipsis) {
+                              return <span key={page} className="text-muted-foreground">...</span>
+                            }
+
+                            if (!showPage) return null
+
+                            return (
+                              <Button
+                                key={page}
+                                variant={currentPage === page ? 'default' : 'outline'}
+                                size="sm"
+                                onClick={() => setCurrentPage(page)}
+                                className={`w-8 h-8 p-0 ${currentPage === page ? 'bg-[#007BFF] hover:bg-[#0056b3]' : ''}`}
+                              >
+                                {page}
+                              </Button>
+                            )
+                          })}
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                          disabled={currentPage === totalPages}
+                        >
+                          Next
+                          <ChevronRight className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </Card>
             </div>
@@ -817,28 +1123,6 @@ export function Customers({ user }: CustomersProps) {
                   </Button>
                 </div>
               </Card>
-
-              {/* Quick Actions */}
-              <Card className="mt-6">
-                <div className="p-6">
-                  <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
-                  
-                  <div className="space-y-2">
-                    <Button variant="outline" className="w-full justify-start">
-                      <Plus className="w-4 h-4 mr-2" />
-                      Add New Customer
-                    </Button>
-                    <Button variant="outline" className="w-full justify-start">
-                      <Calendar className="w-4 h-4 mr-2" />
-                      Schedule Meeting
-                    </Button>
-                    <Button variant="outline" className="w-full justify-start">
-                      <Mail className="w-4 h-4 mr-2" />
-                      Send Update
-                    </Button>
-                  </div>
-                </div>
-              </Card>
             </div>
           </div>
         </TabsContent>
@@ -846,8 +1130,10 @@ export function Customers({ user }: CustomersProps) {
         <TabsContent value="projects" className="space-y-6">
           {/* Project Associations */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {customers.map((customer) => {
-              const customerProjectList = customerProjects.filter(p => customer.projectIds.includes(p.id))
+            {(customers || []).map((customer) => {
+              const customerProjectList = customerProjects.filter(p =>
+                customer.project_ids && customer.project_ids.includes(p.id)
+              )
               return (
                 <Card key={customer.id}>
                   <div className="p-6">
@@ -942,16 +1228,16 @@ export function Customers({ user }: CustomersProps) {
                           <div className="flex items-center space-x-3">
                             <Avatar className="w-8 h-8">
                               <AvatarFallback className="bg-[#007BFF] text-white text-xs">
-                                {customer.name.split(' ').map(n => n[0]).join('')}
+                                {customer.name ? customer.name.split(' ').map(n => n[0]).join('').substring(0, 2) : 'CU'}
                               </AvatarFallback>
                             </Avatar>
                             <div>
                               <h4 className="font-medium">{customer.name}</h4>
-                              <p className="text-sm text-muted-foreground">{customer.sla.supportLevel} Support</p>
+                              <p className="text-sm text-muted-foreground">{customer.status} Customer</p>
                             </div>
                           </div>
-                          <Badge className={getSLAColor(customer.slaStatus)}>
-                            {customer.slaStatus}
+                          <Badge variant="outline" className={`${customer.priority === 'High' ? 'border-red-500 text-red-600' : customer.priority === 'Medium' ? 'border-yellow-500 text-yellow-600' : 'border-green-500 text-green-600'}`}>
+                            {customer.priority} Priority
                           </Badge>
                         </div>
 
@@ -959,17 +1245,17 @@ export function Customers({ user }: CustomersProps) {
                           <div className="text-center p-3 bg-muted/30 rounded">
                             <p className="text-xs text-muted-foreground">Response Time</p>
                             <p className="text-sm font-semibold">{metric.responseTimeCompliance.toFixed(1)}%</p>
-                            <p className="text-xs text-muted-foreground">Target: {customer.sla.responseTime}h</p>
+                            <p className="text-xs text-muted-foreground">Projects: {customer.project_ids?.length || 0}</p>
                           </div>
                           <div className="text-center p-3 bg-muted/30 rounded">
                             <p className="text-xs text-muted-foreground">Resolution Time</p>
                             <p className="text-sm font-semibold">{metric.resolutionTimeCompliance.toFixed(1)}%</p>
-                            <p className="text-xs text-muted-foreground">Target: {customer.sla.resolutionTime}h</p>
+                            <p className="text-xs text-muted-foreground">Revenue: ${((customer.total_revenue || 0) / 1000).toFixed(0)}k</p>
                           </div>
                           <div className="text-center p-3 bg-muted/30 rounded">
                             <p className="text-xs text-muted-foreground">Uptime</p>
                             <p className="text-sm font-semibold">{metric.uptimeActual.toFixed(2)}%</p>
-                            <p className="text-xs text-muted-foreground">Target: {customer.sla.uptime}%</p>
+                            <p className="text-xs text-muted-foreground">Status: {customer.status}</p>
                           </div>
                           <div className="text-center p-3 bg-muted/30 rounded">
                             <p className="text-xs text-muted-foreground">Tickets</p>
@@ -1145,7 +1431,7 @@ export function Customers({ user }: CustomersProps) {
 
       {/* Customer Form Modal with Tabs */}
       <Dialog open={showCustomerForm} onOpenChange={setShowCustomerForm}>
-        <DialogContent className="w-[1000px] h-[800px] overflow-y-auto">
+        <DialogContent className="w-[1200px] h-[800px] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{customerFormMode === 'create' ? 'Add New Customer' : 'Edit Customer'}</DialogTitle>
           </DialogHeader>
@@ -1310,14 +1596,7 @@ export function Customers({ user }: CustomersProps) {
                 </div>
               </TabsContent>
 
-              <div className="flex space-x-3 pt-4 border-t">
-                <Button
-                  type="submit"
-                  className="flex-1 bg-[#28A745] hover:bg-[#218838] text-white"
-                  disabled={saving}
-                >
-                  {saving ? (customerFormMode === 'create' ? 'Creating...' : 'Updating...') : (customerFormMode === 'create' ? 'Create Customer' : 'Update Customer')}
-                </Button>
+              <div className="flex justify-end space-x-3 pt-4 border-t">
                 <Button
                   type="button"
                   variant="outline"
@@ -1328,6 +1607,13 @@ export function Customers({ user }: CustomersProps) {
                   }}
                 >
                   Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  className="bg-[#28A745] hover:bg-[#218838] text-white"
+                  disabled={saving}
+                >
+                  {saving ? (customerFormMode === 'create' ? 'Creating...' : 'Updating...') : (customerFormMode === 'create' ? 'Create Customer' : 'Update Customer')}
                 </Button>
               </div>
             </form>
@@ -1561,23 +1847,23 @@ export function Customers({ user }: CustomersProps) {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <Card>
                     <div className="p-6">
-                      <h4 className="font-semibold mb-4">SLA Terms</h4>
+                      <h4 className="font-semibold mb-4">Customer Details</h4>
                       <div className="space-y-3">
                         <div className="flex items-center justify-between">
-                          <span className="text-sm text-muted-foreground">Support Level:</span>
-                          <Badge variant="outline">{customer.sla.supportLevel}</Badge>
+                          <span className="text-sm text-muted-foreground">Status:</span>
+                          <Badge variant="outline">{customer.status}</Badge>
                         </div>
                         <div className="flex items-center justify-between">
-                          <span className="text-sm text-muted-foreground">Response Time:</span>
-                          <span className="text-sm font-medium">{customer.sla.responseTime}h</span>
+                          <span className="text-sm text-muted-foreground">Priority:</span>
+                          <span className="text-sm font-medium">{customer.priority}</span>
                         </div>
                         <div className="flex items-center justify-between">
-                          <span className="text-sm text-muted-foreground">Resolution Time:</span>
-                          <span className="text-sm font-medium">{customer.sla.resolutionTime}h</span>
+                          <span className="text-sm text-muted-foreground">Projects:</span>
+                          <span className="text-sm font-medium">{customer.project_ids?.length || 0}</span>
                         </div>
                         <div className="flex items-center justify-between">
-                          <span className="text-sm text-muted-foreground">Uptime SLA:</span>
-                          <span className="text-sm font-medium">{customer.sla.uptime}%</span>
+                          <span className="text-sm text-muted-foreground">Revenue:</span>
+                          <span className="text-sm font-medium">${((customer.total_revenue || 0) / 1000).toFixed(0)}k</span>
                         </div>
                       </div>
                     </div>

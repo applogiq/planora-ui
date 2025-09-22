@@ -19,14 +19,12 @@ import { cn } from '../../components/ui/utils'
 import { format } from 'date-fns'
 import { toast } from 'sonner@2.0.3'
 import { ProjectTemplates } from './ProjectTemplates'
+import { TaskManagement } from './TaskManagement'
 import { Project } from '../../mock-data/projects'
-import {
-  mockCustomers,
-  mockTeamMembers
-} from '../../mock-data/master'
+import { customerApiService, Customer } from '../../services/customerApi'
+import { userApiService, User } from '../../services/userApi'
 import { useProjectMasters } from '../../hooks/useProjectMasters'
 import { useProjectOwners } from '../../hooks/useProjectOwners'
-import { useProjectMembers } from '../../hooks/useProjectMembers'
 import { useAppDispatch, useAppSelector } from '../../store/hooks'
 import {
   fetchProjects,
@@ -64,7 +62,8 @@ import {
   Trash2,
   Save,
   DollarSign,
-  Calendar as CalendarDays
+  Calendar as CalendarDays,
+  CheckSquare
 } from 'lucide-react'
 
 // Add computed properties for UI display
@@ -114,12 +113,16 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
     retry: retryOwners
   } = useProjectOwners()
 
-  const {
-    data: projectMembers,
-    loading: membersLoading,
-    error: membersError,
-    retry: retryMembers
-  } = useProjectMembers()
+  // Team members state management
+  const [teamMembers, setTeamMembers] = useState<User[]>([])
+  const [loadingTeamMembers, setLoadingTeamMembers] = useState(false)
+  const [teamMembersError, setTeamMembersError] = useState<string | null>(null)
+
+  // Customer state management
+  const [customers, setCustomers] = useState<Customer[]>([])
+  const [loadingCustomers, setLoadingCustomers] = useState(false)
+  const [customersError, setCustomersError] = useState<string | null>(null)
+
 
   const userRole = user?.role || 'developer'
   const isAdmin = userRole === 'admin'
@@ -147,7 +150,9 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
   const [selectedFilter, setSelectedFilter] = useState('all')
   const [showCreateProject, setShowCreateProject] = useState(false)
   const [showTemplateModal, setShowTemplateModal] = useState(false)
+  const [showTaskManagement, setShowTaskManagement] = useState(false)
   const [selectedProject, setSelectedProject] = useState<string | null>(null)
+  const [selectedProjectForTasks, setSelectedProjectForTasks] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [filterBy, setFilterBy] = useState({
     status: 'all',
@@ -283,6 +288,47 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
     }))
   }, [dispatch, searchQuery, filterBy])
 
+  // Load customers from API
+  const loadCustomers = async () => {
+    setLoadingCustomers(true)
+    setCustomersError(null)
+    try {
+      const response = await customerApiService.getCustomers({ size: 100 }) // Get all customers
+      setCustomers(response.customers || [])
+    } catch (error) {
+      setCustomersError('Failed to load customers')
+      toast.error('Failed to load customers')
+    } finally {
+      setLoadingCustomers(false)
+    }
+  }
+
+  // Load customers on component mount
+  useEffect(() => {
+    loadCustomers()
+  }, [])
+
+  // Load team members from API
+  const loadTeamMembers = async () => {
+    setLoadingTeamMembers(true)
+    setTeamMembersError(null)
+    try {
+      const response = await userApiService.getTeamMembers({ per_page: 100, is_active: true })
+      setTeamMembers(response.items || [])
+    } catch (error) {
+      setTeamMembersError('Failed to load team members')
+      console.error('Team members loading error:', error)
+    } finally {
+      setLoadingTeamMembers(false)
+    }
+  }
+
+  // Load team members on component mount
+  useEffect(() => {
+    loadTeamMembers()
+  }, [])
+
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'Active': return 'text-[#28A745]'
@@ -397,7 +443,7 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
 
     try {
       // Find customer ID from the selected customer name
-      const selectedCustomer = mockCustomers.find(c => c.name === newProject.customer)
+      const selectedCustomer = customers.find(c => c.name === newProject.customer)
 
       // Find team lead ID from the selected owner name
       const selectedOwner = projectOwners?.items?.find(owner => owner.name === newProject.owner)
@@ -414,14 +460,13 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
         priority: newProject.priority,
         team_lead_id: selectedOwner?.id || newProject.teamLead || newProject.owner || 'default-lead',
         team_members: newProject.team.map(member => {
-          // Try to find the member ID from the API data first
-          const apiMember = projectMembers?.items?.find(apiM => apiM.name === member.name)
-          if (apiMember?.id) {
-            return apiMember.id
+          // Try to find the member ID from the team members data
+          const teamMember = teamMembers.find(tm => tm.name === member.name)
+          if (teamMember?.id) {
+            return teamMember.id
           }
-          // Fallback: try to find in mock data and use a generated ID
-          const mockMember = mockTeamMembers.find(mockM => mockM.name === member.name)
-          return mockMember ? `mock-member-${mockMember.id}` : `member-${member.id || Date.now()}`
+          // Return the member's existing ID or generate a fallback
+          return member.id || `member-${Date.now()}`
         }),
         tags: newProject.tags,
         methodology: newProject.methodology,
@@ -481,20 +526,19 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
     setShowCreateProject(true)
   }
 
-  // Get available team members from API data, fallback to mock data
+  // Get available team members from API data
   const getAvailableMembers = () => {
-    const apiMembers = projectMembers?.items?.filter(member => member.is_active) || []
-    const mockMembers = mockTeamMembers
+    const availableTeamMembers = teamMembers.filter(member => member.is_active) || []
 
-    // Use API data if available, otherwise fallback to mock data
-    const allMembers = apiMembers.length > 0 ? apiMembers.map(member => ({
+    // Use team members API data
+    const allMembers = availableTeamMembers.map(member => ({
       id: member.id,
       name: member.name,
       role: typeof member.role === 'object' ? member.role.name : member.role,
-      avatar: member.avatar || member.name.charAt(0).toUpperCase(),
+      avatar: member.user_profile || member.name.charAt(0).toUpperCase(),
       email: member.email,
       department: member.department
-    })) : mockMembers
+    }))
 
     return allMembers.filter(
       availableMember => !newProject.team.find(teamMember => teamMember.id === availableMember.id)
@@ -534,12 +578,6 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
     }
   }, [ownersError])
 
-  // Show error for members API
-  useEffect(() => {
-    if (membersError) {
-      toast.error(`Failed to load project members: ${membersError}`)
-    }
-  }, [membersError])
 
   return (
     <div className="space-y-6">
@@ -672,10 +710,10 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
             size="sm"
             className="bg-[#28A745] hover:bg-[#218838] text-white"
             onClick={() => setShowCreateProject(true)}
-            disabled={mastersLoading || ownersLoading || membersLoading}
+            disabled={mastersLoading || ownersLoading || loadingTeamMembers}
           >
             <Plus className="w-4 h-4 mr-2" />
-            {(mastersLoading || ownersLoading || membersLoading) ? 'Loading...' : 'New Project'}
+            {(mastersLoading || ownersLoading || loadingTeamMembers) ? 'Loading...' : 'New Project'}
           </Button>
         </div>
       </div>
@@ -813,9 +851,24 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
                           </span>
                         </div>
                       </div>
-                      <Button variant="ghost" size="sm" className="p-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <MoreHorizontal className="w-4 h-4" />
-                      </Button>
+                      <div className="flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="p-1"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setSelectedProjectForTasks(project.id)
+                            setShowTaskManagement(true)
+                          }}
+                          title="Manage Tasks"
+                        >
+                          <CheckSquare className="w-4 h-4" />
+                        </Button>
+                        <Button variant="ghost" size="sm" className="p-1">
+                          <MoreHorizontal className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </div>
 
                     {/* Progress */}
@@ -943,9 +996,24 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
                         <div className="text-sm">{project.endDate}</div>
                       </TableCell>
                       <TableCell>
-                        <Button variant="ghost" size="sm" className="p-1">
-                          <MoreHorizontal className="w-4 h-4" />
-                        </Button>
+                        <div className="flex space-x-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="p-1"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setSelectedProjectForTasks(project.id)
+                              setShowTaskManagement(true)
+                            }}
+                            title="Manage Tasks"
+                          >
+                            <CheckSquare className="w-4 h-4" />
+                          </Button>
+                          <Button variant="ghost" size="sm" className="p-1">
+                            <MoreHorizontal className="w-4 h-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   )
@@ -1027,19 +1095,38 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
                     <Label htmlFor="customer">Customer</Label>
                     <Select value={newProject.customer} onValueChange={(value: string) => handleInputChange('customer', value)}>
                       <SelectTrigger className="mt-1">
-                        <SelectValue placeholder="Select customer" />
+                        <SelectValue placeholder={loadingCustomers ? "Loading customers..." : "Select customer"} />
                       </SelectTrigger>
                       <SelectContent>
-                        {mockCustomers.map((customer) => (
-                          <SelectItem key={customer.id} value={customer.name}>
-                            <div className="flex items-center space-x-2">
-                              <span>{customer.name}</span>
-                              <Badge variant="outline" className="text-xs">
-                                {customer.type}
-                              </Badge>
-                            </div>
+                        {loadingCustomers ? (
+                          <SelectItem value="loading" disabled>
+                            Loading customers...
                           </SelectItem>
-                        ))}
+                        ) : customersError ? (
+                          <SelectItem value="error" disabled>
+                            Error loading customers
+                          </SelectItem>
+                        ) : customers.length === 0 ? (
+                          <SelectItem value="empty" disabled>
+                            No customers available
+                          </SelectItem>
+                        ) : (
+                          customers.map((customer) => (
+                            <SelectItem key={customer.id} value={customer.name}>
+                              <div className="flex items-center space-x-2">
+                                <span>{customer.name}</span>
+                                <Badge variant="outline" className="text-xs">
+                                  {customer.industry}
+                                </Badge>
+                                <Badge variant="outline" className="text-xs" style={{
+                                  color: customer.status === 'Active' ? '#28A745' : '#6C757D'
+                                }}>
+                                  {customer.status}
+                                </Badge>
+                              </div>
+                            </SelectItem>
+                          ))
+                        )}
                       </SelectContent>
                     </Select>
                   </div>
@@ -1252,8 +1339,15 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
                     <span>Available Team Members</span>
                   </h3>
                   <div className="space-y-3 max-h-80 overflow-y-auto">
-                    {membersLoading ? (
+                    {loadingTeamMembers ? (
                       <p className="text-muted-foreground text-sm">Loading team members...</p>
+                    ) : teamMembersError ? (
+                      <div className="text-center py-4">
+                        <p className="text-red-500 text-sm">{teamMembersError}</p>
+                        <Button variant="outline" size="sm" onClick={loadTeamMembers} className="mt-2">
+                          Retry
+                        </Button>
+                      </div>
                     ) : availableMembers.length === 0 ? (
                       <p className="text-muted-foreground text-sm">All team members are already assigned</p>
                     ) : (
@@ -1459,6 +1553,18 @@ export function Projects({ onProjectSelect, user }: ProjectsProps) {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Task Management Modal */}
+      {selectedProjectForTasks && (
+        <TaskManagement
+          projectId={selectedProjectForTasks}
+          isOpen={showTaskManagement}
+          onClose={() => {
+            setShowTaskManagement(false)
+            setSelectedProjectForTasks(null)
+          }}
+        />
+      )}
     </div>
   )
 }

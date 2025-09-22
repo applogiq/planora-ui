@@ -17,12 +17,33 @@ export interface Customer {
     country: string;
   };
   status: string;
-  joinDate: string;
-  lastActivity: string;
-  totalRevenue: number;
-  projectIds: string[];
+  join_date: string;
+  last_activity: string;
+  total_revenue: number;
+  project_ids: string[];
   priority: string;
   notes: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CustomerListResponse {
+  customers: Customer[];
+  total: number;
+  page: number;
+  size: number;
+  has_next: boolean;
+  has_prev: boolean;
+}
+
+export interface CustomerListParams {
+  page?: number;
+  size?: number;
+  search?: string;
+  status?: string;
+  industry?: string;
+  priority?: string;
 }
 
 export interface CreateCustomerRequest {
@@ -43,8 +64,8 @@ export interface CreateCustomerRequest {
     country: string;
   };
   status: string;
-  totalRevenue: number;
-  projectIds: string[];
+  total_revenue: number;
+  project_ids: string[];
   priority: string;
   notes: string;
 }
@@ -111,31 +132,49 @@ export class CustomerApiService {
   }
 
   async createCustomer(customerData: CreateCustomerRequest): Promise<Customer> {
-    return this.makeRequest<Customer>('/api/v1/customer', {
+    return this.makeRequest<Customer>('/api/v1/customers', {
       method: 'POST',
       body: JSON.stringify(customerData),
     });
   }
 
   async updateCustomer(id: string, customerData: UpdateCustomerRequest): Promise<Customer> {
-    return this.makeRequest<Customer>(`/api/v1/customer/${id}`, {
+    return this.makeRequest<Customer>(`/api/v1/customers/${id}`, {
       method: 'PUT',
       body: JSON.stringify(customerData),
     });
   }
 
   async getCustomerById(id: string): Promise<Customer> {
-    return this.makeRequest<Customer>(`/api/v1/customer/${id}`);
+    return this.makeRequest<Customer>(`/api/v1/customers/${id}`);
   }
 
   async deleteCustomer(id: string): Promise<void> {
-    return this.makeRequest<void>(`/api/v1/customer/${id}`, {
+    return this.makeRequest<void>(`/api/v1/customers/${id}`, {
       method: 'DELETE',
     });
   }
 
-  async getCustomers(): Promise<Customer[]> {
-    return this.makeRequest<Customer[]>('/api/v1/customer');
+  async getCustomers(params?: CustomerListParams): Promise<CustomerListResponse> {
+    const searchParams = new URLSearchParams();
+
+    if (params?.page !== undefined) searchParams.append('page', params.page.toString());
+    if (params?.size !== undefined) searchParams.append('size', params.size.toString());
+    if (params?.search) searchParams.append('search', params.search);
+    if (params?.status && params.status !== 'All') searchParams.append('status', params.status);
+    if (params?.industry && params.industry !== 'All') searchParams.append('industry', params.industry);
+    if (params?.priority && params.priority !== 'All') searchParams.append('priority', params.priority);
+
+    const queryString = searchParams.toString();
+    const endpoint = queryString ? `/api/v1/customers/?${queryString}` : '/api/v1/customers/';
+
+    return this.makeRequest<CustomerListResponse>(endpoint);
+  }
+
+  // Legacy method for backward compatibility
+  async getAllCustomers(): Promise<Customer[]> {
+    const response = await this.getCustomers({ size: 1000 }); // Get a large number to simulate "all"
+    return response.customers;
   }
 }
 

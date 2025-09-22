@@ -296,6 +296,36 @@ export class UserApiService {
   async getUserSummary(): Promise<UserSummary> {
     return this.makeRequest<UserSummary>('/api/v1/users/summary');
   }
+
+  async getTeamMembers(params: UsersQueryParams = {}): Promise<UsersResponse> {
+    const searchParams = new URLSearchParams();
+
+    if (params.page !== undefined) searchParams.append('page', params.page.toString());
+    if (params.per_page !== undefined) searchParams.append('per_page', params.per_page.toString());
+    if (params.search) searchParams.append('search', params.search);
+    if (params.role_id) searchParams.append('role_id', params.role_id);
+    if (params.is_active !== undefined) searchParams.append('is_active', params.is_active.toString());
+
+    const queryString = searchParams.toString();
+    const endpoint = `/api/v1/users/team-members/${queryString ? `?${queryString}` : ''}`;
+
+    const response = await this.makeRequest<UsersResponse>(endpoint);
+
+    // Ensure the response has the expected structure
+    if (response && Array.isArray(response.items)) {
+      return response;
+    } else {
+      return {
+        items: [],
+        total: 0,
+        page: params.page || 1,
+        per_page: params.per_page || 10,
+        total_pages: 0,
+        has_next: false,
+        has_prev: false,
+      };
+    }
+  }
 }
 
 export const userApiService = new UserApiService();

@@ -288,7 +288,7 @@ export class ProjectApiService {
   }
 
   async getProjectMembers(): Promise<ProjectMembersResponse> {
-    return this.makeRequest<ProjectMembersResponse>('/api/v1/users/project-member/');
+    return this.makeRequest<ProjectMembersResponse>('/api/v1/users/team-members');
   }
 }
 
