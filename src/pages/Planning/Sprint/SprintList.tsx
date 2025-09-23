@@ -1,10 +1,16 @@
 import { useState, useEffect } from 'react'
 import { Button } from '../../../components/ui/button'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table'
+import { Card } from '../../../components/ui/card'
+import { Badge } from '../../../components/ui/badge'
+import { Progress } from '../../../components/ui/progress'
 import { toast } from 'sonner@2.0.3'
 import {
   Plus,
   Zap,
-  AlertTriangle
+  AlertTriangle,
+  Grid,
+  List
 } from 'lucide-react'
 import { sprintApiService, Sprint, SprintsQueryParams } from '../../../services/sprintApi'
 import { SprintDialog } from './SprintDialog'
@@ -36,6 +42,7 @@ export function SprintList({ projects = [], teamMembers = [], projectOwners = []
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [selectedSprint, setSelectedSprint] = useState<any>(null)
   const [isEditMode, setIsEditMode] = useState(false)
+  const [viewMode, setViewMode] = useState<'card' | 'table'>('card')
 
   const [newSprint, setNewSprint] = useState({
     name: '',
@@ -78,6 +85,7 @@ export function SprintList({ projects = [], teamMembers = [], projectOwners = []
     }
   }
 
+  // Load sprints when component becomes active
   useEffect(() => {
     loadSprints()
   }, [page, searchTerm, statusFilter, projectFilter])
@@ -142,6 +150,17 @@ export function SprintList({ projects = [], teamMembers = [], projectOwners = []
     setIsEditMode(false)
   }
 
+  const getStatusColor = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'planning': return 'bg-gray-100 text-gray-800'
+      case 'active': return 'bg-green-100 text-green-800'
+      case 'in progress': return 'bg-blue-100 text-blue-800'
+      case 'completed': return 'bg-purple-100 text-purple-800'
+      case 'cancelled': return 'bg-red-100 text-red-800'
+      default: return 'bg-gray-100 text-gray-800'
+    }
+  }
+
   if (loading && sprints.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -175,13 +194,34 @@ export function SprintList({ projects = [], teamMembers = [], projectOwners = []
           </h1>
           <p className="text-gray-600 mt-1">Manage and track your development sprints</p>
         </div>
-        <Button
-          onClick={handleCreateSprint}
-          className="bg-orange-600 hover:bg-orange-700 text-white"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Create Sprint
-        </Button>
+        <div className="flex items-center space-x-3">
+          {/* View Toggle */}
+          <div className="flex items-center border rounded-lg p-1">
+            <Button
+              variant={viewMode === 'card' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('card')}
+              className="p-2"
+            >
+              <Grid className="w-4 h-4" />
+            </Button>
+            <Button
+              variant={viewMode === 'table' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('table')}
+              className="p-2"
+            >
+              <List className="w-4 h-4" />
+            </Button>
+          </div>
+          <Button
+            onClick={handleCreateSprint}
+            className="bg-orange-600 hover:bg-orange-700 text-white"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Create Sprint
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -195,7 +235,7 @@ export function SprintList({ projects = [], teamMembers = [], projectOwners = []
         projects={projects}
       />
 
-      {/* Sprint Grid */}
+      {/* Sprint Content */}
       {sprints.length === 0 ? (
         <div className="text-center py-12">
           <Zap className="w-12 h-12 text-gray-400 mx-auto mb-4" />
@@ -209,7 +249,7 @@ export function SprintList({ projects = [], teamMembers = [], projectOwners = []
             Create Sprint
           </Button>
         </div>
-      ) : (
+      ) : viewMode === 'card' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {sprints.map((sprint) => (
             <SprintCard
@@ -219,6 +259,74 @@ export function SprintList({ projects = [], teamMembers = [], projectOwners = []
             />
           ))}
         </div>
+      ) : (
+        <Card>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Sprint Name</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Project</TableHead>
+                <TableHead>Progress</TableHead>
+                <TableHead>Dates</TableHead>
+                <TableHead>Team</TableHead>
+                <TableHead>Scrum Master</TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {sprints.map((sprint) => (
+                <TableRow key={sprint.id}>
+                  <TableCell>
+                    <div>
+                      <div className="font-medium">{sprint.name}</div>
+                      <div className="text-sm text-gray-500 truncate max-w-xs">{sprint.goal}</div>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge className={getStatusColor(sprint.status)}>
+                      {sprint.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>{sprint.project_name}</TableCell>
+                  <TableCell>
+                    <div className="w-24">
+                      <Progress
+                        value={sprint.total_points === 0 ? 0 : Math.round((sprint.completed_points / sprint.total_points) * 100)}
+                        className="h-2"
+                      />
+                      <div className="text-xs text-gray-500 mt-1">
+                        {sprint.completed_points}/{sprint.total_points} pts
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="text-sm">
+                      <div>{new Date(sprint.start_date).toLocaleDateString()}</div>
+                      <div className="text-gray-500">→ {new Date(sprint.end_date).toLocaleDateString()}</div>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="text-sm">
+                      <div>{sprint.team_size} members</div>
+                      <div className="text-gray-500">Velocity: {sprint.velocity}</div>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="text-sm">
+                      {sprint.scrum_master?.name || sprint.scrum_master_name || 'Unassigned'}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Button variant="ghost" size="sm" onClick={() => handleEditSprint(sprint)}>
+                      Edit
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Card>
       )}
 
       {/* Pagination */}

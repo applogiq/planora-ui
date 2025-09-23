@@ -5,8 +5,11 @@ import { Badge } from '../../../components/ui/badge'
 import { Input } from '../../../components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table'
 import { toast } from 'sonner@2.0.3'
 import { storiesApiService, Story } from '../../../services/storiesApi'
+import { epicApiService } from '../../../services/epicApi'
+import { BacklogDialog } from './BacklogDialog'
 import {
   Plus,
   Search,
@@ -15,22 +18,19 @@ import {
   Target,
   User,
   Calendar,
-  ArrowUpDown
+  ArrowUpDown,
+  Grid,
+  List,
+  Filter
 } from 'lucide-react'
 
 interface BacklogListProps {
   projects?: any[]
   teamMembers?: any[]
-  filters?: {
-    project: string
-    status: string
-    priority: string
-    methodology: string
-    type: string
-  }
+  mastersData?: any
 }
 
-export function BacklogList({ projects = [], teamMembers = [], filters }: BacklogListProps) {
+export function BacklogList({ projects = [], teamMembers = [], mastersData }: BacklogListProps) {
   const [backlogItems, setBacklogItems] = useState<Story[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -38,7 +38,25 @@ export function BacklogList({ projects = [], teamMembers = [], filters }: Backlo
   const [typeFilter, setTypeFilter] = useState('all')
   const [priorityFilter, setPriorityFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
+  const [projectFilter, setProjectFilter] = useState('all')
   const [activeTab, setActiveTab] = useState('backlog')
+  const [viewMode, setViewMode] = useState<'card' | 'table'>('card')
+  const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const [epics, setEpics] = useState<any[]>([])
+  const [newBacklogItem, setNewBacklogItem] = useState({
+    title: '',
+    description: '',
+    type: 'User Story',
+    priority: 'Medium',
+    projectId: '',
+    epicId: null,
+    assigneeId: '',
+    reporterId: '',
+    storyPoints: 0,
+    businessValue: 'Medium',
+    effort: 'Medium',
+    acceptanceCriteria: ['']
+  })
 
   // Load backlog items from API
   useEffect(() => {
@@ -47,10 +65,7 @@ export function BacklogList({ projects = [], teamMembers = [], filters }: Backlo
         setLoading(true)
         setError(null)
 
-        // Get the active project filter from filters prop
-        const activeProjectFilter = filters?.project || 'all'
-        const selectedProjectId = activeProjectFilter !== 'all' ? activeProjectFilter : undefined
-
+        const selectedProjectId = projectFilter !== 'all' ? projectFilter : undefined
         const response = await storiesApiService.getStories(1, 50, selectedProjectId)
         setBacklogItems(response.items)
       } catch (error) {
@@ -63,7 +78,89 @@ export function BacklogList({ projects = [], teamMembers = [], filters }: Backlo
     }
 
     loadBacklogItems()
-  }, [filters?.project])
+  }, [projectFilter])
+
+  // Load epics for dropdown
+  useEffect(() => {
+    const loadEpics = async () => {
+      try {
+        const response = await epicApiService.getEpics(1, 100) // Get more epics for dropdown
+        setEpics(response.items)
+      } catch (error) {
+        console.error('Failed to load epics:', error)
+        setEpics([])
+      }
+    }
+
+    loadEpics()
+  }, [])
+
+  const handleCreateItem = () => {
+    setNewBacklogItem({
+      title: '',
+      description: '',
+      type: 'User Story',
+      priority: 'Medium',
+      projectId: projectFilter !== 'all' ? projectFilter : '',
+      epicId: null,
+      assigneeId: '',
+      reporterId: '',
+      storyPoints: 0,
+      businessValue: 'Medium',
+      effort: 'Medium',
+      acceptanceCriteria: ['']
+    })
+    setShowCreateDialog(true)
+  }
+
+  const handleSaveItem = async () => {
+    try {
+      // Here you would typically call a stories API to create the new item
+      // For now, we'll just add it to the local state
+      const newItem = {
+        id: `STORY-${Date.now()}`,
+        title: newBacklogItem.title,
+        description: newBacklogItem.description,
+        status: 'Backlog',
+        priority: newBacklogItem.priority,
+        story_points: newBacklogItem.storyPoints,
+        project_id: newBacklogItem.projectId,
+        epic_id: newBacklogItem.epicId,
+        assignee_id: newBacklogItem.assigneeId,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }
+
+      setBacklogItems(prev => [newItem, ...prev])
+      setShowCreateDialog(false)
+      toast.success('Backlog item created successfully')
+    } catch (error) {
+      toast.error('Failed to create backlog item')
+    }
+  }
+
+  const handleAddAcceptanceCriteria = () => {
+    setNewBacklogItem(prev => ({
+      ...prev,
+      acceptanceCriteria: [...prev.acceptanceCriteria, '']
+    }))
+  }
+
+  const handleUpdateAcceptanceCriteria = (index: number, value: string) => {
+    setNewBacklogItem(prev => ({
+      ...prev,
+      acceptanceCriteria: prev.acceptanceCriteria.map((criteria, i) =>
+        i === index ? value : criteria
+      )
+    }))
+  }
+
+  const handleRemoveAcceptanceCriteria = (index: number) => {
+    setNewBacklogItem(prev => ({
+      ...prev,
+      acceptanceCriteria: prev.acceptanceCriteria.filter((_, i) => i !== index)
+    }))
+  }
 
   const getPriorityColor = (priority: string) => {
     switch (priority.toLowerCase()) {
@@ -143,16 +240,43 @@ export function BacklogList({ projects = [], teamMembers = [], filters }: Backlo
           </h1>
           <p className="text-gray-600 mt-1">Manage and prioritize your product backlog items</p>
         </div>
-        <Button className="bg-orange-600 hover:bg-orange-700 text-white">
-          <Plus className="w-4 h-4 mr-2" />
-          Add Item
-        </Button>
+        <div className="flex items-center space-x-3">
+          {/* View Toggle */}
+          <div className="flex items-center border rounded-lg p-1">
+            <Button
+              variant={viewMode === 'card' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('card')}
+              className="p-2"
+            >
+              <Grid className="w-4 h-4" />
+            </Button>
+            <Button
+              variant={viewMode === 'table' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('table')}
+              className="p-2"
+            >
+              <List className="w-4 h-4" />
+            </Button>
+          </div>
+          <Button className="bg-orange-600 hover:bg-orange-700 text-white" onClick={handleCreateItem}>
+            <Plus className="w-4 h-4 mr-2" />
+            Add Item
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
       <Card className="p-4">
-        <div className="flex flex-wrap gap-4">
-          <div className="flex-1 min-w-64">
+        <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2">
+            <Filter className="w-4 h-4 text-gray-500" />
+            <span className="text-sm font-medium text-gray-700">Filters:</span>
+          </div>
+
+          {/* Search */}
+          <div className="flex-1 min-w-64 max-w-md">
             <div className="relative">
               <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
               <Input
@@ -163,30 +287,94 @@ export function BacklogList({ projects = [], teamMembers = [], filters }: Backlo
               />
             </div>
           </div>
-          <Select value={typeFilter} onValueChange={setTypeFilter}>
-            <SelectTrigger className="w-40">
-              <SelectValue placeholder="All Types" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Types</SelectItem>
-              <SelectItem value="user story">User Story</SelectItem>
-              <SelectItem value="bug">Bug</SelectItem>
-              <SelectItem value="task">Task</SelectItem>
-              <SelectItem value="epic">Epic</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-            <SelectTrigger className="w-40">
-              <SelectValue placeholder="All Priorities" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Priorities</SelectItem>
-              <SelectItem value="critical">Critical</SelectItem>
-              <SelectItem value="high">High</SelectItem>
-              <SelectItem value="medium">Medium</SelectItem>
-              <SelectItem value="low">Low</SelectItem>
-            </SelectContent>
-          </Select>
+
+          {/* Project Filter */}
+          <div className="flex flex-col space-y-1">
+            <label className="text-xs text-gray-500">Project</label>
+            <Select value={projectFilter} onValueChange={setProjectFilter}>
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="All Projects" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Projects</SelectItem>
+                {projects.map((project: any) => (
+                  <SelectItem key={project.id} value={project.id}>
+                    <div className="flex items-center space-x-2">
+                      {project.color && (
+                        <div
+                          className="w-2 h-2 rounded-full"
+                          style={{ backgroundColor: project.color }}
+                        />
+                      )}
+                      <span className="truncate">{project.name}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Priority Filter */}
+          <div className="flex flex-col space-y-1">
+            <label className="text-xs text-gray-500">Priority</label>
+            <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+              <SelectTrigger className="w-32">
+                <SelectValue placeholder="All Priority" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Priority</SelectItem>
+                {mastersData?.priorities?.filter((priority: any) => priority.is_active).map((priority: any) => (
+                  <SelectItem key={priority.id} value={priority.name.toLowerCase()}>
+                    <div className="flex items-center space-x-2">
+                      <div
+                        className="w-2 h-2 rounded-full"
+                        style={{ backgroundColor: priority.color }}
+                      />
+                      <span>{priority.name}</span>
+                    </div>
+                  </SelectItem>
+                )) || (
+                  <>
+                    <SelectItem value="critical">Critical</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="low">Low</SelectItem>
+                  </>
+                )}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Status Filter */}
+          <div className="flex flex-col space-y-1">
+            <label className="text-xs text-gray-500">Status</label>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-32">
+                <SelectValue placeholder="All Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                {mastersData?.statuses?.filter((status: any) => status.is_active).map((status: any) => (
+                  <SelectItem key={status.id} value={status.name.toLowerCase()}>
+                    <div className="flex items-center space-x-2">
+                      <div
+                        className="w-2 h-2 rounded-full"
+                        style={{ backgroundColor: status.color }}
+                      />
+                      <span>{status.name}</span>
+                    </div>
+                  </SelectItem>
+                )) || (
+                  <>
+                    <SelectItem value="backlog">Backlog</SelectItem>
+                    <SelectItem value="ready">Ready</SelectItem>
+                    <SelectItem value="in progress">In Progress</SelectItem>
+                    <SelectItem value="done">Done</SelectItem>
+                  </>
+                )}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </Card>
 
@@ -205,12 +393,12 @@ export function BacklogList({ projects = [], teamMembers = [], filters }: Backlo
               <GitBranch className="w-12 h-12 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">No Items Found</h3>
               <p className="text-gray-600 mb-4">Start building your product backlog</p>
-              <Button className="bg-orange-600 hover:bg-orange-700 text-white">
+              <Button className="bg-orange-600 hover:bg-orange-700 text-white" onClick={handleCreateItem}>
                 <Plus className="w-4 h-4 mr-2" />
                 Add First Item
               </Button>
             </div>
-          ) : (
+          ) : viewMode === 'card' ? (
             <div className="space-y-4">
               {filteredItems.map((item) => (
                 <Card key={item.id} className="p-6 hover:shadow-md transition-shadow">
@@ -259,9 +447,98 @@ export function BacklogList({ projects = [], teamMembers = [], filters }: Backlo
                 </Card>
               ))}
             </div>
+          ) : (
+            <Card>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>ID</TableHead>
+                    <TableHead>Title</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Priority</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Points</TableHead>
+                    <TableHead>Assignee</TableHead>
+                    <TableHead>Created</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredItems.map((item) => (
+                    <TableRow key={item.id}>
+                      <TableCell className="font-mono text-sm">{item.id}</TableCell>
+                      <TableCell>
+                        <div>
+                          <div className="font-medium">{item.title}</div>
+                          <div className="text-sm text-gray-500 truncate max-w-xs">{item.description}</div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={getTypeColor('User Story')}>
+                          User Story
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={getPriorityColor(item.priority)}>
+                          {item.priority}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={getStatusColor(item.status)}>
+                          {item.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center space-x-1">
+                          <Target className="w-4 h-4" />
+                          <span>{item.story_points || 0}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {item.assignee ? (
+                          <div className="flex items-center space-x-2">
+                            <User className="w-4 h-4" />
+                            <span>{item.assignee.name}</span>
+                          </div>
+                        ) : (
+                          <span className="text-gray-400">Unassigned</span>
+                        )}
+                      </TableCell>
+                      <TableCell>{new Date(item.created_at).toLocaleDateString()}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center space-x-1">
+                          <Button variant="ghost" size="sm">
+                            <ArrowUpDown className="w-4 h-4" />
+                          </Button>
+                          <Button variant="ghost" size="sm">
+                            Edit
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Card>
           )}
         </TabsContent>
       </Tabs>
+
+      {/* BacklogDialog */}
+      <BacklogDialog
+        open={showCreateDialog}
+        onClose={() => setShowCreateDialog(false)}
+        backlogItem={newBacklogItem}
+        setBacklogItem={setNewBacklogItem}
+        projects={projects}
+        epicData={epics}
+        teamMembers={teamMembers}
+        onSave={handleSaveItem}
+        onAddAcceptanceCriteria={handleAddAcceptanceCriteria}
+        onUpdateAcceptanceCriteria={handleUpdateAcceptanceCriteria}
+        onRemoveAcceptanceCriteria={handleRemoveAcceptanceCriteria}
+        isEdit={false}
+      />
     </div>
   )
 }

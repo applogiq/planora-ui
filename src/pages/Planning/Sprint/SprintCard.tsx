@@ -144,11 +144,11 @@ export function SprintCard({ sprint, onEdit }: SprintCardProps) {
         <div className="flex items-center space-x-2">
           <Avatar className="w-6 h-6">
             <AvatarFallback className="text-xs">
-              {sprint.scrum_master_name?.charAt(0) || 'SM'}
+              {sprint.scrum_master?.name?.charAt(0) || sprint.scrum_master_name?.charAt(0) || 'SM'}
             </AvatarFallback>
           </Avatar>
           <span className="text-sm text-gray-600">
-            {sprint.scrum_master_name || 'Unassigned'}
+            {sprint.scrum_master?.name || sprint.scrum_master_name || 'Unassigned'}
           </span>
         </div>
       </div>

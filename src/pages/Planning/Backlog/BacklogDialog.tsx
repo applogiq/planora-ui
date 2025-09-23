@@ -126,7 +126,7 @@ export function BacklogDialog({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="no-epic">No Epic</SelectItem>
-                  {epicData.filter(epic => epic.projectId === backlogItem.projectId).map(epic => (
+                  {epicData.filter(epic => epic.project_id === backlogItem.projectId).map(epic => (
                     <SelectItem key={epic.id} value={epic.id}>
                       {epic.title}
                     </SelectItem>

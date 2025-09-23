@@ -86,51 +86,49 @@ export function EpicList({ projects = [], teamMembers = [], projectOwners = [], 
   const [priorityFilter, setPriorityFilter] = useState('all')
   const [projectFilter, setProjectFilter] = useState('all')
 
-  // Load epics from API
-  useEffect(() => {
-    const loadEpics = async () => {
-      try {
-        setLoading(true)
-        setError(null)
+  // Load epics from API - only when this component is active
+  const loadEpics = async () => {
+    try {
+      setLoading(true)
+      setError(null)
 
-        // Get the active project filter from filters prop
-        const activeProjectFilter = filters?.project || projectFilter
-        const selectedProjectId = activeProjectFilter !== 'all' ? activeProjectFilter : undefined
+      const selectedProjectId = projectFilter !== 'all' ? projectFilter : undefined
+      const response = await epicApiService.getEpics(1, 50, selectedProjectId)
 
-        const response = await epicApiService.getEpics(1, 50, selectedProjectId)
+      // Transform API response to match component interface
+      const transformedEpics = response.items.map((epic: any) => ({
+        id: epic.id,
+        title: epic.title,
+        description: epic.description,
+        status: epic.status,
+        priority: epic.priority,
+        startDate: epic.created_at,
+        endDate: epic.due_date,
+        progress: epic.completion_percentage || 0,
+        totalStoryPoints: epic.total_story_points || 0,
+        completedStoryPoints: epic.completed_story_points || 0,
+        totalStories: epic.total_tasks || 0,
+        completedStories: epic.completed_tasks || 0,
+        owner: epic.assignee || projectOwners.find(owner => owner.id === epic.assignee_id),
+        project: epic.project_name || epic.project?.name || 'Unknown Project',
+        createdAt: epic.created_at,
+        updatedAt: epic.updated_at
+      }))
 
-        // Transform API response to match component interface
-        const transformedEpics = response.items.map((epic: any) => ({
-          id: epic.id,
-          title: epic.title,
-          description: epic.description,
-          status: epic.status,
-          priority: epic.priority,
-          startDate: epic.created_at,
-          endDate: epic.due_date,
-          progress: epic.completion_percentage || 0,
-          totalStoryPoints: epic.total_story_points || 0,
-          completedStoryPoints: epic.completed_story_points || 0,
-          totalStories: epic.total_tasks || 0,
-          completedStories: epic.completed_tasks || 0,
-          owner: epic.assignee || projectOwners.find(owner => owner.id === epic.assignee_id),
-          project: epic.project_name || epic.project?.name || 'Unknown Project',
-          createdAt: epic.created_at,
-          updatedAt: epic.updated_at
-        }))
-
-        setEpics(transformedEpics)
-      } catch (error) {
-        console.error('Failed to load epics:', error)
-        setError('Failed to load epics. Please try again.')
-        setEpics([])
-      } finally {
-        setLoading(false)
-      }
+      setEpics(transformedEpics)
+    } catch (error) {
+      console.error('Failed to load epics:', error)
+      setError('Failed to load epics. Please try again.')
+      setEpics([])
+    } finally {
+      setLoading(false)
     }
+  }
 
+  // Load epics when component mounts or project filter changes
+  useEffect(() => {
     loadEpics()
-  }, [filters?.project, projectFilter, projectOwners])
+  }, [projectFilter, projectOwners])
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
@@ -166,17 +164,9 @@ export function EpicList({ projects = [], teamMembers = [], projectOwners = [], 
     const matchesStatus = statusFilter === 'all' || epic.status.toLowerCase() === statusFilter.toLowerCase()
     const matchesPriority = priorityFilter === 'all' || epic.priority.toLowerCase() === priorityFilter.toLowerCase()
 
-    // Project filtering is handled by the API call, so we don't need to filter locally
-    // unless using the local project filter dropdown
-    let matchesProject = true
-    if (projectFilter !== 'all') {
-      const selectedProject = projects.find(p => p.id === projectFilter)
-      if (selectedProject) {
-        matchesProject = epic.project === selectedProject.name
-      } else {
-        matchesProject = epic.project === projectFilter
-      }
-    }
+    // Project filtering is handled by the API call, so we don't need additional local filtering
+    // All epics returned by the API already match the selected project
+    const matchesProject = true
 
     return matchesSearch && matchesStatus && matchesPriority && matchesProject
   })

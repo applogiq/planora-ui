@@ -64,7 +64,7 @@ export function SprintDialog({
         completed_tasks: sprint.completedTasks || 0,
         velocity: sprint.velocity || 0,
         project_id: sprint.projectId,
-        scrum_master_id: sprint.scrumMasterId || '',
+        scrum_master_id: sprint.scrumMasterId === 'none' ? '' : sprint.scrumMasterId || '',
         team_size: sprint.teamSize || 1,
         burndown_trend: sprint.burndownTrend || 'On Track'
       }
@@ -138,13 +138,15 @@ export function SprintDialog({
                   <SelectValue placeholder="Select project" />
                 </SelectTrigger>
                 <SelectContent>
-                  {projects.map(project => (
+                  {projects.filter(project => project.id && project.id.trim() !== '').map(project => (
                     <SelectItem key={project.id} value={project.id}>
                       <div className="flex items-center space-x-2">
-                        <div 
-                          className="w-3 h-3 rounded-full" 
-                          style={{ backgroundColor: project.color }}
-                        />
+                        {project.color && (
+                          <div
+                            className="w-3 h-3 rounded-full"
+                            style={{ backgroundColor: project.color }}
+                          />
+                        )}
                         <span>{project.name}</span>
                       </div>
                     </SelectItem>
@@ -209,12 +211,12 @@ export function SprintDialog({
 
             <div className="space-y-2">
               <Label htmlFor="scrumMaster">Scrum Master</Label>
-              <Select value={sprint.scrumMasterId} onValueChange={(value) => setSprint(prev => ({ ...prev, scrumMasterId: value }))}>
+              <Select value={sprint.scrumMasterId || 'none'} onValueChange={(value) => setSprint(prev => ({ ...prev, scrumMasterId: value }))}>
                 <SelectTrigger>
                   <SelectValue placeholder="Assign scrum master" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">
+                  <SelectItem value="none">
                     <span className="text-gray-500">No scrum master</span>
                   </SelectItem>
                   {projectOwners.length === 0 ? (
@@ -222,7 +224,7 @@ export function SprintDialog({
                       <span className="text-gray-500">No project owners available...</span>
                     </SelectItem>
                   ) : (
-                    projectOwners.map(owner => (
+                    projectOwners.filter(owner => owner.id && owner.id.trim() !== '').map(owner => (
                       <SelectItem key={owner.id} value={owner.id}>
                         <div className="flex items-center space-x-2">
                           <Avatar className="w-6 h-6">
