@@ -194,6 +194,10 @@ export class EpicApiService {
       method: 'DELETE',
     });
   }
+
+  async getEpicsByProject(projectId: string): Promise<EpicsResponse> {
+    return this.makeRequest<EpicsResponse>(`/project/${projectId}`);
+  }
 }
 
 export const epicApiService = new EpicApiService();

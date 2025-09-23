@@ -298,7 +298,7 @@ export function Auth({ onLogin }: AuthProps) {
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  setFormData({ email: 'manojkumar@planora.com', password: 'palnora@123' })
+                  setFormData({ email: 'manojkumar@planora.com', password: 'planora@123' })
                   setTimeout(() => {
                     const form = document.querySelector('form') as HTMLFormElement
                     form?.requestSubmit()
@@ -312,7 +312,7 @@ export function Auth({ onLogin }: AuthProps) {
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  setFormData({ email: 'mohammedyasik@planora.com', password: 'palnora@123' })
+                  setFormData({ email: 'mohammedyasik@planora.com', password: 'planora@123' })
                   setTimeout(() => {
                     const form = document.querySelector('form') as HTMLFormElement
                     form?.requestSubmit()
@@ -328,7 +328,7 @@ export function Auth({ onLogin }: AuthProps) {
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  setFormData({ email: 'gowtham@planora.com', password: 'palnora@123' })
+                  setFormData({ email: 'gowtham@planora.com', password: 'planora@123' })
                   setTimeout(() => {
                     const form = document.querySelector('form') as HTMLFormElement
                     form?.requestSubmit()
@@ -342,7 +342,7 @@ export function Auth({ onLogin }: AuthProps) {
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  setFormData({ email: 'hariganesh@planora.com', password: 'palnora@123' })
+                  setFormData({ email: 'hariganesh@planora.com', password: 'planora@123' })
                   setTimeout(() => {
                     const form = document.querySelector('form') as HTMLFormElement
                     form?.requestSubmit()
@@ -358,7 +358,7 @@ export function Auth({ onLogin }: AuthProps) {
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  setFormData({ email: 'aaryastrak@planora.com', password: 'palnora@123' })
+                  setFormData({ email: 'aaryastrak@planora.com', password: 'planora@123' })
                   setTimeout(() => {
                     const form = document.querySelector('form') as HTMLFormElement
                     form?.requestSubmit()

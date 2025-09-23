@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../../../components/ui/dialog'
 import { Button } from '../../../components/ui/button'
 import { Input } from '../../../components/ui/input'
@@ -15,7 +15,10 @@ interface BacklogDialogProps {
   setBacklogItem: (item: any) => void
   projects: any[]
   epicData: any[]
-  teamMembers: any[]
+  epicsLoading?: boolean
+  onLoadEpicsForProject?: (projectId: string) => void
+  resources: any[]  // team_members - for assignee dropdown
+  reporters: any[]  // team_lead + any additional reporters - for reporter dropdown
   onSave: () => void
   onAddAcceptanceCriteria: () => void
   onUpdateAcceptanceCriteria: (index: number, value: string) => void
@@ -30,13 +33,23 @@ export function BacklogDialog({
   setBacklogItem,
   projects,
   epicData,
-  teamMembers,
+  epicsLoading = false,
+  onLoadEpicsForProject,
+  resources,
+  reporters,
   onSave,
   onAddAcceptanceCriteria,
   onUpdateAcceptanceCriteria,
   onRemoveAcceptanceCriteria,
   isEdit
 }: BacklogDialogProps) {
+  // Load epics when dialog opens with a selected project
+  useEffect(() => {
+    if (open && backlogItem.projectId && onLoadEpicsForProject) {
+      onLoadEpicsForProject(backlogItem.projectId)
+    }
+  }, [open, backlogItem.projectId, onLoadEpicsForProject])
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -98,16 +111,19 @@ export function BacklogDialog({
           <div className="grid grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label htmlFor="itemProject">Project *</Label>
-              <Select value={backlogItem.projectId} onValueChange={(value) => setBacklogItem(prev => ({ ...prev, projectId: value }))}>
+              <Select value={backlogItem.projectId} onValueChange={(value) => {
+                setBacklogItem(prev => ({ ...prev, projectId: value, epicId: null }))
+                onLoadEpicsForProject?.(value)
+              }}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select project" />
                 </SelectTrigger>
                 <SelectContent>
-                  {projects.map(project => (
+                  {projects.filter(project => project?.id).map(project => (
                     <SelectItem key={project.id} value={project.id}>
                       <div className="flex items-center space-x-2">
-                        <div 
-                          className="w-3 h-3 rounded-full" 
+                        <div
+                          className="w-3 h-3 rounded-full"
                           style={{ backgroundColor: project.color }}
                         />
                         <span>{project.name}</span>
@@ -120,13 +136,25 @@ export function BacklogDialog({
 
             <div className="space-y-2">
               <Label htmlFor="itemEpic">Epic (Optional)</Label>
-              <Select value={backlogItem.epicId || "no-epic"} onValueChange={(value) => setBacklogItem(prev => ({ ...prev, epicId: value === "no-epic" ? null : value }))}>
+              <Select
+                value={backlogItem.epicId || "no-epic"}
+                onValueChange={(value) => setBacklogItem(prev => ({ ...prev, epicId: value === "no-epic" ? null : value }))}
+                disabled={!backlogItem.projectId || epicsLoading}
+              >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select epic" />
+                  <SelectValue
+                    placeholder={
+                      !backlogItem.projectId
+                        ? "Select a project first"
+                        : epicsLoading
+                        ? "Loading epics..."
+                        : "Select epic"
+                    }
+                  />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="no-epic">No Epic</SelectItem>
-                  {epicData.filter(epic => epic.project_id === backlogItem.projectId).map(epic => (
+                  {epicData.filter(epic => epic?.id).map(epic => (
                     <SelectItem key={epic.id} value={epic.id}>
                       {epic.title}
                     </SelectItem>
@@ -159,11 +187,11 @@ export function BacklogDialog({
                   <SelectValue placeholder="Assign to team member" />
                 </SelectTrigger>
                 <SelectContent>
-                  {teamMembers.map(member => (
+                  {resources.filter(member => member?.id).map(member => (
                     <SelectItem key={member.id} value={member.id}>
                       <div className="flex items-center space-x-2">
                         <div className="w-6 h-6 rounded-full bg-blue-500 text-white text-xs flex items-center justify-center">
-                          {member.avatar}
+                          {member.name?.charAt(0).toUpperCase() || '?'}
                         </div>
                         <span>{member.name}</span>
                       </div>
@@ -180,11 +208,11 @@ export function BacklogDialog({
                   <SelectValue placeholder="Select reporter" />
                 </SelectTrigger>
                 <SelectContent>
-                  {teamMembers.map(member => (
+                  {reporters.filter(member => member?.id).map(member => (
                     <SelectItem key={member.id} value={member.id}>
                       <div className="flex items-center space-x-2">
                         <div className="w-6 h-6 rounded-full bg-green-500 text-white text-xs flex items-center justify-center">
-                          {member.avatar}
+                          {member.name?.charAt(0).toUpperCase() || '?'}
                         </div>
                         <span>{member.name}</span>
                       </div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
 import { Badge } from '../../components/ui/badge'
@@ -41,7 +41,10 @@ import { useEpics } from '../../hooks/useEpics'
 import { useActiveProjects } from '../../hooks/useActiveProjects'
 import { useProjectMembers } from '../../hooks/useProjectMembers'
 import { useProjectOwners } from '../../hooks/useProjectOwners'
-import { CreateEpicRequest } from '../../services/epicApi'
+import { CreateEpicRequest, epicApiService } from '../../services/epicApi'
+import { storiesApiService, Story } from '../../services/storiesApi'
+import { sprintApiService, Sprint } from '../../services/sprintApi'
+import { projectApiService, ProjectTeamMembersResponse, ProjectMemberDetail } from '../../services/projectApi'
 
 
 
@@ -77,171 +80,107 @@ export function Tasks({ user }: TasksProps) {
   const { data: projectOwnersData, loading: ownersLoading } = useProjectOwners()
   const projectOwners = projectOwnersData?.items || []
 
-  // Data state
-  const [backlogs, setBacklogs] = useState([
-    {
-      id: 'STORY-001',
-      title: 'User Registration with Email Verification',
-      description: 'As a new user, I want to register with my email address and receive a verification link so that I can securely create an account',
-      type: 'User Story',
-      priority: 'High',
-      status: 'Ready',
-      epicId: 'EPIC-001',
-      epicTitle: 'User Management System',
-      projectId: 'PROJ-001',
-      projectName: 'E-commerce Platform',
-      assigneeId: 'USER-003',
-      assigneeName: 'Sarah Wilson',
-      reporterId: 'USER-007',
-      reporterName: 'Emma Davis',
-      storyPoints: 8,
-      businessValue: 'High',
-      effort: 'Medium',
-      createdAt: '2025-01-15T09:00:00Z',
-      updatedAt: '2025-01-20T14:30:00Z',
-      labels: ['Authentication', 'Email', 'Security'],
-      acceptanceCriteria: [
-        'User can enter email and password on registration form',
-        'System sends verification email to provided address',
-        'User can click verification link to activate account',
-        'Account remains inactive until email is verified'
-      ]
-    },
-    {
-      id: 'STORY-002',
-      title: 'Mobile Payment Processing',
-      description: 'As a mobile banking user, I want to make payments through the app so that I can transfer money conveniently',
-      type: 'User Story',
-      priority: 'Critical',
-      status: 'In Progress',
-      epicId: 'EPIC-002',
-      epicTitle: 'Mobile Banking Core Features',
-      projectId: 'PROJ-002',
-      projectName: 'Mobile Banking App',
-      assigneeId: 'USER-004',
-      assigneeName: 'Mike Johnson',
-      reporterId: 'USER-007',
-      reporterName: 'Emma Davis',
-      storyPoints: 13,
-      businessValue: 'Critical',
-      effort: 'High',
-      createdAt: '2025-01-10T11:15:00Z',
-      updatedAt: '2025-01-22T16:45:00Z',
-      labels: ['Payment', 'Mobile', 'Banking'],
-      acceptanceCriteria: [
-        'User can select recipient from contacts or enter details',
-        'User can specify payment amount and add notes',
-        'Payment requires biometric or PIN authentication',
-        'Transaction confirmation is displayed with receipt option'
-      ]
-    },
-    {
-      id: 'TASK-001',
-      title: 'Setup CI/CD Pipeline',
-      description: 'Configure automated deployment pipeline with testing and security scans',
-      type: 'Task',
-      priority: 'High',
-      status: 'Ready',
-      epicId: 'EPIC-009',
-      epicTitle: 'API Gateway & Microservices',
-      projectId: 'PROJ-001',
-      projectName: 'E-commerce Platform',
-      assigneeId: 'USER-006',
-      assigneeName: 'Alex Chen',
-      reporterId: 'USER-004',
-      reporterName: 'Mike Johnson',
-      storyPoints: 3,
-      businessValue: 'Medium',
-      effort: 'Low',
-      createdAt: '2025-01-11T08:15:00Z',
-      updatedAt: '2025-01-20T11:45:00Z',
-      labels: ['DevOps', 'CI/CD', 'Infrastructure'],
-      acceptanceCriteria: [
-        'Pipeline runs automated tests on every commit',
-        'Security scans are integrated into the pipeline',
-        'Deployments are automated to staging and production',
-        'Rollback mechanism is available for failed deployments'
-      ]
-    },
-    {
-      id: 'BUG-001',
-      title: 'Fix Memory Leak in Dashboard Charts',
-      description: 'Dashboard charts are causing memory leaks when data is refreshed frequently, leading to browser slowdown',
-      type: 'Bug',
-      priority: 'High',
-      status: 'In Progress',
-      epicId: 'EPIC-007',
-      epicTitle: 'Data Visualization Engine',
-      projectId: 'PROJ-004',
-      projectName: 'Analytics Dashboard',
-      assigneeId: 'USER-005',
-      assigneeName: 'Lisa Park',
-      reporterId: 'USER-002',
-      reporterName: 'Praveen Kumar',
-      storyPoints: 3,
-      businessValue: 'High',
-      effort: 'Medium',
-      createdAt: '2025-01-09T14:20:00Z',
-      updatedAt: '2025-01-22T13:55:00Z',
-      labels: ['Bug', 'Performance', 'Memory'],
-      acceptanceCriteria: [
-        'Memory usage remains stable during chart data updates',
-        'Browser performance is not degraded after extended use',
-        'Chart cleanup properly disposes of event listeners',
-        'Memory profiling shows no increasing heap usage patterns'
-      ]
-    }
-  ])
+  // Stories and Sprints API state
+  const [stories, setStories] = useState<Story[]>([])
+  const [storiesLoading, setStoriesLoading] = useState(false)
+  const [sprints, setSprints] = useState<Sprint[]>([])
+  const [sprintsLoading, setSprintsLoading] = useState(false)
 
-  // Get epics from API response or fallback to empty array
-  const epics = epicsResponse?.items || []
+  // Epic loading for dialog
+  const [dialogEpics, setDialogEpics] = useState<any[]>([])
+  const [dialogEpicsLoading, setDialogEpicsLoading] = useState(false)
 
-  const [sprints, setSprints] = useState([
-    {
-      id: 'SPRINT-001',
-      name: 'Sprint 23 - User Authentication',
-      status: 'Active',
-      startDate: '2025-01-08',
-      endDate: '2025-01-22',
-      goal: 'Complete user authentication system with OAuth integration',
-      totalPoints: 55,
-      completedPoints: 32,
-      totalTasks: 18,
-      completedTasks: 11,
-      velocity: 42,
-      projectId: 'PROJ-001',
-      projectName: 'E-commerce Platform',
-      scrumMasterId: 'USER-003',
-      scrumMasterName: 'Sarah Wilson',
-      teamSize: 6,
-      burndownTrend: 'On Track'
-    },
-    {
-      id: 'SPRINT-002',
-      name: 'Sprint 24 - Dashboard & Reports',
-      status: 'Planning',
-      startDate: '2025-01-23',
-      endDate: '2025-02-06',
-      goal: 'Implement analytics dashboard with real-time reporting',
-      totalPoints: 42,
-      completedPoints: 0,
-      totalTasks: 14,
-      completedTasks: 0,
-      velocity: 45,
-      projectId: 'PROJ-001',
-      projectName: 'E-commerce Platform',
-      scrumMasterId: 'USER-003',
-      scrumMasterName: 'Sarah Wilson',
-      teamSize: 6,
-      burndownTrend: 'Not Started'
+  // Project team members for dialog
+  const [projectTeamData, setProjectTeamData] = useState<ProjectTeamMembersResponse | null>(null)
+  const [projectTeamLoading, setProjectTeamLoading] = useState(false)
+
+  // Load stories and sprints data
+  useEffect(() => {
+    const loadData = async () => {
+      // Load stories
+      try {
+        setStoriesLoading(true)
+        const selectedProjectId_val = selectedProjectId !== 'all' ? selectedProjectId : undefined
+        const storiesResponse = await storiesApiService.getStories(1, 50, selectedProjectId_val)
+        setStories(storiesResponse.items)
+      } catch (error) {
+        console.error('Failed to load stories:', error)
+        setStories([])
+      } finally {
+        setStoriesLoading(false)
+      }
+
+      // Load sprints
+      try {
+        setSprintsLoading(true)
+        const selectedProjectId_val = selectedProjectId !== 'all' ? selectedProjectId : undefined
+        const sprintsResponse = await sprintApiService.getSprints(1, 50, selectedProjectId_val)
+        setSprints(sprintsResponse.items)
+      } catch (error) {
+        console.error('Failed to load sprints:', error)
+        setSprints([])
+      } finally {
+        setSprintsLoading(false)
+      }
     }
-  ])
+
+    loadData()
+  }, [selectedProjectId])
+
+  // Load epics for dialog when project is selected
+  const loadDialogEpics = useCallback(async (projectId: string) => {
+    if (!projectId) {
+      setDialogEpics([])
+      return
+    }
+
+    try {
+      setDialogEpicsLoading(true)
+      const response = await epicApiService.getEpicsByProject(projectId)
+      setDialogEpics(response.items)
+    } catch (error) {
+      console.error('Failed to load epics for project:', projectId, error)
+      setDialogEpics([])
+    } finally {
+      setDialogEpicsLoading(false)
+    }
+  }, [])
+
+  // Load project team members for dialog
+  const loadProjectTeamMembers = useCallback(async (projectId: string) => {
+    if (!projectId) {
+      setProjectTeamData(null)
+      return
+    }
+
+    try {
+      setProjectTeamLoading(true)
+      const response = await projectApiService.getProjectTeamMembers(projectId)
+      setProjectTeamData(response)
+    } catch (error) {
+      console.error('Failed to load project team members:', projectId, error)
+      setProjectTeamData(null)
+    } finally {
+      setProjectTeamLoading(false)
+    }
+  }, [])
+
+  // Combined function to load both epics and team members when project changes
+  const loadDialogDataForProject = useCallback(async (projectId: string) => {
+    await Promise.all([
+      loadDialogEpics(projectId),
+      loadProjectTeamMembers(projectId)
+    ])
+  }, [loadDialogEpics, loadProjectTeamMembers])
 
   // Dialog states
   const [showBacklogDialog, setShowBacklogDialog] = useState(false)
   const [showEpicDialog, setShowEpicDialog] = useState(false)
   const [showSprintDialog, setShowSprintDialog] = useState(false)
   const [editingItem, setEditingItem] = useState<any>(null)
+
+  // Data states
+  const [backlogs, setBacklogs] = useState<any[]>([])
 
   // Form states
   const [backlogItem, setBacklogItem] = useState({
@@ -305,58 +244,58 @@ export function Tasks({ user }: TasksProps) {
 
   // Filter data based on selected project and search
   const filteredBacklogs = useMemo(() => {
-    let filtered = backlogs
-    
+    let filtered = stories
+
     if (selectedProjectId !== 'all') {
-      filtered = filtered.filter(item => item.projectId === selectedProjectId)
+      filtered = filtered.filter(item => item.project_id === selectedProjectId)
     }
-    
+
     if (searchQuery) {
       const query = searchQuery.toLowerCase()
-      filtered = filtered.filter(item => 
+      filtered = filtered.filter(item =>
         item.title.toLowerCase().includes(query) ||
         item.description.toLowerCase().includes(query) ||
-        item.labels.some(label => label.toLowerCase().includes(query))
+        item.tags.some(tag => tag.toLowerCase().includes(query))
       )
     }
-    
+
     return filtered
-  }, [backlogs, selectedProjectId, searchQuery])
+  }, [stories, selectedProjectId, searchQuery])
 
   const filteredEpics = useMemo(() => {
-    let filtered = epics
-    
+    let filtered = epicsResponse?.items || []
+
     if (selectedProjectId !== 'all') {
-      filtered = filtered.filter(item => item.projectId === selectedProjectId)
+      filtered = filtered.filter(item => item.project_id === selectedProjectId)
     }
-    
+
     if (searchQuery) {
       const query = searchQuery.toLowerCase()
-      filtered = filtered.filter(item => 
+      filtered = filtered.filter(item =>
         item.title.toLowerCase().includes(query) ||
         item.description.toLowerCase().includes(query) ||
-        item.labels.some(label => label.toLowerCase().includes(query))
+        item.labels?.some(label => label.toLowerCase().includes(query))
       )
     }
-    
+
     return filtered
-  }, [epics, selectedProjectId, searchQuery])
+  }, [epicsResponse?.items, selectedProjectId, searchQuery])
 
   const filteredSprints = useMemo(() => {
     let filtered = sprints
-    
+
     if (selectedProjectId !== 'all') {
-      filtered = filtered.filter(item => item.projectId === selectedProjectId)
+      filtered = filtered.filter(item => item.project_id === selectedProjectId)
     }
-    
+
     if (searchQuery) {
       const query = searchQuery.toLowerCase()
-      filtered = filtered.filter(item => 
+      filtered = filtered.filter(item =>
         item.name.toLowerCase().includes(query) ||
         item.goal.toLowerCase().includes(query)
       )
     }
-    
+
     return filtered
   }, [sprints, selectedProjectId, searchQuery])
 
@@ -430,6 +369,17 @@ export function Tasks({ user }: TasksProps) {
   const handleCreateBacklog = () => {
     resetBacklogForm()
     setEditingItem(null)
+
+    // Load epics and team members if project is selected
+    const currentProjectId = selectedProjectId !== 'all' ? selectedProjectId : ''
+    if (currentProjectId) {
+      loadDialogEpics(currentProjectId)
+      loadProjectTeamMembers(currentProjectId)
+    } else {
+      setDialogEpics([])
+      setProjectTeamData(null)
+    }
+
     setShowBacklogDialog(true)
   }
 
@@ -439,34 +389,60 @@ export function Tasks({ user }: TasksProps) {
     setShowBacklogDialog(true)
   }
 
-  const handleSaveBacklog = () => {
+  const handleSaveBacklog = async () => {
     if (!backlogItem.title || !backlogItem.description || !backlogItem.projectId || !backlogItem.assigneeId) {
       toast.error('Please fill in all required fields')
       return
     }
 
-    const newItem = {
-      ...backlogItem,
-      id: editingItem ? editingItem.id : `ITEM-${Date.now()}`,
-      projectName: projects.find(p => p.id === backlogItem.projectId)?.name || '',
-      assigneeName: teamMembers.find(m => m.id === backlogItem.assigneeId)?.name || '',
-      reporterName: teamMembers.find(m => m.id === backlogItem.reporterId)?.name || '',
-      epicTitle: backlogItem.epicId ? epics.find(e => e.id === backlogItem.epicId)?.title || '' : '',
-      createdAt: editingItem ? editingItem.createdAt : new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    }
+    try {
+      // Prepare data for API call
+      const storyData = {
+        title: backlogItem.title,
+        description: backlogItem.description,
+        status: backlogItem.status || 'Backlog',
+        priority: backlogItem.priority,
+        project_id: backlogItem.projectId,
+        assignee_id: backlogItem.assigneeId,
+        epic_id: backlogItem.epicId || null,
+        story_points: backlogItem.storyPoints || 0,
+        acceptance_criteria: backlogItem.acceptanceCriteria.join('\n'),
+        tags: backlogItem.labels || []
+      }
 
-    if (editingItem) {
-      setBacklogs(prev => prev.map(item => item.id === editingItem.id ? newItem : item))
-      toast.success(`${backlogItem.type} updated successfully`)
-    } else {
-      setBacklogs(prev => [...prev, newItem])
-      toast.success(`${backlogItem.type} created successfully`)
-    }
+      let result
+      if (editingItem) {
+        // Update existing story
+        result = await storiesApiService.updateStory(editingItem.id, storyData)
+        toast.success(`${backlogItem.type} updated successfully`)
+      } else {
+        // Create new story
+        result = await storiesApiService.createStory(storyData)
+        toast.success(`${backlogItem.type} created successfully`)
+      }
 
-    setShowBacklogDialog(false)
-    resetBacklogForm()
-    setEditingItem(null)
+      // Update local state with the result from API
+      const newItem = {
+        ...result,
+        projectName: projects.find(p => p.id === result.project_id)?.name || '',
+        assigneeName: teamMembers.find(m => m.id === result.assignee_id)?.name || '',
+        reporterName: teamMembers.find(m => m.id === backlogItem.reporterId)?.name || '',
+        epicTitle: result.epic_id ? (epicsResponse?.items || []).find(e => e.id === result.epic_id)?.title || '' : '',
+      }
+
+      if (editingItem) {
+        setBacklogs(prev => prev.map(item => item.id === editingItem.id ? newItem : item))
+      } else {
+        setBacklogs(prev => [...prev, newItem])
+      }
+
+      setShowBacklogDialog(false)
+      resetBacklogForm()
+      setEditingItem(null)
+    } catch (error) {
+      console.error('Failed to save backlog item:', error)
+      toast.error(`Failed to ${editingItem ? 'update' : 'create'} ${backlogItem.type}. Please try again.`)
+    }
   }
 
   const handleDeleteBacklog = (itemId: string) => {
@@ -588,7 +564,7 @@ export function Tasks({ user }: TasksProps) {
   }
 
   const handleSaveSprint = () => {
-    if (!sprint.name || !sprint.goal || !sprint.projectId || !sprint.startDate || !sprint.endDate) {
+    if (!sprint.name || !sprint.goal || !sprint.project_id || !sprint.start_date || !sprint.end_date) {
       toast.error('Please fill in all required fields')
       return
     }
@@ -596,7 +572,7 @@ export function Tasks({ user }: TasksProps) {
     const newSprint = {
       ...sprint,
       id: editingItem ? editingItem.id : `SPRINT-${Date.now()}`,
-      projectName: projects.find(p => p.id === sprint.projectId)?.name || '',
+      projectName: projects.find(p => p.id === sprint.project_id)?.name || '',
       scrumMasterName: teamMembers.find(m => m.id === sprint.scrumMasterId)?.name || ''
     }
 
@@ -1060,9 +1036,9 @@ export function Tasks({ user }: TasksProps) {
                           <div className="flex items-center gap-1 text-sm text-muted-foreground">
                             <div 
                               className="w-3 h-3 rounded-full"
-                              style={{ backgroundColor: projects.find(p => p.id === sprint.projectId)?.color }}
+                              style={{ backgroundColor: projects.find(p => p.id === sprint.project_id)?.color }}
                             />
-                            <span>{sprint.projectName}</span>
+                            <span>{sprint.project_name}</span>
                           </div>
                         </div>
                         <p className="text-muted-foreground text-sm line-clamp-2 mb-4">
@@ -1094,13 +1070,13 @@ export function Tasks({ user }: TasksProps) {
                     <div className="grid grid-cols-3 gap-4 mb-4">
                       <div className="text-center">
                         <div className="text-2xl font-bold text-blue-600">
-                          {sprint.completedPoints || 0}
+                          {sprint.completed_points || 0}
                         </div>
                         <div className="text-xs text-muted-foreground">Points Done</div>
                       </div>
                       <div className="text-center">
                         <div className="text-2xl font-bold text-green-600">
-                          {sprint.completedTasks || 0}
+                          {sprint.completed_tasks || 0}
                         </div>
                         <div className="text-xs text-muted-foreground">Tasks Done</div>
                       </div>
@@ -1117,11 +1093,11 @@ export function Tasks({ user }: TasksProps) {
                         <div className="text-sm text-muted-foreground mb-1">Sprint Progress</div>
                         <div className="flex items-center gap-2">
                           <Progress 
-                            value={sprint.totalPoints > 0 ? (sprint.completedPoints / sprint.totalPoints) * 100 : 0} 
+                            value={sprint.total_points > 0 ? (sprint.completed_points / sprint.total_points) * 100 : 0} 
                             className="flex-1"
                           />
                           <span className="text-sm font-medium">
-                            {sprint.totalPoints > 0 ? Math.round((sprint.completedPoints / sprint.totalPoints) * 100) : 0}%
+                            {sprint.total_points > 0 ? Math.round((sprint.completed_points / sprint.total_points) * 100) : 0}%
                           </span>
                         </div>
                       </div>
@@ -1130,18 +1106,18 @@ export function Tasks({ user }: TasksProps) {
                         <div className="flex items-center gap-1">
                           <Calendar className="w-4 h-4" />
                           <span>
-                            {new Date(sprint.startDate).toLocaleDateString()} - {new Date(sprint.endDate).toLocaleDateString()}
+                            {new Date(sprint.start_date).toLocaleDateString()} - {new Date(sprint.end_date).toLocaleDateString()}
                           </span>
                         </div>
                         <div className="flex items-center gap-1">
                           <Users className="w-4 h-4" />
-                          <span>{sprint.teamSize} members</span>
+                          <span>{sprint.team_size} members</span>
                         </div>
                       </div>
 
                       <div className="text-sm">
                         <span className="text-muted-foreground">Scrum Master: </span>
-                        <span>{sprint.scrumMasterName || 'Unassigned'}</span>
+                        <span>{sprint.scrum_master_name || 'Unassigned'}</span>
                       </div>
                     </div>
                   </CardContent>
@@ -1163,8 +1139,11 @@ export function Tasks({ user }: TasksProps) {
         backlogItem={backlogItem}
         setBacklogItem={setBacklogItem}
         projects={projects}
-        epicData={epics}
-        teamMembers={teamMembers}
+        epicData={dialogEpics}
+        epicsLoading={dialogEpicsLoading}
+        onLoadEpicsForProject={loadDialogDataForProject}
+        resources={projectTeamData?.team_members || []}
+        reporters={projectTeamData ? [projectTeamData.team_lead] : []}
         onSave={handleSaveBacklog}
         onAddAcceptanceCriteria={handleAddAcceptanceCriteria}
         onUpdateAcceptanceCriteria={handleUpdateAcceptanceCriteria}

@@ -67,6 +67,22 @@ export interface ProjectOwnersResponse {
 export type ProjectMember = ProjectOwner;
 export type ProjectMembersResponse = ProjectOwnersResponse;
 
+export interface ProjectMemberDetail {
+  id: string;
+  name: string;
+  department: string;
+  role_id: string;
+  role_name: string;
+  user_profile: string;
+}
+
+export interface ProjectTeamMembersResponse {
+  project_id: string;
+  project_name: string;
+  team_lead: ProjectMemberDetail;
+  team_members: ProjectMemberDetail[];
+}
+
 
 export interface CreateProjectRequest {
   name: string;
@@ -289,6 +305,10 @@ export class ProjectApiService {
 
   async getProjectMembers(): Promise<ProjectMembersResponse> {
     return this.makeRequest<ProjectMembersResponse>('/api/v1/users/team-members');
+  }
+
+  async getProjectTeamMembers(projectId: string): Promise<ProjectTeamMembersResponse> {
+    return this.makeRequest<ProjectTeamMembersResponse>(`/api/v1/projects/members/${projectId}`);
   }
 }
 

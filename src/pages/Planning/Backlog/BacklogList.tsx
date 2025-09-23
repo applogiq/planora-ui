@@ -43,6 +43,7 @@ export function BacklogList({ projects = [], teamMembers = [], mastersData }: Ba
   const [viewMode, setViewMode] = useState<'card' | 'table'>('card')
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [epics, setEpics] = useState<any[]>([])
+  const [epicsLoading, setEpicsLoading] = useState(false)
   const [newBacklogItem, setNewBacklogItem] = useState({
     title: '',
     description: '',
@@ -80,28 +81,33 @@ export function BacklogList({ projects = [], teamMembers = [], mastersData }: Ba
     loadBacklogItems()
   }, [projectFilter])
 
-  // Load epics for dropdown
-  useEffect(() => {
-    const loadEpics = async () => {
-      try {
-        const response = await epicApiService.getEpics(1, 100) // Get more epics for dropdown
-        setEpics(response.items)
-      } catch (error) {
-        console.error('Failed to load epics:', error)
-        setEpics([])
-      }
+  // Load epics for selected project when dialog is opened
+  const loadEpicsForProject = async (projectId: string) => {
+    if (!projectId) {
+      setEpics([])
+      return
     }
 
-    loadEpics()
-  }, [])
+    try {
+      setEpicsLoading(true)
+      const response = await epicApiService.getEpicsByProject(projectId)
+      setEpics(response.items)
+    } catch (error) {
+      console.error('Failed to load epics for project:', projectId, error)
+      setEpics([])
+    } finally {
+      setEpicsLoading(false)
+    }
+  }
 
   const handleCreateItem = () => {
+    const selectedProjectId = projectFilter !== 'all' ? projectFilter : ''
     setNewBacklogItem({
       title: '',
       description: '',
       type: 'User Story',
       priority: 'Medium',
-      projectId: projectFilter !== 'all' ? projectFilter : '',
+      projectId: selectedProjectId,
       epicId: null,
       assigneeId: '',
       reporterId: '',
@@ -110,6 +116,14 @@ export function BacklogList({ projects = [], teamMembers = [], mastersData }: Ba
       effort: 'Medium',
       acceptanceCriteria: ['']
     })
+
+    // Load epics for the pre-selected project
+    if (selectedProjectId) {
+      loadEpicsForProject(selectedProjectId)
+    } else {
+      setEpics([])
+    }
+
     setShowCreateDialog(true)
   }
 
@@ -532,7 +546,10 @@ export function BacklogList({ projects = [], teamMembers = [], mastersData }: Ba
         setBacklogItem={setNewBacklogItem}
         projects={projects}
         epicData={epics}
-        teamMembers={teamMembers}
+        epicsLoading={epicsLoading}
+        onLoadEpicsForProject={loadEpicsForProject}
+        resources={teamMembers}
+        reporters={teamMembers}
         onSave={handleSaveItem}
         onAddAcceptanceCriteria={handleAddAcceptanceCriteria}
         onUpdateAcceptanceCriteria={handleUpdateAcceptanceCriteria}
