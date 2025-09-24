@@ -43,8 +43,19 @@ export function SprintDialog({
 
 
   const handleSave = async () => {
-    if (!sprint.name || !sprint.goal || !sprint.startDate || !sprint.endDate || !sprint.projectId) {
-      setError('Please fill in all required fields')
+    console.log('Sprint object being validated:', sprint)
+
+    const missingFields = []
+    if (!sprint.name?.trim()) missingFields.push('name')
+    if (!sprint.goal?.trim()) missingFields.push('goal')
+    if (!sprint.startDate) missingFields.push('start date')
+    if (!sprint.endDate) missingFields.push('end date')
+    if (!sprint.projectId) missingFields.push('project')
+
+    if (missingFields.length > 0) {
+      const errorMsg = `Please fill in all required fields: ${missingFields.join(', ')}`
+      console.log('Validation failed:', errorMsg)
+      setError(errorMsg)
       return
     }
 
@@ -70,12 +81,18 @@ export function SprintDialog({
       }
 
       if (isEdit && sprint.id) {
+        console.log('Updating sprint:', sprintData)
         const updatedSprint = await sprintApiService.updateSprint(sprint.id, sprintData)
+        console.log('Sprint updated successfully:', updatedSprint)
         onSprintUpdated?.(updatedSprint)
       } else {
+        console.log('Creating sprint:', sprintData)
         const newSprint = await sprintApiService.createSprint(sprintData)
+        console.log('Sprint created successfully:', newSprint)
         onSprintCreated?.(newSprint)
       }
+
+      console.log('API call completed successfully, closing dialog')
 
       if (onSave) {
         onSave()
@@ -87,6 +104,20 @@ export function SprintDialog({
     } finally {
       setIsLoading(false)
     }
+  }
+
+  // Filter project owners by selected project
+  const getFilteredProjectOwners = () => {
+    if (!sprint.projectId) return projectOwners
+
+    return projectOwners.filter(owner => {
+      // If owner has a project_id field, filter by it
+      if (owner.project_id) {
+        return owner.project_id === sprint.projectId
+      }
+      // Otherwise, show all owners (they might be assigned to any project)
+      return true
+    })
   }
 
   const getSprintDuration = () => {
@@ -219,12 +250,14 @@ export function SprintDialog({
                   <SelectItem value="none">
                     <span className="text-gray-500">No scrum master</span>
                   </SelectItem>
-                  {projectOwners.length === 0 ? (
+                  {getFilteredProjectOwners().length === 0 ? (
                     <SelectItem value="loading" disabled>
-                      <span className="text-gray-500">No project owners available...</span>
+                      <span className="text-gray-500">
+                        {sprint.projectId ? 'No scrum masters available for this project' : 'Select a project first'}
+                      </span>
                     </SelectItem>
                   ) : (
-                    projectOwners.filter(owner => owner.id && owner.id.trim() !== '').map(owner => (
+                    getFilteredProjectOwners().filter(owner => owner.id && owner.id.trim() !== '').map(owner => (
                       <SelectItem key={owner.id} value={owner.id}>
                         <div className="flex items-center space-x-2">
                           <Avatar className="w-6 h-6">
@@ -235,7 +268,8 @@ export function SprintDialog({
                                 className="w-6 h-6 rounded-full object-cover"
                                 onError={(e) => {
                                   e.currentTarget.style.display = 'none';
-                                  e.currentTarget.nextElementSibling!.style.display = 'flex';
+                                  const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                                  if (fallback) fallback.style.display = 'flex';
                                 }}
                               />
                             ) : null}

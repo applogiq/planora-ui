@@ -5,6 +5,7 @@ export interface Story {
   id: string;
   title: string;
   description: string;
+  story_type: string;
   status: string;
   priority: string;
   assignee_id: string | null;
@@ -15,7 +16,7 @@ export interface Story {
   progress: number;
   tags: string[];
   story_points?: number;
-  acceptance_criteria?: string;
+  acceptance_criteria?: string[];
   attachments?: StoryAttachment[];
   comments?: StoryComment[];
   created_at: string;
@@ -49,6 +50,7 @@ export interface StoryComment {
 export interface CreateStoryRequest {
   title: string;
   description: string;
+  story_type: string;
   status: string;
   priority: string;
   assignee_id: string | null;
@@ -59,7 +61,7 @@ export interface CreateStoryRequest {
   progress?: number;
   tags?: string[];
   story_points?: number;
-  acceptance_criteria?: string;
+  acceptance_criteria?: string[];
 }
 
 export interface UpdateStoryRequest extends Partial<CreateStoryRequest> {
@@ -166,6 +168,7 @@ export class StoriesApiService {
       // Add story fields
       formData.append('title', storyData.title);
       formData.append('description', storyData.description);
+      formData.append('story_type', storyData.story_type);
       formData.append('status', storyData.status);
       formData.append('priority', storyData.priority);
       formData.append('project_id', storyData.project_id);
@@ -176,7 +179,7 @@ export class StoriesApiService {
       if (storyData.due_date) formData.append('due_date', storyData.due_date);
       if (storyData.progress !== undefined) formData.append('progress', storyData.progress.toString());
       if (storyData.story_points !== undefined) formData.append('story_points', storyData.story_points.toString());
-      if (storyData.acceptance_criteria) formData.append('acceptance_criteria', storyData.acceptance_criteria);
+      if (storyData.acceptance_criteria) formData.append('acceptance_criteria', JSON.stringify(storyData.acceptance_criteria));
 
       if (storyData.tags && storyData.tags.length > 0) {
         formData.append('tags', JSON.stringify(storyData.tags));

@@ -56,10 +56,10 @@ export function BacklogDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center space-x-2">
             <div className="flex items-center space-x-2">
-              {backlogItem.type === 'User Story' && <span>📖</span>}
-              {backlogItem.type === 'Task' && <span>⚙️</span>}
-              {backlogItem.type === 'Bug' && <span>🐛</span>}
-              <span>{isEdit ? 'Edit' : 'Create New'} {backlogItem.type}</span>
+              {backlogItem.story_type === 'User Story' && <span>📖</span>}
+              {backlogItem.story_type === 'Task' && <span>⚙️</span>}
+              {backlogItem.story_type === 'Bug' && <span>🐛</span>}
+              <span>{isEdit ? 'Edit' : 'Create New'} {backlogItem.story_type}</span>
             </div>
           </DialogTitle>
           <DialogDescription>
@@ -81,7 +81,7 @@ export function BacklogDialog({
             
             <div className="space-y-2">
               <Label htmlFor="itemType">Type</Label>
-              <Select value={backlogItem.type} onValueChange={(value) => setBacklogItem(prev => ({ ...prev, type: value }))}>
+              <Select value={backlogItem.story_type} onValueChange={(value) => setBacklogItem(prev => ({ ...prev, story_type: value }))}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -98,7 +98,7 @@ export function BacklogDialog({
             <Label htmlFor="itemDescription">Description *</Label>
             <Textarea
               id="itemDescription"
-              placeholder={backlogItem.type === 'User Story' ? 
+              placeholder={backlogItem.story_type === 'User Story' ?
                 "As a [user role], I want [goal] so that [benefit]..." :
                 "Describe the task or bug details..."
               }
@@ -336,7 +336,7 @@ export function BacklogDialog({
             onClick={onSave}
             className="bg-[#28A745] hover:bg-[#218838] text-white"
           >
-            {isEdit ? 'Update' : 'Create'} {backlogItem.type}
+            {isEdit ? 'Update' : 'Create'} {backlogItem.story_type}
           </Button>
         </div>
       </DialogContent>

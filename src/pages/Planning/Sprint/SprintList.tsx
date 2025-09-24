@@ -118,8 +118,9 @@ export function SprintList({ projects = [], teamMembers = [], projectOwners = []
     setShowCreateDialog(true)
   }
 
-  const handleSprintCreated = (sprint: Sprint) => {
-    setSprints(prev => [sprint, ...prev])
+  const handleSprintCreated = async (sprint: Sprint) => {
+    // Reload the full list to ensure data consistency
+    await loadSprints()
     toast.success('Sprint created successfully')
     setNewSprint({
       name: '',
@@ -139,8 +140,9 @@ export function SprintList({ projects = [], teamMembers = [], projectOwners = []
     })
   }
 
-  const handleSprintUpdated = (updatedSprint: Sprint) => {
-    setSprints(prev => prev.map(s => s.id === updatedSprint.id ? updatedSprint : s))
+  const handleSprintUpdated = async (updatedSprint: Sprint) => {
+    // Reload the full list to ensure data consistency
+    await loadSprints()
     toast.success('Sprint updated successfully')
   }
 

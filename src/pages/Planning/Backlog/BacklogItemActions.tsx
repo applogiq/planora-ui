@@ -45,7 +45,8 @@ export function BacklogItemActions({
   }
 
   const getItemTypeIcon = () => {
-    switch (item.type) {
+    const itemType = item.type || item.story_type || ''
+    switch (itemType) {
       case 'User Story': return '📖'
       case 'Task': return '⚙️'
       case 'Bug': return '🐛'
@@ -86,7 +87,7 @@ export function BacklogItemActions({
           {canEdit && (
             <DropdownMenuItem onClick={() => onEdit(item)}>
               <Edit3 className="w-4 h-4 mr-2" />
-              Edit {item.type}
+              Edit {item.type || item.story_type || 'Item'}
             </DropdownMenuItem>
           )}
 
@@ -126,10 +127,10 @@ export function BacklogItemActions({
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center space-x-2">
               <span>{getItemTypeIcon()}</span>
-              <span>Delete {item.type}</span>
+              <span>Delete {item.type || item.story_type || 'Item'}</span>
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this {item.type.toLowerCase()}?
+              Are you sure you want to delete this {(item.type || item.story_type || 'item')?.toLowerCase()}?
             </AlertDialogDescription>
           </AlertDialogHeader>
           
@@ -157,7 +158,7 @@ export function BacklogItemActions({
               onClick={() => onDelete(item.id)}
               className="bg-red-600 hover:bg-red-700"
             >
-              Delete {item.type}
+              Delete {item.type || item.story_type || 'Item'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -172,7 +173,7 @@ export function BacklogItemActions({
               <span>Move to Sprint</span>
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Select which sprint you want to move this {item.type.toLowerCase()} to:
+              Select which sprint you want to move this {(item.type || item.story_type || 'item')?.toLowerCase()} to:
             </AlertDialogDescription>
           </AlertDialogHeader>
           

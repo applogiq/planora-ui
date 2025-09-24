@@ -47,7 +47,7 @@ export function BacklogList({ projects = [], teamMembers = [], mastersData }: Ba
   const [newBacklogItem, setNewBacklogItem] = useState({
     title: '',
     description: '',
-    type: 'User Story',
+    story_type: 'User Story',
     priority: 'Medium',
     projectId: '',
     epicId: null,
@@ -67,7 +67,7 @@ export function BacklogList({ projects = [], teamMembers = [], mastersData }: Ba
         setError(null)
 
         const selectedProjectId = projectFilter !== 'all' ? projectFilter : undefined
-        const response = await storiesApiService.getStories(1, 50, selectedProjectId)
+        const response = await storiesApiService.getStories(selectedProjectId, 1, 50)
         setBacklogItems(response.items)
       } catch (error) {
         console.error('Failed to load backlog items:', error)
@@ -105,7 +105,7 @@ export function BacklogList({ projects = [], teamMembers = [], mastersData }: Ba
     setNewBacklogItem({
       title: '',
       description: '',
-      type: 'User Story',
+      story_type: 'User Story',
       priority: 'Medium',
       projectId: selectedProjectId,
       epicId: null,
@@ -129,26 +129,26 @@ export function BacklogList({ projects = [], teamMembers = [], mastersData }: Ba
 
   const handleSaveItem = async () => {
     try {
-      // Here you would typically call a stories API to create the new item
-      // For now, we'll just add it to the local state
-      const newItem = {
-        id: `STORY-${Date.now()}`,
+      const storyData = {
         title: newBacklogItem.title,
         description: newBacklogItem.description,
+        story_type: newBacklogItem.story_type,
         status: 'Backlog',
         priority: newBacklogItem.priority,
-        story_points: newBacklogItem.storyPoints,
+        assignee_id: newBacklogItem.assigneeId,
         project_id: newBacklogItem.projectId,
         epic_id: newBacklogItem.epicId,
-        assignee_id: newBacklogItem.assigneeId,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        story_points: newBacklogItem.storyPoints,
+        acceptance_criteria: newBacklogItem.acceptanceCriteria.filter(criteria => criteria.trim() !== ''),
+        tags: []
       }
 
-      setBacklogItems(prev => [newItem, ...prev])
+      const createdStory = await storiesApiService.createStory(storyData)
+      setBacklogItems(prev => [createdStory, ...prev])
       setShowCreateDialog(false)
       toast.success('Backlog item created successfully')
     } catch (error) {
+      console.error('Failed to create backlog item:', error)
       toast.error('Failed to create backlog item')
     }
   }

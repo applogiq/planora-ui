@@ -101,7 +101,7 @@ export function Tasks({ user }: TasksProps) {
       try {
         setStoriesLoading(true)
         const selectedProjectId_val = selectedProjectId !== 'all' ? selectedProjectId : undefined
-        const storiesResponse = await storiesApiService.getStories(1, 50, selectedProjectId_val)
+        const storiesResponse = await storiesApiService.getStories(selectedProjectId_val, 1, 50)
         setStories(storiesResponse.items)
       } catch (error) {
         console.error('Failed to load stories:', error)
@@ -244,6 +244,10 @@ export function Tasks({ user }: TasksProps) {
 
   // Filter data based on selected project and search
   const filteredBacklogs = useMemo(() => {
+    if (!stories || !Array.isArray(stories)) {
+      return []
+    }
+
     let filtered = stories
 
     if (selectedProjectId !== 'all') {
@@ -255,7 +259,7 @@ export function Tasks({ user }: TasksProps) {
       filtered = filtered.filter(item =>
         item.title.toLowerCase().includes(query) ||
         item.description.toLowerCase().includes(query) ||
-        item.tags.some(tag => tag.toLowerCase().includes(query))
+        (item.tags && item.tags.some(tag => tag.toLowerCase().includes(query)))
       )
     }
 
@@ -282,6 +286,10 @@ export function Tasks({ user }: TasksProps) {
   }, [epicsResponse?.items, selectedProjectId, searchQuery])
 
   const filteredSprints = useMemo(() => {
+    if (!sprints || !Array.isArray(sprints)) {
+      return []
+    }
+
     let filtered = sprints
 
     if (selectedProjectId !== 'all') {
@@ -400,13 +408,14 @@ export function Tasks({ user }: TasksProps) {
       const storyData = {
         title: backlogItem.title,
         description: backlogItem.description,
+        story_type: backlogItem.type || 'User Story',
         status: backlogItem.status || 'Backlog',
         priority: backlogItem.priority,
         project_id: backlogItem.projectId,
         assignee_id: backlogItem.assigneeId,
         epic_id: backlogItem.epicId || null,
         story_points: backlogItem.storyPoints || 0,
-        acceptance_criteria: backlogItem.acceptanceCriteria.join('\n'),
+        acceptance_criteria: backlogItem.acceptanceCriteria.filter(criteria => criteria.trim() !== ''),
         tags: backlogItem.labels || []
       }
 
@@ -414,11 +423,11 @@ export function Tasks({ user }: TasksProps) {
       if (editingItem) {
         // Update existing story
         result = await storiesApiService.updateStory(editingItem.id, storyData)
-        toast.success(`${backlogItem.type} updated successfully`)
+        toast.success(`${backlogItem.type || 'Item'} updated successfully`)
       } else {
         // Create new story
         result = await storiesApiService.createStory(storyData)
-        toast.success(`${backlogItem.type} created successfully`)
+        toast.success(`${backlogItem.type || 'Item'} created successfully`)
       }
 
       // Update local state with the result from API
@@ -822,7 +831,7 @@ export function Tasks({ user }: TasksProps) {
                               )}
                             </div>
 
-                            {item.labels.length > 0 && (
+                            {item.labels && item.labels.length > 0 && (
                               <div className="flex flex-wrap gap-1 mt-3">
                                 {item.labels.map((label, index) => (
                                   <Badge key={index} variant="outline" className="text-xs">
@@ -983,7 +992,7 @@ export function Tasks({ user }: TasksProps) {
                       )}
                     </div>
 
-                    {epic.labels.length > 0 && (
+                    {epic.labels && epic.labels.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-3">
                         {epic.labels.map((label, index) => (
                           <Badge key={index} variant="outline" className="text-xs">
