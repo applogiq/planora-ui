@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../../../components/ui/dialog'
 import { Button } from '../../../components/ui/button'
 import { Input } from '../../../components/ui/input'
@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback } from '../../../components/ui/avatar'
 import { Calendar, Zap, Users, Target, PlayCircle } from 'lucide-react'
 import { sprintApiService, CreateSprintRequest, Sprint } from '../../../services/sprintApi'
 import { getAssetUrl } from '../../../config/api'
+import { toast } from 'sonner@2.0.3'
 
 interface SprintDialogProps {
   open: boolean
@@ -23,6 +24,7 @@ interface SprintDialogProps {
   isEdit: boolean
   onSprintCreated?: (sprint: Sprint) => void
   onSprintUpdated?: (sprint: Sprint) => void
+  onRefreshList?: () => void
 }
 
 export function SprintDialog({
@@ -36,33 +38,40 @@ export function SprintDialog({
   onSave,
   isEdit,
   onSprintCreated,
-  onSprintUpdated
+  onSprintUpdated,
+  onRefreshList
 }: SprintDialogProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Clear error state when dialog opens/closes
+  useEffect(() => {
+    if (open) {
+      setError(null)
+      setIsLoading(false)
+    }
+  }, [open])
 
   const handleSave = async () => {
-    console.log('Sprint object being validated:', sprint)
-
-    const missingFields = []
-    if (!sprint.name?.trim()) missingFields.push('name')
-    if (!sprint.goal?.trim()) missingFields.push('goal')
-    if (!sprint.startDate) missingFields.push('start date')
-    if (!sprint.endDate) missingFields.push('end date')
-    if (!sprint.projectId) missingFields.push('project')
-
-    if (missingFields.length > 0) {
-      const errorMsg = `Please fill in all required fields: ${missingFields.join(', ')}`
-      console.log('Validation failed:', errorMsg)
-      setError(errorMsg)
-      return
-    }
-
-    setIsLoading(true)
-    setError(null)
-
     try {
+      setError(null)
+
+      // Validation
+      const missingFields = []
+      if (!sprint.name?.trim()) missingFields.push('name')
+      if (!sprint.goal?.trim()) missingFields.push('goal')
+      if (!sprint.startDate) missingFields.push('start date')
+      if (!sprint.endDate) missingFields.push('end date')
+      if (!sprint.projectId) missingFields.push('project')
+
+      if (missingFields.length > 0) {
+        const errorMsg = `Please fill in all required fields: ${missingFields.join(', ')}`
+        setError(errorMsg)
+        return
+      }
+
+      setIsLoading(true)
+
       const sprintData: CreateSprintRequest = {
         name: sprint.name,
         status: sprint.status || 'Planning',
@@ -80,27 +89,34 @@ export function SprintDialog({
         burndown_trend: sprint.burndownTrend || 'On Track'
       }
 
+      let result: Sprint
+
       if (isEdit && sprint.id) {
-        console.log('Updating sprint:', sprintData)
-        const updatedSprint = await sprintApiService.updateSprint(sprint.id, sprintData)
-        console.log('Sprint updated successfully:', updatedSprint)
-        onSprintUpdated?.(updatedSprint)
+        result = await sprintApiService.updateSprint(sprint.id, sprintData)
+        toast.success('Sprint updated successfully!')
       } else {
-        console.log('Creating sprint:', sprintData)
-        const newSprint = await sprintApiService.createSprint(sprintData)
-        console.log('Sprint created successfully:', newSprint)
-        onSprintCreated?.(newSprint)
+        result = await sprintApiService.createSprint(sprintData)
+        toast.success('Sprint created successfully!')
       }
 
-      console.log('API call completed successfully, closing dialog')
-
-      if (onSave) {
-        onSave()
-      }
-
+      // Close dialog first
       onClose()
+
+      // Direct list refresh - Epic pattern
+      if (onRefreshList) {
+        onRefreshList()
+      }
+
+      // Keep existing callbacks for compatibility
+      if (isEdit && onSprintUpdated) {
+        onSprintUpdated(result)
+      } else if (onSprintCreated) {
+        onSprintCreated(result)
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save sprint')
+      const errorMessage = err instanceof Error ? err.message : 'Failed to save sprint'
+      setError(errorMessage)
+      toast.error(errorMessage)
     } finally {
       setIsLoading(false)
     }

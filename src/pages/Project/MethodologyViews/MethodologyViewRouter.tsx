@@ -82,7 +82,7 @@ export function MethodologyViewRouter({
     // Default to Agile view for unknown methodologies or as fallback
     default:
       return (
-        <AgileMethodologyView
+        <ScrumMethodologyView
           project={project}
           onTaskView={onTaskView}
           onTaskCreate={onTaskCreate}

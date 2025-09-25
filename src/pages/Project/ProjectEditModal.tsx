@@ -45,6 +45,7 @@ import {
 import { format } from 'date-fns@4.1.0'
 import { cn } from '../../components/ui/utils'
 import { toast } from 'sonner@2.0.3'
+import { getAssetUrl } from '../../config/api'
 
 interface ProjectEditModalProps {
   isOpen: boolean
@@ -188,102 +189,59 @@ export function ProjectEditModal({ isOpen, onClose, project, onSave, user }: Pro
                  project.dueDate ? new Date(project.dueDate) : new Date(),
         budget: project.budget || 0,
         customer: project.customer || 'Internal',
-        // Map team_lead object to owner string - handle both API formats
-        owner: project.team_lead?.name || project.teamLead || project.owner ||
+        // Use team_lead_detail for Project Owner display
+        owner: project.team_lead_detail?.name ||
+               project.team_lead?.name ||
+               project.teamLead ||
+               project.owner ||
                (typeof project.team_lead === 'string' ? project.team_lead : '') ||
                user?.name || '',
-        // Map team_members to team array with proper structure and preserve original IDs
-        team: project.team_members ?
+        // Use team_members_detail for Current Team display
+        team: project.team_members_detail ?
+              project.team_members_detail.map((member: any) => ({
+                id: member.id,
+                originalId: member.id, // Store the original ID for API calls
+                name: member.name,
+                role: member.role_name || member.role?.name || 'Member',
+                avatar: member.user_profile ? member.user_profile.split('/').pop()?.charAt(0).toUpperCase() : member.name?.charAt(0).toUpperCase(),
+                email: member.email || `${member.name?.toLowerCase().replace(/\s+/g, '.')}@company.com`,
+                department: member.department || 'Unknown',
+                user_profile: member.user_profile
+              })) :
+              // Fallback to old logic if team_members_detail is not available
+              project.team_members ?
               project.team_members.map((memberIdOrName: string, index: number) => {
                 // Skip empty or invalid entries
                 if (!memberIdOrName || typeof memberIdOrName !== 'string') {
                   return null
                 }
-                // First, try to find by ID in API data (if team_members contains IDs)
-                const apiMember = projectMembers?.items?.find(m => m.id === memberIdOrName)
+
+                // Try to find in projectMembers API data
+                const apiMember = projectMembers?.items?.find(m => m.id === memberIdOrName || m.name === memberIdOrName)
                 if (apiMember) {
                   return {
                     id: apiMember.id,
-                    originalId: memberIdOrName, // Store the original ID from API
+                    originalId: memberIdOrName,
                     name: apiMember.name,
-                    role: apiMember.role.name,
-                    avatar: apiMember.avatar || apiMember.name.charAt(0).toUpperCase(),
+                    role: apiMember.role?.name || 'Member',
+                    avatar: apiMember.user_profile || apiMember.name.charAt(0).toUpperCase(),
                     email: apiMember.email,
-                    department: apiMember.department
+                    department: apiMember.department,
+                    user_profile: apiMember.user_profile
                   }
                 }
 
-                // Then try to find by name in API data (if team_members contains names)
-                const apiMemberByName = projectMembers?.items?.find(m => m.name === memberIdOrName)
-                if (apiMemberByName) {
-                  return {
-                    id: apiMemberByName.id,
-                    originalId: apiMemberByName.id, // Store the ID
-                    name: apiMemberByName.name,
-                    role: apiMemberByName.role.name,
-                    avatar: apiMemberByName.avatar || apiMemberByName.name.charAt(0).toUpperCase(),
-                    email: apiMemberByName.email,
-                    department: apiMemberByName.department
-                  }
-                }
-
-                // Try to find in teamMembers by ID first, then by name
-                const foundMemberById = teamMembers.find(m => m.id.toString() === memberIdOrName)
-                if (foundMemberById) {
-                  return {
-                    ...foundMemberById,
-                    originalId: memberIdOrName // Store the original ID
-                  }
-                }
-
-                const foundMemberByName = teamMembers.find(m => m.name === memberIdOrName)
-                if (foundMemberByName) {
-                  return {
-                    ...foundMemberByName,
-                    originalId: foundMemberByName.id.toString() // Store mock ID as string
-                  }
-                }
-
-                // Special handling for UUID-like strings - create a mapping to mock users
-                if (memberIdOrName.match(/^[a-f0-9\-]{36}$|^[a-f0-9\-]{8,}$/)) {
-                  // It's a UUID, map it to a mock team member based on index
-                  const teamMemberIndex = index % Math.max(teamMembers.length, 1)
-                  const teamMember = teamMembers[teamMemberIndex] || {
-                    id: `temp-${index}`,
-                    name: `Team Member ${index + 1}`,
-                    role: { name: 'Member' },
-                    email: `member${index + 1}@example.com`,
-                    department: 'Unknown'
-                  }
-
-                  return {
-                    id: teamMember.id,
-                    originalId: memberIdOrName, // Store the original UUID
-                    name: teamMember.name,
-                    role: typeof teamMember.role === 'object' ? teamMember.role.name : teamMember.role,
-                    avatar: teamMember.name.charAt(0).toUpperCase(),
-                    email: teamMember.email,
-                    department: teamMember.department
-                  }
-                }
-
-                // Enhanced fallback: try to extract meaningful name if it looks like an ID
-                let displayName = memberIdOrName
-                if (memberIdOrName.includes('-') || memberIdOrName.match(/^\d+$/)) {
-                  // If it looks like an ID, try to find a better name
-                  displayName = `User ${memberIdOrName.slice(0, 8)}`
-                }
-
+                // Fallback for IDs without detail
                 return {
-                  id: 1000 + index, // Use high IDs to avoid conflicts
-                  originalId: memberIdOrName, // Store whatever we received
-                  name: displayName,
-                  role: 'Developer',
-                  avatar: displayName.charAt(0).toUpperCase(),
-                  email: `${displayName.toLowerCase().replace(/\s+/g, '.')}@planora.com`,
-                  department: 'Development'
+                  id: memberIdOrName,
+                  originalId: memberIdOrName,
+                  name: `User ${memberIdOrName.slice(0, 8)}`,
+                  role: 'Member',
+                  avatar: memberIdOrName.charAt(0).toUpperCase(),
+                  email: `user${index}@company.com`,
+                  department: 'Unknown'
                 }
-              }).filter(Boolean) : // Remove null/undefined entries
+              }).filter(Boolean) :
               project.team || [],
         isPublic: project.isPublic !== undefined ? project.isPublic : true,
         notifications: project.notifications !== undefined ? project.notifications : true,
@@ -480,14 +438,16 @@ export function ProjectEditModal({ isOpen, onClose, project, onSave, user }: Pro
       role: member.role.name,
       avatar: member.user_profile || member.name.charAt(0).toUpperCase(),
       email: member.email,
-      department: member.department
+      department: member.department,
+      user_profile: member.user_profile
     })) : availableTeamMembers.map(member => ({
       id: member.id,
       name: member.name,
       role: typeof member.role === 'object' ? member.role.name : member.role,
       avatar: member.user_profile || member.name.charAt(0).toUpperCase(),
       email: member.email,
-      department: member.department
+      department: member.department,
+      user_profile: member.user_profile
     }))
 
     return allMembers.filter(availableMember => {
@@ -712,13 +672,26 @@ export function ProjectEditModal({ isOpen, onClose, project, onSave, user }: Pro
                           .map((owner) => (
                             <SelectItem key={owner.id} value={owner.name}>
                               <div className="flex items-center space-x-2">
-                                <div className="w-6 h-6 rounded-full bg-[#007BFF] text-white text-xs flex items-center justify-center">
-                                  {owner.avatar || owner.name.charAt(0).toUpperCase()}
-                                </div>
+                                <Avatar className="w-6 h-6">
+                                  {owner.user_profile && owner.user_profile !== '/public/user-profile/default.png' ? (
+                                    <img
+                                      src={getAssetUrl(owner.user_profile)}
+                                      alt={owner.name}
+                                      className="w-6 h-6 rounded-full object-cover"
+                                      onError={(e) => {
+                                        e.currentTarget.style.display = 'none';
+                                        e.currentTarget.nextElementSibling!.style.display = 'flex';
+                                      }}
+                                    />
+                                  ) : null}
+                                  <AvatarFallback className="text-xs bg-[#007BFF] text-white">
+                                    {owner.name?.charAt(0) || 'U'}
+                                  </AvatarFallback>
+                                </Avatar>
                                 <div>
                                   <span className="font-medium">{owner.name}</span>
                                   <span className="text-xs text-muted-foreground ml-2">
-                                    {owner.role.name} • {owner.department}
+                                    {owner.role?.name || owner.role_name} • {owner.department}
                                   </span>
                                 </div>
                               </div>
@@ -791,13 +764,27 @@ export function ProjectEditModal({ isOpen, onClose, project, onSave, user }: Pro
                       <div key={member.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                         <div className="flex items-center space-x-3">
                           <Avatar className="w-8 h-8">
+                            {member.user_profile && member.user_profile !== '/public/user-profile/default.png' ? (
+                              <img
+                                src={getAssetUrl(member.user_profile)}
+                                alt={member.name}
+                                className="w-8 h-8 rounded-full object-cover"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = 'none';
+                                  e.currentTarget.nextElementSibling!.style.display = 'flex';
+                                }}
+                              />
+                            ) : null}
                             <AvatarFallback className="bg-[#007BFF] text-white text-sm">
-                              {member.avatar}
+                              {member.name?.charAt(0) || 'U'}
                             </AvatarFallback>
                           </Avatar>
                           <div>
                             <p className="font-medium text-sm">{member.name}</p>
                             <p className="text-xs text-muted-foreground">{member.role}</p>
+                            {member.department && (
+                              <p className="text-xs text-muted-foreground">{member.department}</p>
+                            )}
                           </div>
                         </div>
                         <Button
@@ -829,8 +816,19 @@ export function ProjectEditModal({ isOpen, onClose, project, onSave, user }: Pro
                       <div key={member.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors">
                         <div className="flex items-center space-x-3">
                           <Avatar className="w-8 h-8">
+                            {member.user_profile && member.user_profile !== '/public/user-profile/default.png' ? (
+                              <img
+                                src={getAssetUrl(member.user_profile)}
+                                alt={member.name}
+                                className="w-8 h-8 rounded-full object-cover"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = 'none';
+                                  e.currentTarget.nextElementSibling!.style.display = 'flex';
+                                }}
+                              />
+                            ) : null}
                             <AvatarFallback className="bg-[#28A745] text-white text-sm">
-                              {member.avatar}
+                              {member.name?.charAt(0) || 'U'}
                             </AvatarFallback>
                           </Avatar>
                           <div>

@@ -226,7 +226,7 @@ export function BacklogDialog({
           <div className="grid grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label htmlFor="storyPoints">Story Points</Label>
-              <Select value={backlogItem.storyPoints.toString()} onValueChange={(value) => setBacklogItem(prev => ({ ...prev, storyPoints: parseInt(value) }))}>
+              <Select value={backlogItem.storyPoints?.toString() || '0'} onValueChange={(value) => setBacklogItem(prev => ({ ...prev, storyPoints: parseInt(value) }))}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -288,7 +288,7 @@ export function BacklogDialog({
             </div>
             
             <div className="space-y-2">
-              {backlogItem.acceptanceCriteria.map((criteria: string, index: number) => (
+              {(backlogItem.acceptanceCriteria || [''])?.map((criteria: string, index: number) => (
                 <div key={index} className="flex items-center space-x-2">
                   <div className="flex-1">
                     <Input
@@ -302,7 +302,7 @@ export function BacklogDialog({
                     variant="ghost"
                     size="sm"
                     onClick={() => onRemoveAcceptanceCriteria(index)}
-                    disabled={backlogItem.acceptanceCriteria.length === 1}
+                    disabled={(backlogItem.acceptanceCriteria || []).length <= 1}
                   >
                     <X className="w-4 h-4" />
                   </Button>

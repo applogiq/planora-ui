@@ -60,24 +60,24 @@ export function BacklogList({ projects = [], teamMembers = [], mastersData }: Ba
   })
 
   // Load backlog items from API
-  useEffect(() => {
-    const loadBacklogItems = async () => {
-      try {
-        setLoading(true)
-        setError(null)
+  const loadBacklogItems = async () => {
+    try {
+      setLoading(true)
+      setError(null)
 
-        const selectedProjectId = projectFilter !== 'all' ? projectFilter : undefined
-        const response = await storiesApiService.getStories(selectedProjectId, 1, 50)
-        setBacklogItems(response.items)
-      } catch (error) {
-        console.error('Failed to load backlog items:', error)
-        setError('Failed to load backlog items. Please try again.')
-        setBacklogItems([])
-      } finally {
-        setLoading(false)
-      }
+      const selectedProjectId = projectFilter !== 'all' ? projectFilter : undefined
+      const response = await storiesApiService.getStories(selectedProjectId, 1, 50)
+      setBacklogItems(response.items)
+    } catch (error) {
+      console.error('Failed to load backlog items:', error)
+      setError('Failed to load backlog items. Please try again.')
+      setBacklogItems([])
+    } finally {
+      setLoading(false)
     }
+  }
 
+  useEffect(() => {
     loadBacklogItems()
   }, [projectFilter])
 
@@ -143,10 +143,17 @@ export function BacklogList({ projects = [], teamMembers = [], mastersData }: Ba
         tags: []
       }
 
-      const createdStory = await storiesApiService.createStory(storyData)
-      setBacklogItems(prev => [createdStory, ...prev])
+      await storiesApiService.createStory(storyData)
+
+      // Close dialog first
       setShowCreateDialog(false)
+
+      // Show success message
       toast.success('Backlog item created successfully')
+
+      // Directly reload the list - same pattern as Epic
+      loadBacklogItems()
+
     } catch (error) {
       console.error('Failed to create backlog item:', error)
       toast.error('Failed to create backlog item')
@@ -541,7 +548,25 @@ export function BacklogList({ projects = [], teamMembers = [], mastersData }: Ba
       {/* BacklogDialog */}
       <BacklogDialog
         open={showCreateDialog}
-        onClose={() => setShowCreateDialog(false)}
+        onClose={() => {
+          setShowCreateDialog(false)
+          // Reset form when dialog closes
+          setNewBacklogItem({
+            title: '',
+            description: '',
+            story_type: 'User Story',
+            priority: 'Medium',
+            projectId: '',
+            epicId: null,
+            assigneeId: '',
+            reporterId: '',
+            storyPoints: 0,
+            businessValue: 'Medium',
+            effort: 'Medium',
+            acceptanceCriteria: ['']
+          })
+          setEpics([])
+        }}
         backlogItem={newBacklogItem}
         setBacklogItem={setNewBacklogItem}
         projects={projects}

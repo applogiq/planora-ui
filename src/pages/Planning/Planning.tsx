@@ -6,6 +6,7 @@ import { SprintList } from './Sprint'
 import { BacklogList } from './Backlog'
 import { EpicList } from './Epic'
 import { TeamList } from './Team'
+import { ScrumMethodologyView } from '../Project/MethodologyViews/ScrumMethodologyView'
 import { projectApiService } from '../../services/projectApi'
 import { useProjectMasters } from '../../hooks/useProjectMasters'
 import { useProjectOwners } from '../../hooks/useProjectOwners'
@@ -15,6 +16,7 @@ export function Planning() {
   const [projects, setProjects] = useState([])
   const [teamMembers, setTeamMembers] = useState([])
   const [loading, setLoading] = useState(true)
+  const [activeTab, setActiveTab] = useState('scrum')
 
   // Filter states
   const [projectFilter, setProjectFilter] = useState<string>('all')
@@ -22,6 +24,19 @@ export function Planning() {
   const [priorityFilter, setPriorityFilter] = useState<string>('all')
   const [methodologyFilter, setMethodologyFilter] = useState<string>('all')
   const [typeFilter, setTypeFilter] = useState<string>('all')
+
+  // Handlers for Scrum methodology view
+  const handleTaskView = (task: any) => {
+    // TODO: Implement task detail view
+    console.log('Opening task details:', task)
+  }
+
+  const handleTaskCreate = () => {
+    // Switch to backlog tab and trigger create
+    setActiveTab('backlog')
+    // TODO: Trigger backlog item creation
+    console.log('Creating new task/story')
+  }
 
   // Get masters data for filters
   const { data: mastersData, loading: mastersLoading, error: mastersError } = useProjectMasters()
@@ -72,16 +87,20 @@ export function Planning() {
         <div>
           <h1 className="text-3xl font-bold text-gray-900 flex items-center space-x-3">
             <Target className="w-8 h-8 text-orange-600" />
-            <span>Planning</span>
+            <span>Planning & Backlog Management</span>
           </h1>
-          <p className="text-gray-600 mt-2">Manage sprints, backlogs, and agile planning</p>
+          <p className="text-gray-600 mt-2">Comprehensive Scrum methodology with sprint management, product backlog, and team collaboration</p>
         </div>
       </div>
 
 
       {/* Planning Tabs */}
-      <Tabs defaultValue="backlog" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="scrum" className="flex items-center space-x-2">
+            <Zap className="w-4 h-4" />
+            <span>Scrum Board</span>
+          </TabsTrigger>
           <TabsTrigger value="backlog" className="flex items-center space-x-2">
             <GitBranch className="w-4 h-4" />
             <span>Backlog</span>
@@ -99,6 +118,14 @@ export function Planning() {
             <span>Team</span>
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="scrum">
+          <ScrumMethodologyView
+            project={projects[0] || {}}
+            onTaskView={handleTaskView}
+            onTaskCreate={handleTaskCreate}
+          />
+        </TabsContent>
 
         <TabsContent value="backlog">
           <BacklogList

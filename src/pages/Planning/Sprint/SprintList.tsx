@@ -118,10 +118,13 @@ export function SprintList({ projects = [], teamMembers = [], projectOwners = []
     setShowCreateDialog(true)
   }
 
-  const handleSprintCreated = async (sprint: Sprint) => {
-    // Reload the full list to ensure data consistency
-    await loadSprints()
-    toast.success('Sprint created successfully')
+  const handleRefreshList = () => {
+    // Direct refresh - Epic pattern
+    loadSprints()
+  }
+
+  const handleSprintCreated = (sprint: Sprint) => {
+    // Reset form
     setNewSprint({
       name: '',
       goal: '',
@@ -140,16 +143,31 @@ export function SprintList({ projects = [], teamMembers = [], projectOwners = []
     })
   }
 
-  const handleSprintUpdated = async (updatedSprint: Sprint) => {
-    // Reload the full list to ensure data consistency
-    await loadSprints()
-    toast.success('Sprint updated successfully')
+  const handleSprintUpdated = (updatedSprint: Sprint) => {
+    // Keep for compatibility but main refresh is via onRefreshList
   }
 
   const handleCloseDialog = () => {
     setShowCreateDialog(false)
     setSelectedSprint(null)
     setIsEditMode(false)
+    // Reset the sprint form completely when closing
+    setNewSprint({
+      name: '',
+      goal: '',
+      status: 'Planning',
+      startDate: '',
+      endDate: '',
+      projectId: '',
+      scrumMasterId: '',
+      teamSize: 1,
+      totalPoints: 0,
+      completedPoints: 0,
+      totalTasks: 0,
+      completedTasks: 0,
+      velocity: 0,
+      burndownTrend: 'On Track'
+    })
   }
 
   const getStatusColor = (status: string) => {
@@ -368,6 +386,7 @@ export function SprintList({ projects = [], teamMembers = [], projectOwners = []
         isEdit={isEditMode}
         onSprintCreated={handleSprintCreated}
         onSprintUpdated={handleSprintUpdated}
+        onRefreshList={handleRefreshList}
       />
     </div>
   )
