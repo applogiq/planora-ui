@@ -1,374 +1,377 @@
 import { useState } from 'react'
-import { Card } from '../../../components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card'
 import { Button } from '../../../components/ui/button'
 import { Badge } from '../../../components/ui/badge'
 import { Progress } from '../../../components/ui/progress'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs'
-import { Separator } from '../../../components/ui/separator'
-import { mockWaterfallData } from '../../../mock-data/methodology'
+import { useMethodologyData } from '../../../hooks/useMethodologyData'
 import {
-  GitBranch,
-  FileText,
-  Clock,
   CheckCircle,
+  Clock,
   AlertTriangle,
-  Calendar,
-  TrendingUp,
+  FileText,
   Users,
+  Calendar,
   Target,
-  ArrowDown,
-  ArrowRight,
-  Plus,
-  ChevronRight,
-  Flag,
-  PlayCircle,
-  PauseCircle,
-  XCircle
+  TrendingUp,
+  AlertCircle,
+  PlayCircle
 } from 'lucide-react'
 
 interface WaterfallMethodologyViewProps {
   project: any
   onTaskView?: (task: any) => void
   onTaskCreate?: () => void
+  currentUser?: { id: string; name: string }
+  activeTab?: string
 }
 
-export function WaterfallMethodologyView({ project, onTaskView, onTaskCreate }: WaterfallMethodologyViewProps) {
-  const [activeTab, setActiveTab] = useState('phases')
+export function WaterfallMethodologyView({
+  project,
+  onTaskView,
+  onTaskCreate,
+  currentUser,
+  activeTab = 'phases'
+}: WaterfallMethodologyViewProps) {
+  const { data: waterfallData } = useMethodologyData(project?.id, 'Waterfall')
 
-  // Use centralized mock data for Waterfall-specific features
-  const { phases, milestones, riskAssessment } = mockWaterfallData
+  if (!waterfallData) {
+    return <div className="p-6">Loading Waterfall data...</div>
+  }
 
-  // Keep quality gates as local data for now
-  const qualityGates = [
-    { name: 'Requirements Review', status: 'Passed', date: '2024-01-15', criteria: 'All requirements documented and approved' },
-    { name: 'Design Review', status: 'Passed', date: '2024-02-05', criteria: 'Architecture and design approved by stakeholders' },
-    { name: 'Code Review', status: 'In Progress', date: '2024-03-10', criteria: 'Code quality standards met, 90% test coverage' },
-    { name: 'Integration Testing', status: 'Pending', date: '2024-03-25', criteria: 'All system components working together' },
-    { name: 'User Acceptance Testing', status: 'Pending', date: '2024-04-05', criteria: 'System meets user requirements' },
-    { name: 'Production Readiness', status: 'Pending', date: '2024-04-15', criteria: 'System ready for production deployment' }
-  ]
+  const { phases, milestones, risks } = waterfallData
 
-  const getPhaseStatusColor = (status: string) => {
+  const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'Completed': return 'text-[#28A745] bg-[#28A745]/10'
-      case 'In Progress': return 'text-[#FFC107] bg-[#FFC107]/10'
-      case 'Pending': return 'text-[#6C757D] bg-[#6C757D]/10'
-      case 'At Risk': return 'text-[#DC3545] bg-[#DC3545]/10'
-      default: return 'text-muted-foreground bg-muted'
+      case 'completed':
+        return <CheckCircle className="w-5 h-5 text-green-500" />
+      case 'in-progress':
+        return <PlayCircle className="w-5 h-5 text-blue-500" />
+      case 'pending':
+        return <Clock className="w-5 h-5 text-gray-400" />
+      default:
+        return <Clock className="w-5 h-5 text-gray-400" />
     }
   }
 
-  const getRiskLevelColor = (level: string) => {
-    switch (level) {
-      case 'High': return 'bg-[#DC3545] text-white'
-      case 'Medium': return 'bg-[#FFC107] text-white'
-      case 'Low': return 'bg-[#28A745] text-white'
-      default: return 'bg-muted text-foreground'
-    }
-  }
-
-  const getMilestoneStatusIcon = (status: string) => {
+  const getStatusColor = (status: string) => {
     switch (status) {
-      case 'Completed': return <CheckCircle className="w-4 h-4 text-[#28A745]" />
-      case 'At Risk': return <AlertTriangle className="w-4 h-4 text-[#FFC107]" />
-      case 'Pending': return <Clock className="w-4 h-4 text-[#6C757D]" />
-      default: return <Clock className="w-4 h-4 text-muted-foreground" />
+      case 'completed':
+        return 'bg-green-100 text-green-800 border-green-200'
+      case 'in-progress':
+        return 'bg-blue-100 text-blue-800 border-blue-200'
+      case 'pending':
+        return 'bg-gray-100 text-gray-800 border-gray-200'
+      case 'at-risk':
+        return 'bg-yellow-100 text-yellow-800 border-yellow-200'
+      default:
+        return 'bg-gray-100 text-gray-800 border-gray-200'
     }
   }
 
-  const getQualityGateStatusIcon = (status: string) => {
-    switch (status) {
-      case 'Passed': return <CheckCircle className="w-4 h-4 text-[#28A745]" />
-      case 'In Progress': return <PlayCircle className="w-4 h-4 text-[#FFC107]" />
-      case 'Failed': return <XCircle className="w-4 h-4 text-[#DC3545]" />
-      case 'Pending': return <PauseCircle className="w-4 h-4 text-[#6C757D]" />
-      default: return <Clock className="w-4 h-4 text-muted-foreground" />
-    }
-  }
-
-  const currentPhase = phases.find(phase => phase.status === 'In Progress')
-  const overallProgress = Math.round(phases.reduce((total, phase) => total + phase.progress, 0) / phases.length)
-
-  return (
+  const renderPhases = () => (
     <div className="space-y-6">
-      {/* Waterfall Overview */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Current Phase Card */}
-        <Card className="lg:col-span-2 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center space-x-3">
-              <div className="p-2 bg-[#007BFF]/10 rounded-lg">
-                <GitBranch className="w-5 h-5 text-[#007BFF]" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-lg">Current Phase: {currentPhase?.name}</h3>
-                <p className="text-sm text-muted-foreground">
-                  {currentPhase?.startDate} - {currentPhase?.endDate}
-                </p>
-              </div>
-            </div>
-            <Badge className={getPhaseStatusColor(currentPhase?.status || 'Pending')}>
-              {currentPhase?.status}
-            </Badge>
-          </div>
-
-          <div className="grid grid-cols-4 gap-4 mb-6">
-            <div className="text-center">
-              <p className="text-2xl font-bold text-[#007BFF]">{currentPhase?.progress}%</p>
-              <p className="text-sm text-muted-foreground">Complete</p>
-            </div>
-            <div className="text-center">
-              <p className="text-2xl font-bold text-[#28A745]">{currentPhase?.completedTasks}</p>
-              <p className="text-sm text-muted-foreground">Tasks Done</p>
-            </div>
-            <div className="text-center">
-              <p className="text-2xl font-bold text-[#FFC107]">{currentPhase?.tasks}</p>
-              <p className="text-sm text-muted-foreground">Total Tasks</p>
-            </div>
-            <div className="text-center">
-              <p className="text-2xl font-bold text-[#DC3545]">
-                {currentPhase ? Math.ceil((new Date(currentPhase.endDate).getTime() - new Date().getTime()) / (1000 * 3600 * 24)) : 0}
-              </p>
-              <p className="text-sm text-muted-foreground">Days Left</p>
-            </div>
-          </div>
-
-          {/* Phase Progress */}
-          <div className="space-y-3">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-6">
+        <Card>
+          <CardContent className="p-4">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Phase Progress</span>
-              <span className="text-sm text-muted-foreground">{currentPhase?.progress}%</span>
+              <div>
+                <p className="text-sm text-gray-600">Total Phases</p>
+                <p className="text-2xl font-bold">{phases.length}</p>
+              </div>
+              <Target className="w-8 h-8 text-blue-500" />
             </div>
-            <Progress value={currentPhase?.progress || 0} className="h-2" />
-          </div>
-
-          {/* Deliverables */}
-          <div className="mt-6">
-            <h4 className="font-medium mb-3">Phase Deliverables</h4>
-            <ul className="space-y-2">
-              {(currentPhase?.deliverables || []).map((deliverable, index) => (
-                <li key={index} className="flex items-center space-x-2">
-                  <FileText className="w-4 h-4 text-[#007BFF]" />
-                  <span className="text-sm">{deliverable}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
+          </CardContent>
         </Card>
-
-        {/* Project Timeline */}
-        <Card className="p-6">
-          <div className="flex items-center space-x-3 mb-4">
-            <div className="p-2 bg-[#28A745]/10 rounded-lg">
-              <TrendingUp className="w-5 h-5 text-[#28A745]" />
-            </div>
-            <div>
-              <h3 className="font-semibold">Project Timeline</h3>
-              <p className="text-sm text-muted-foreground">Overall progress</p>
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <div className="text-center">
-              <p className="text-3xl font-bold text-[#007BFF]">{overallProgress}%</p>
-              <p className="text-sm text-muted-foreground">Project Complete</p>
-            </div>
-            <Progress value={overallProgress} className="h-3" />
-
-            <div className="space-y-2 text-sm">
-              <div className="flex items-center justify-between">
-                <span>Phases Completed</span>
-                <span className="font-semibold">{phases.filter(p => p.status === 'Completed').length}/{phases.length}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span>Total Duration</span>
-                <span className="font-semibold">{phases.reduce((total, phase) => total + phase.duration, 0)} days</span>
-              </div>
-            </div>
-          </div>
-
-          <Separator className="my-4" />
-
-          {/* Upcoming Milestone */}
-          <div>
-            <h4 className="font-medium mb-3">Next Milestone</h4>
-            {milestones.find(m => m.status === 'Pending' || m.status === 'At Risk') && (
-              <div className="p-3 bg-muted/30 rounded-lg">
-                <div className="flex items-center space-x-2 mb-1">
-                  {getMilestoneStatusIcon(milestones.find(m => m.status === 'Pending' || m.status === 'At Risk')?.status || 'Pending')}
-                  <span className="text-sm font-medium">
-                    {milestones.find(m => m.status === 'Pending' || m.status === 'At Risk')?.name}
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Due: {milestones.find(m => m.status === 'Pending' || m.status === 'At Risk')?.date}
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Completed</p>
+                <p className="text-2xl font-bold text-green-600">
+                  {phases.filter((p: any) => p.status === 'completed').length}
                 </p>
               </div>
-            )}
-          </div>
+              <CheckCircle className="w-8 h-8 text-green-500" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">In Progress</p>
+                <p className="text-2xl font-bold text-blue-600">
+                  {phases.filter((p: any) => p.status === 'in-progress').length}
+                </p>
+              </div>
+              <PlayCircle className="w-8 h-8 text-blue-500" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Overall Progress</p>
+                <p className="text-2xl font-bold text-purple-600">
+                  {Math.round((phases.reduce((sum: number, p: any) => sum + p.progress, 0) / phases.length))}%
+                </p>
+              </div>
+              <TrendingUp className="w-8 h-8 text-purple-500" />
+            </div>
+          </CardContent>
         </Card>
       </div>
 
-      {/* Main Content Tabs */}
-      <Card className="p-6">
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <div className="flex items-center justify-between mb-6">
-            <TabsList>
-              <TabsTrigger value="phases">Phases</TabsTrigger>
-              <TabsTrigger value="milestones">Milestones</TabsTrigger>
-              <TabsTrigger value="risks">Risk Management</TabsTrigger>
-              <TabsTrigger value="quality">Quality Gates</TabsTrigger>
-            </TabsList>
-            <div className="flex items-center space-x-2">
-              <Button size="sm" onClick={onTaskCreate} className="bg-[#007BFF] hover:bg-[#0056b3]">
-                <Plus className="w-4 h-4 mr-2" />
-                Add Task
-              </Button>
-            </div>
-          </div>
+      <div className="space-y-4">
+        {phases.map((phase: any, index: number) => (
+          <Card key={phase.id} className="relative">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  {getStatusIcon(phase.status)}
+                  <div>
+                    <CardTitle className="text-lg">{phase.name}</CardTitle>
+                    <p className="text-sm text-gray-600">{phase.description}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-4">
+                  <Badge className={getStatusColor(phase.status)}>
+                    {phase.status.replace('-', ' ')}
+                  </Badge>
+                  <div className="text-right text-sm">
+                    <p className="font-semibold">{phase.progress}%</p>
+                    <p className="text-gray-600">{phase.duration} days</p>
+                  </div>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <Progress value={phase.progress} className="mb-4" />
 
-          <TabsContent value="phases" className="space-y-4">
-            <h3 className="font-semibold">Project Phases</h3>
-            <div className="space-y-4">
-              {phases.map((phase, index) => (
-                <div key={phase.id} className="relative">
-                  <Card className="p-4 hover:shadow-md transition-shadow">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center space-x-3">
-                        <div className="flex items-center space-x-2">
-                          <div className="w-8 h-8 rounded-full bg-[#007BFF] text-white text-sm flex items-center justify-center font-medium">
-                            {phase.id}
-                          </div>
-                          <div>
-                            <h4 className="font-medium">{phase.name}</h4>
-                            <p className="text-sm text-muted-foreground">{phase.description}</p>
-                          </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div>
+                    <h4 className="font-semibold mb-2 flex items-center gap-2">
+                      <Calendar className="w-4 h-4" />
+                      Timeline
+                    </h4>
+                    <div className="text-sm space-y-1">
+                      <p><span className="text-gray-600">Start:</span> {new Date(phase.startDate).toLocaleDateString()}</p>
+                      <p><span className="text-gray-600">End:</span> {new Date(phase.endDate).toLocaleDateString()}</p>
+                      <p><span className="text-gray-600">Duration:</span> {phase.duration} days</p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="font-semibold mb-2 flex items-center gap-2">
+                      <FileText className="w-4 h-4" />
+                      Deliverables
+                    </h4>
+                    <div className="flex flex-wrap gap-1">
+                      {phase.deliverables.map((deliverable: string, idx: number) => (
+                        <Badge key={idx} variant="outline" className="text-xs">
+                          {deliverable}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="font-semibold mb-2 flex items-center gap-2">
+                    <Users className="w-4 h-4" />
+                    Tasks ({phase.tasks.length})
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                    {phase.tasks.map((task: any) => (
+                      <div
+                        key={task.id}
+                        className="p-3 border rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
+                        onClick={() => onTaskView?.(task)}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium">{task.name}</span>
+                          <Badge variant={
+                            task.status === 'completed' ? 'default' :
+                            task.status === 'in-progress' ? 'secondary' : 'outline'
+                          } className="text-xs">
+                            {task.status.replace('-', ' ')}
+                          </Badge>
                         </div>
+                        <p className="text-xs text-gray-600 mt-1">{task.assignee}</p>
                       </div>
-                      <Badge className={getPhaseStatusColor(phase.status)}>
-                        {phase.status}
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  )
+
+  const renderMilestones = () => (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Target className="w-5 h-5" />
+            Project Milestones
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {milestones.map((milestone: any, index: number) => (
+              <div
+                key={index}
+                className="flex items-center justify-between p-4 border rounded-lg"
+              >
+                <div className="flex items-center gap-3">
+                  {getStatusIcon(milestone.status)}
+                  <div>
+                    <h4 className="font-medium">{milestone.name}</h4>
+                    <p className="text-sm text-gray-600">
+                      Target: {new Date(milestone.date).toLocaleDateString()}
+                    </p>
+                  </div>
+                </div>
+                <Badge className={getStatusColor(milestone.status)}>
+                  {milestone.status.replace('-', ' ')}
+                </Badge>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+
+  const renderRisks = () => (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <AlertTriangle className="w-5 h-5" />
+            Risk Management
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {risks.map((risk: any) => (
+              <Card key={risk.id} className="border-l-4 border-l-orange-500">
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between mb-3">
+                    <h4 className="font-medium">{risk.description}</h4>
+                    <Badge className={getStatusColor(risk.status)}>
+                      {risk.status}
+                    </Badge>
+                  </div>
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 text-sm">
+                    <div>
+                      <span className="text-gray-600">Impact: </span>
+                      <Badge variant={
+                        risk.impact === 'High' ? 'destructive' :
+                        risk.impact === 'Medium' ? 'default' : 'secondary'
+                      }>
+                        {risk.impact}
                       </Badge>
                     </div>
-
-                    <div className="grid grid-cols-4 gap-4 mb-4">
-                      <div>
-                        <p className="text-xs text-muted-foreground">Duration</p>
-                        <p className="text-sm font-medium">{phase.duration} days</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">Progress</p>
-                        <p className="text-sm font-medium">{phase.progress}%</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">Tasks</p>
-                        <p className="text-sm font-medium">{phase.completedTasks}/{phase.tasks}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">End Date</p>
-                        <p className="text-sm font-medium">{phase.endDate}</p>
-                      </div>
-                    </div>
-
-                    <Progress value={phase.progress} className="h-2 mb-3" />
-
-                    <div className="flex items-center justify-between">
-                      <div className="flex flex-wrap gap-1">
-                        {phase.deliverables.map((deliverable, idx) => (
-                          <Badge key={idx} variant="outline" className="text-xs">
-                            {deliverable}
-                          </Badge>
-                        ))}
-                      </div>
-                      <Button variant="ghost" size="sm" onClick={() => onTaskView?.(phase)}>
-                        <ChevronRight className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </Card>
-
-                  {/* Phase Connection Arrow */}
-                  {index < phases.length - 1 && (
-                    <div className="flex justify-center py-2">
-                      <ArrowDown className="w-5 h-5 text-muted-foreground" />
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </TabsContent>
-
-          <TabsContent value="milestones" className="space-y-4">
-            <h3 className="font-semibold">Project Milestones</h3>
-            <div className="space-y-3">
-              {milestones.map((milestone, index) => (
-                <div key={index} className="flex items-center justify-between p-4 border rounded-lg">
-                  <div className="flex items-center space-x-3">
-                    {getMilestoneStatusIcon(milestone.status)}
                     <div>
-                      <h4 className="font-medium">{milestone.name}</h4>
-                      <p className="text-sm text-muted-foreground">{milestone.phase}</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-medium">{milestone.date}</p>
-                    <Badge className={getPhaseStatusColor(milestone.status)}>
-                      {milestone.status}
-                    </Badge>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </TabsContent>
-
-          <TabsContent value="risks" className="space-y-4">
-            <h3 className="font-semibold">Risk Assessment</h3>
-            <div className="space-y-4">
-              {riskAssessment.map((risk, index) => (
-                <Card key={index} className="p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="font-medium">{risk.category}</h4>
-                    <Badge className={getRiskLevelColor(risk.level)}>
-                      {risk.level} Risk
-                    </Badge>
-                  </div>
-                  <div className="space-y-2">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Impact:</p>
-                      <p className="text-sm">{risk.impact}</p>
+                      <span className="text-gray-600">Probability: </span>
+                      <Badge variant={
+                        risk.probability === 'High' ? 'destructive' :
+                        risk.probability === 'Medium' ? 'default' : 'secondary'
+                      }>
+                        {risk.probability}
+                      </Badge>
                     </div>
                     <div>
-                      <p className="text-sm text-muted-foreground">Mitigation:</p>
-                      <p className="text-sm">{risk.mitigation}</p>
+                      <span className="text-gray-600 block mb-1">Mitigation:</span>
+                      <p className="text-gray-800">{risk.mitigation}</p>
                     </div>
                   </div>
-                </Card>
-              ))}
-            </div>
-          </TabsContent>
-
-          <TabsContent value="quality" className="space-y-4">
-            <h3 className="font-semibold">Quality Gates</h3>
-            <div className="space-y-3">
-              {qualityGates.map((gate, index) => (
-                <div key={index} className="flex items-center justify-between p-4 border rounded-lg">
-                  <div className="flex items-center space-x-3">
-                    {getQualityGateStatusIcon(gate.status)}
-                    <div>
-                      <h4 className="font-medium">{gate.name}</h4>
-                      <p className="text-sm text-muted-foreground">{gate.criteria}</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-medium">{gate.date}</p>
-                    <Badge className={getPhaseStatusColor(gate.status)}>
-                      {gate.status}
-                    </Badge>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </TabsContent>
-        </Tabs>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </CardContent>
       </Card>
+    </div>
+  )
+
+  const renderTimeline = () => (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Calendar className="w-5 h-5" />
+            Project Timeline
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="relative">
+            <div className="absolute left-8 top-0 bottom-0 w-px bg-gray-300"></div>
+            <div className="space-y-6">
+              {phases.map((phase: any, index: number) => (
+                <div key={phase.id} className="relative flex items-start gap-4">
+                  <div className={`w-4 h-4 rounded-full border-2 bg-white z-10 ${
+                    phase.status === 'completed' ? 'border-green-500' :
+                    phase.status === 'in-progress' ? 'border-blue-500' : 'border-gray-400'
+                  }`}></div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="font-medium">{phase.name}</h4>
+                      <Badge className={getStatusColor(phase.status)}>
+                        {phase.status.replace('-', ' ')}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-gray-600 mb-2">{phase.description}</p>
+                    <div className="flex items-center gap-4 text-xs text-gray-500">
+                      <span>{new Date(phase.startDate).toLocaleDateString()}</span>
+                      <span>→</span>
+                      <span>{new Date(phase.endDate).toLocaleDateString()}</span>
+                      <span>({phase.duration} days)</span>
+                    </div>
+                    <Progress value={phase.progress} className="mt-2 max-w-xs" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+
+  return (
+    <div className="space-y-6">
+      <Tabs defaultValue="phases" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="phases">Phases</TabsTrigger>
+          <TabsTrigger value="milestones">Milestones</TabsTrigger>
+          <TabsTrigger value="risks">Risks</TabsTrigger>
+          <TabsTrigger value="timeline">Timeline</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="phases">
+          {renderPhases()}
+        </TabsContent>
+
+        <TabsContent value="milestones">
+          {renderMilestones()}
+        </TabsContent>
+
+        <TabsContent value="risks">
+          {renderRisks()}
+        </TabsContent>
+
+        <TabsContent value="timeline">
+          {renderTimeline()}
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

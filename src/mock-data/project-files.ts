@@ -3,328 +3,360 @@
 export interface ProjectFile {
   id: string
   name: string
-  type: 'document' | 'image' | 'video' | 'archive' | 'code' | 'spreadsheet' | 'presentation' | 'other'
-  size: string
+  description?: string
+  type: 'document' | 'image' | 'video' | 'audio' | 'archive' | 'other'
+  category: 'sprint' | 'design' | 'documentation' | 'testing' | 'meeting' | 'other'
+  size: number // in bytes
   uploadedBy: string
   uploadedAt: string
-  category: 'requirements' | 'design' | 'documentation' | 'assets' | 'reports' | 'contracts' | 'other'
-  version?: string
-  description?: string
-  tags?: string[]
+  modified: string
+  created: string
+  projectId: string
+  taskId?: string
+  version: string
   url?: string
-  thumbnail?: string
-  isShared?: boolean
-  sharedWith?: string[]
-  lastModified?: string
-  modifiedBy?: string
+  thumbnailUrl?: string
+  tags?: string[]
+  shared: boolean
+  permissions: {
+    canView: string[]
+    canEdit: string[]
+    canDelete: string[]
+  }
 }
 
 export const mockProjectFiles: ProjectFile[] = [
-  // Requirements Documents
+  // Design Files
   {
     id: 'file-001',
-    name: 'Project Requirements Document.pdf',
-    type: 'document',
-    size: '2.4 MB',
-    uploadedBy: 'Sarah Wilson',
-    uploadedAt: '2024-01-10T09:00:00Z',
-    category: 'requirements',
-    version: 'v1.2',
-    description: 'Comprehensive project requirements and specifications',
-    tags: ['requirements', 'specifications', 'approved'],
-    isShared: true,
-    sharedWith: ['All Team Members'],
-    lastModified: '2024-01-12T14:30:00Z',
-    modifiedBy: 'Product Owner'
+    name: 'User Dashboard Mockup v2.1.figma',
+    description: 'High-fidelity mockups for the main user dashboard interface',
+    type: 'other',
+    category: 'design',
+    size: 2048576, // 2MB
+    uploadedBy: 'Lisa Park',
+    uploadedAt: '2024-01-15T10:30:00Z',
+    modified: '2024-01-15T10:30:00Z',
+    created: '2024-01-12T14:20:00Z',
+    projectId: 'PROJ-001',
+    taskId: 'TASK-124',
+    version: '2.1',
+    tags: ['dashboard', 'ui', 'mockup'],
+    shared: true,
+    permissions: {
+      canView: ['all'],
+      canEdit: ['design-team'],
+      canDelete: ['lisa.park', 'project-manager']
+    }
   },
   {
     id: 'file-002',
-    name: 'User Stories and Acceptance Criteria.docx',
-    type: 'document',
-    size: '892 KB',
-    uploadedBy: 'Product Owner',
-    uploadedAt: '2024-01-08T11:15:00Z',
-    category: 'requirements',
-    version: 'v2.0',
-    description: 'Detailed user stories with acceptance criteria for all features',
-    tags: ['user-stories', 'acceptance-criteria', 'agile'],
-    isShared: true,
-    sharedWith: ['Development Team', 'QA Team']
+    name: 'Mobile Wireframes.sketch',
+    description: 'Mobile responsive wireframes for iOS and Android',
+    type: 'other',
+    category: 'design',
+    size: 1536000, // 1.5MB
+    uploadedBy: 'Emma Rodriguez',
+    uploadedAt: '2024-01-14T16:45:00Z',
+    modified: '2024-01-14T16:45:00Z',
+    created: '2024-01-14T16:45:00Z',
+    projectId: 'PROJ-001',
+    version: '1.0',
+    tags: ['mobile', 'wireframes', 'responsive'],
+    shared: true,
+    permissions: {
+      canView: ['all'],
+      canEdit: ['design-team', 'frontend-team'],
+      canDelete: ['emma.rodriguez']
+    }
   },
   {
     id: 'file-003',
-    name: 'API Specification.yaml',
-    type: 'code',
-    size: '156 KB',
-    uploadedBy: 'Mike Johnson',
-    uploadedAt: '2024-01-15T16:45:00Z',
-    category: 'documentation',
-    version: 'v1.0',
-    description: 'OpenAPI specification for REST API endpoints',
-    tags: ['api', 'swagger', 'documentation'],
-    isShared: true,
-    sharedWith: ['Backend Team', 'Frontend Team']
+    name: 'Brand Guidelines 2024.pdf',
+    description: 'Updated brand guidelines including logos, colors, and typography',
+    type: 'document',
+    category: 'design',
+    size: 3072000, // 3MB
+    uploadedBy: 'Lisa Park',
+    uploadedAt: '2024-01-10T09:15:00Z',
+    modified: '2024-01-10T09:15:00Z',
+    created: '2024-01-10T09:15:00Z',
+    projectId: 'PROJ-001',
+    version: '2024.1',
+    tags: ['brand', 'guidelines', 'style'],
+    shared: true,
+    permissions: {
+      canView: ['all'],
+      canEdit: ['design-team'],
+      canDelete: ['lisa.park']
+    }
   },
 
-  // Design Assets
+  // Documentation Files
   {
     id: 'file-004',
-    name: 'UI Mockups - Dashboard.fig',
-    type: 'other',
-    size: '15.2 MB',
-    uploadedBy: 'Lisa Park',
-    uploadedAt: '2024-01-12T10:30:00Z',
-    category: 'design',
-    version: 'v3.1',
-    description: 'Figma design file for dashboard UI components',
-    tags: ['ui', 'mockups', 'figma', 'dashboard'],
-    isShared: true,
-    sharedWith: ['Frontend Team', 'UX Team'],
-    lastModified: '2024-01-14T09:20:00Z',
-    modifiedBy: 'UX Designer'
+    name: 'API Documentation v3.2.docx',
+    description: 'Complete API documentation with endpoints, parameters, and examples',
+    type: 'document',
+    category: 'documentation',
+    size: 1024000, // 1MB
+    uploadedBy: 'Sarah Wilson',
+    uploadedAt: '2024-01-13T11:20:00Z',
+    modified: '2024-01-15T14:30:00Z',
+    created: '2024-01-08T10:00:00Z',
+    projectId: 'PROJ-001',
+    version: '3.2',
+    tags: ['api', 'documentation', 'endpoints'],
+    shared: true,
+    permissions: {
+      canView: ['all'],
+      canEdit: ['backend-team', 'tech-lead'],
+      canDelete: ['sarah.wilson']
+    }
   },
   {
     id: 'file-005',
-    name: 'Brand Guidelines.pdf',
-    type: 'document',
-    size: '8.7 MB',
-    uploadedBy: 'Design Team',
-    uploadedAt: '2024-01-05T14:00:00Z',
-    category: 'design',
-    version: 'v1.0',
-    description: 'Brand identity guidelines including colors, typography, and logos',
-    tags: ['brand', 'guidelines', 'design-system'],
-    isShared: true,
-    sharedWith: ['All Team Members']
+    name: 'Database Schema Diagram.png',
+    description: 'Visual representation of the complete database schema',
+    type: 'image',
+    category: 'documentation',
+    size: 512000, // 512KB
+    uploadedBy: 'Alex Chen',
+    uploadedAt: '2024-01-12T15:45:00Z',
+    modified: '2024-01-12T15:45:00Z',
+    created: '2024-01-12T15:45:00Z',
+    projectId: 'PROJ-001',
+    taskId: 'TASK-125',
+    version: '1.0',
+    tags: ['database', 'schema', 'diagram'],
+    shared: true,
+    permissions: {
+      canView: ['all'],
+      canEdit: ['backend-team'],
+      canDelete: ['alex.chen']
+    }
   },
   {
     id: 'file-006',
-    name: 'Icon Library.zip',
-    type: 'archive',
-    size: '4.1 MB',
-    uploadedBy: 'David Wong',
-    uploadedAt: '2024-01-13T13:22:00Z',
-    category: 'assets',
-    description: 'SVG icon library for the application',
-    tags: ['icons', 'svg', 'assets'],
-    isShared: true,
-    sharedWith: ['Frontend Team', 'Design Team']
+    name: 'System Architecture Overview.pdf',
+    description: 'High-level system architecture and component interactions',
+    type: 'document',
+    category: 'documentation',
+    size: 2560000, // 2.5MB
+    uploadedBy: 'Tom Anderson',
+    uploadedAt: '2024-01-11T13:30:00Z',
+    modified: '2024-01-11T13:30:00Z',
+    created: '2024-01-11T13:30:00Z',
+    projectId: 'PROJ-001',
+    version: '1.0',
+    tags: ['architecture', 'system', 'overview'],
+    shared: true,
+    permissions: {
+      canView: ['all'],
+      canEdit: ['tech-lead', 'senior-devs'],
+      canDelete: ['tom.anderson']
+    }
   },
 
-  // Documentation
+  // Sprint Files
   {
     id: 'file-007',
-    name: 'Technical Architecture Diagram.png',
-    type: 'image',
-    size: '1.8 MB',
-    uploadedBy: 'Alex Chen',
-    uploadedAt: '2024-01-11T15:45:00Z',
-    category: 'documentation',
-    version: 'v2.0',
-    description: 'System architecture overview showing microservices and data flow',
-    tags: ['architecture', 'diagram', 'technical'],
-    isShared: true,
-    sharedWith: ['Backend Team', 'DevOps Team'],
-    thumbnail: '/thumbnails/architecture-thumb.png'
+    name: 'Sprint 23 Planning Notes.md',
+    description: 'Planning session notes, decisions, and action items',
+    type: 'document',
+    category: 'sprint',
+    size: 25600, // 25KB
+    uploadedBy: 'David Wong',
+    uploadedAt: '2024-01-15T09:00:00Z',
+    modified: '2024-01-15T09:00:00Z',
+    created: '2024-01-15T09:00:00Z',
+    projectId: 'PROJ-001',
+    version: '1.0',
+    tags: ['sprint', 'planning', 'notes'],
+    shared: true,
+    permissions: {
+      canView: ['all'],
+      canEdit: ['scrum-master', 'product-owner'],
+      canDelete: ['david.wong']
+    }
   },
   {
     id: 'file-008',
-    name: 'Database Schema Documentation.pdf',
+    name: 'Sprint 22 Retrospective Summary.pdf',
+    description: 'Retrospective meeting summary with improvement actions',
     type: 'document',
-    size: '1.2 MB',
-    uploadedBy: 'Database Administrator',
-    uploadedAt: '2024-01-09T12:00:00Z',
-    category: 'documentation',
-    version: 'v1.1',
-    description: 'Complete database schema with table relationships and indexes',
-    tags: ['database', 'schema', 'documentation'],
-    isShared: true,
-    sharedWith: ['Backend Team', 'DBA Team']
-  },
-  {
-    id: 'file-009',
-    name: 'Deployment Guide.md',
-    type: 'document',
-    size: '89 KB',
-    uploadedBy: 'DevOps Engineer',
-    uploadedAt: '2024-01-14T11:30:00Z',
-    category: 'documentation',
-    description: 'Step-by-step deployment instructions for staging and production',
-    tags: ['deployment', 'devops', 'guide'],
-    isShared: true,
-    sharedWith: ['DevOps Team', 'Backend Team']
+    category: 'sprint',
+    size: 204800, // 200KB
+    uploadedBy: 'David Wong',
+    uploadedAt: '2024-01-08T16:30:00Z',
+    modified: '2024-01-08T16:30:00Z',
+    created: '2024-01-08T16:30:00Z',
+    projectId: 'PROJ-001',
+    version: '1.0',
+    tags: ['retrospective', 'improvements', 'sprint'],
+    shared: true,
+    permissions: {
+      canView: ['all'],
+      canEdit: ['scrum-master'],
+      canDelete: ['david.wong']
+    }
   },
 
-  // Reports
+  // Testing Files
   {
-    id: 'file-010',
-    name: 'Sprint 11 Retrospective Report.pptx',
-    type: 'presentation',
-    size: '5.4 MB',
-    uploadedBy: 'Scrum Master',
-    uploadedAt: '2024-01-08T17:00:00Z',
-    category: 'reports',
-    description: 'Sprint retrospective findings and action items',
-    tags: ['retrospective', 'sprint', 'agile'],
-    isShared: true,
-    sharedWith: ['Development Team']
+    id: 'file-009',
+    name: 'Test Cases - Authentication Module.xlsx',
+    description: 'Comprehensive test cases for user authentication features',
+    type: 'document',
+    category: 'testing',
+    size: 307200, // 300KB
+    uploadedBy: 'Emma Rodriguez',
+    uploadedAt: '2024-01-14T14:20:00Z',
+    modified: '2024-01-14T14:20:00Z',
+    created: '2024-01-14T14:20:00Z',
+    projectId: 'PROJ-001',
+    taskId: 'TASK-123',
+    version: '1.0',
+    tags: ['testing', 'authentication', 'test-cases'],
+    shared: true,
+    permissions: {
+      canView: ['all'],
+      canEdit: ['qa-team', 'backend-team'],
+      canDelete: ['emma.rodriguez']
+    }
   },
   {
+    id: 'file-010',
+    name: 'Performance Test Results.json',
+    description: 'Load testing results and performance benchmarks',
+    type: 'other',
+    category: 'testing',
+    size: 153600, // 150KB
+    uploadedBy: 'Jennifer Adams',
+    uploadedAt: '2024-01-06T14:45:00Z',
+    modified: '2024-01-06T14:45:00Z',
+    created: '2024-01-06T14:45:00Z',
+    projectId: 'PROJ-001',
+    version: '1.0',
+    tags: ['performance', 'benchmarks', 'load-testing'],
+    shared: true,
+    permissions: {
+      canView: ['all'],
+      canEdit: ['qa-team', 'performance-team'],
+      canDelete: ['jennifer.adams']
+    }
+  },
+
+  // Meeting Files
+  {
     id: 'file-011',
-    name: 'Performance Test Results.xlsx',
-    type: 'spreadsheet',
-    size: '2.1 MB',
-    uploadedBy: 'QA Engineer',
-    uploadedAt: '2024-01-13T14:15:00Z',
-    category: 'reports',
-    version: 'v1.0',
-    description: 'Load testing results and performance metrics analysis',
-    tags: ['performance', 'testing', 'metrics'],
-    isShared: true,
-    sharedWith: ['QA Team', 'Backend Team']
+    name: 'Stakeholder Meeting Recording.mp4',
+    description: 'Recording of stakeholder review meeting',
+    type: 'video',
+    category: 'meeting',
+    size: 52428800, // 50MB
+    uploadedBy: 'Mike Johnson',
+    uploadedAt: '2024-01-09T17:00:00Z',
+    modified: '2024-01-09T17:00:00Z',
+    created: '2024-01-09T17:00:00Z',
+    projectId: 'PROJ-001',
+    version: '1.0',
+    tags: ['meeting', 'stakeholders', 'recording'],
+    shared: false,
+    permissions: {
+      canView: ['stakeholders', 'project-manager', 'tech-lead'],
+      canEdit: ['project-manager'],
+      canDelete: ['mike.johnson']
+    }
   },
   {
     id: 'file-012',
-    name: 'Security Audit Report.pdf',
+    name: 'Daily Standup Notes - Week 3.txt',
+    description: 'Summary of daily standup meetings for the week',
     type: 'document',
-    size: '3.8 MB',
-    uploadedBy: 'Security Analyst',
-    uploadedAt: '2024-01-07T16:30:00Z',
-    category: 'reports',
-    description: 'Security vulnerability assessment and recommendations',
-    tags: ['security', 'audit', 'vulnerabilities'],
-    isShared: false,
-    sharedWith: ['Security Team', 'Tech Lead']
+    category: 'meeting',
+    size: 12800, // 12.5KB
+    uploadedBy: 'David Wong',
+    uploadedAt: '2024-01-12T09:30:00Z',
+    modified: '2024-01-12T09:30:00Z',
+    created: '2024-01-12T09:30:00Z',
+    projectId: 'PROJ-001',
+    version: '1.0',
+    tags: ['standup', 'notes', 'weekly'],
+    shared: true,
+    permissions: {
+      canView: ['team'],
+      canEdit: ['scrum-master'],
+      canDelete: ['david.wong']
+    }
   },
 
-  // Contracts and Legal
+  // Archive Files
   {
     id: 'file-013',
-    name: 'Software License Agreement.pdf',
-    type: 'document',
-    size: '678 KB',
-    uploadedBy: 'Legal Team',
-    uploadedAt: '2024-01-03T10:00:00Z',
-    category: 'contracts',
-    description: 'Third-party software licensing agreements',
-    tags: ['legal', 'license', 'contracts'],
-    isShared: false,
-    sharedWith: ['Project Manager', 'Legal Team']
+    name: 'Code Review Archive Q4.zip',
+    description: 'Archived code review documents from Q4 2023',
+    type: 'archive',
+    category: 'other',
+    size: 10485760, // 10MB
+    uploadedBy: 'Alex Chen',
+    uploadedAt: '2024-01-05T16:30:00Z',
+    modified: '2024-01-05T16:30:00Z',
+    created: '2024-01-05T16:30:00Z',
+    projectId: 'PROJ-001',
+    version: '1.0',
+    tags: ['archive', 'code-review', 'q4'],
+    shared: false,
+    permissions: {
+      canView: ['senior-devs', 'tech-lead'],
+      canEdit: [],
+      canDelete: ['alex.chen']
+    }
   },
+
+  // Recent uploads
   {
     id: 'file-014',
-    name: 'Client Contract Amendment.docx',
+    name: 'User Feedback Compilation.pdf',
+    description: 'Compiled user feedback from beta testing phase',
     type: 'document',
-    size: '234 KB',
-    uploadedBy: 'Project Manager',
-    uploadedAt: '2024-01-06T09:45:00Z',
-    category: 'contracts',
-    description: 'Contract amendment for scope and timeline changes',
-    tags: ['contract', 'amendment', 'client'],
-    isShared: false,
-    sharedWith: ['Project Manager', 'Client']
+    category: 'other',
+    size: 768000, // 750KB
+    uploadedBy: 'Jennifer Adams',
+    uploadedAt: '2024-01-15T13:15:00Z',
+    modified: '2024-01-15T13:15:00Z',
+    created: '2024-01-15T13:15:00Z',
+    projectId: 'PROJ-001',
+    version: '1.0',
+    tags: ['feedback', 'users', 'beta'],
+    shared: true,
+    permissions: {
+      canView: ['all'],
+      canEdit: ['product-team', 'ux-team'],
+      canDelete: ['jennifer.adams']
+    }
   },
-
-  // Training and Resources
   {
     id: 'file-015',
-    name: 'React Best Practices Guide.pdf',
+    name: 'Security Audit Report.docx',
+    description: 'Third-party security audit findings and recommendations',
     type: 'document',
-    size: '1.9 MB',
-    uploadedBy: 'Senior Developer',
-    uploadedAt: '2024-01-04T13:20:00Z',
     category: 'documentation',
-    description: 'Development guidelines and best practices for React components',
-    tags: ['react', 'best-practices', 'guidelines'],
-    isShared: true,
-    sharedWith: ['Frontend Team']
-  },
-  {
-    id: 'file-016',
-    name: 'Team Onboarding Video.mp4',
-    type: 'video',
-    size: '125 MB',
-    uploadedBy: 'HR Team',
-    uploadedAt: '2024-01-02T15:00:00Z',
-    category: 'other',
-    description: 'New team member onboarding and project overview',
-    tags: ['onboarding', 'training', 'video'],
-    isShared: true,
-    sharedWith: ['All Team Members'],
-    thumbnail: '/thumbnails/video-thumb.jpg'
+    size: 1433600, // 1.4MB
+    uploadedBy: 'Tom Anderson',
+    uploadedAt: '2024-01-14T11:45:00Z',
+    modified: '2024-01-14T11:45:00Z',
+    created: '2024-01-14T11:45:00Z',
+    projectId: 'PROJ-001',
+    version: '1.0',
+    tags: ['security', 'audit', 'compliance'],
+    shared: false,
+    permissions: {
+      canView: ['security-team', 'tech-lead', 'project-manager'],
+      canEdit: ['security-team'],
+      canDelete: ['tom.anderson']
+    }
   }
 ]
 
-// File categories and their properties
-export const fileCategories = [
-  { value: 'all', label: 'All Files', icon: 'FileText' },
-  { value: 'requirements', label: 'Requirements', icon: 'Target' },
-  { value: 'design', label: 'Design', icon: 'Palette' },
-  { value: 'documentation', label: 'Documentation', icon: 'BookOpen' },
-  { value: 'assets', label: 'Assets', icon: 'Image' },
-  { value: 'reports', label: 'Reports', icon: 'BarChart3' },
-  { value: 'contracts', label: 'Contracts', icon: 'FileCheck' },
-  { value: 'other', label: 'Other', icon: 'Folder' }
-]
-
-// File type icons and colors
-export const fileTypeConfig = {
-  document: { icon: 'FileText', color: 'text-red-600', bgColor: 'bg-red-50' },
-  image: { icon: 'Image', color: 'text-green-600', bgColor: 'bg-green-50' },
-  video: { icon: 'Play', color: 'text-purple-600', bgColor: 'bg-purple-50' },
-  archive: { icon: 'Archive', color: 'text-orange-600', bgColor: 'bg-orange-50' },
-  code: { icon: 'Code', color: 'text-blue-600', bgColor: 'bg-blue-50' },
-  spreadsheet: { icon: 'Table', color: 'text-emerald-600', bgColor: 'bg-emerald-50' },
-  presentation: { icon: 'Presentation', color: 'text-indigo-600', bgColor: 'bg-indigo-50' },
-  other: { icon: 'File', color: 'text-gray-600', bgColor: 'bg-gray-50' }
-}
-
-// File sharing permissions
-export const sharingOptions = [
-  { value: 'all', label: 'All Team Members' },
-  { value: 'developers', label: 'Development Team' },
-  { value: 'designers', label: 'Design Team' },
-  { value: 'qa', label: 'QA Team' },
-  { value: 'managers', label: 'Project Managers' },
-  { value: 'custom', label: 'Custom Selection' }
-]
-
-// Recent file activities
-export const recentFileActivities = [
-  {
-    id: 1,
-    action: 'uploaded',
-    fileName: 'API Specification.yaml',
-    user: 'Mike Johnson',
-    timestamp: '2 hours ago'
-  },
-  {
-    id: 2,
-    action: 'updated',
-    fileName: 'UI Mockups - Dashboard.fig',
-    user: 'Lisa Park',
-    timestamp: '4 hours ago'
-  },
-  {
-    id: 3,
-    action: 'shared',
-    fileName: 'Performance Test Results.xlsx',
-    user: 'QA Engineer',
-    timestamp: '1 day ago'
-  },
-  {
-    id: 4,
-    action: 'commented on',
-    fileName: 'Technical Architecture Diagram.png',
-    user: 'Alex Chen',
-    timestamp: '2 days ago'
-  }
-]
-
-export default {
-  files: mockProjectFiles,
-  categories: fileCategories,
-  typeConfig: fileTypeConfig,
-  sharingOptions: sharingOptions,
-  recentActivities: recentFileActivities
-}
+export default mockProjectFiles

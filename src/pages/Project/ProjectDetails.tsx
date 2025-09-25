@@ -509,7 +509,7 @@ export function ProjectDetails({ projectId, onBack, user }: ProjectDetailsProps)
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="dashboard">
+<TabsContent value="dashboard">
           <ProjectDashboard project={displayProject} onTaskView={handleTaskView} />
         </TabsContent>
 
@@ -519,6 +519,7 @@ export function ProjectDetails({ projectId, onBack, user }: ProjectDetailsProps)
             project={displayProject}
             onTaskView={handleTaskView}
             onTaskCreate={handleTaskCreate}
+            currentUser={user}
           />
         </TabsContent>
 

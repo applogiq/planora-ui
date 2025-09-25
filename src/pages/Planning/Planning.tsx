@@ -6,7 +6,7 @@ import { SprintList } from './Sprint'
 import { BacklogList } from './Backlog'
 import { EpicList } from './Epic'
 import { TeamList } from './Team'
-import { ScrumMethodologyView } from '../Project/MethodologyViews/ScrumMethodologyView'
+import { MethodologyViewRouter } from '../Project/MethodologyViews/MethodologyViewRouter'
 import { projectApiService } from '../../services/projectApi'
 import { useProjectMasters } from '../../hooks/useProjectMasters'
 import { useProjectOwners } from '../../hooks/useProjectOwners'
@@ -120,7 +120,8 @@ export function Planning() {
         </TabsList>
 
         <TabsContent value="scrum">
-          <ScrumMethodologyView
+          <MethodologyViewRouter
+            methodology="Scrum"
             project={projects[0] || {}}
             onTaskView={handleTaskView}
             onTaskCreate={handleTaskCreate}

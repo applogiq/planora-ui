@@ -310,6 +310,159 @@ export class ProjectApiService {
   async getProjectTeamMembers(projectId: string): Promise<ProjectTeamMembersResponse> {
     return this.makeRequest<ProjectTeamMembersResponse>(`/api/v1/projects/members/${projectId}`);
   }
+
+  async updateTask(taskId: string, updates: any): Promise<{ success: boolean; data?: any }> {
+    try {
+      const data = await this.makeRequest<any>(`/api/v1/tasks/${taskId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(updates),
+      });
+      return { success: true, data };
+    } catch (error) {
+      console.error('Error updating task:', error);
+      return { success: false };
+    }
+  }
+
+  // Methodology API Methods
+  async getMethodologyData(projectId: string, methodology: string): Promise<{ success: boolean; data?: any }> {
+    try {
+      const data = await this.makeRequest<any>(`/api/v1/projects/${projectId}/methodology/${methodology}`);
+      return { success: true, data };
+    } catch (error) {
+      console.error('Error fetching methodology data:', error);
+      return { success: false };
+    }
+  }
+
+  // Time Tracking API Methods
+  async getTimeEntries(params: {
+    projectId?: string;
+    userId?: string;
+    startDate?: string;
+    endDate?: string;
+    limit?: number;
+  }): Promise<{ success: boolean; data?: any[] }> {
+    try {
+      const searchParams = new URLSearchParams();
+      if (params.projectId) searchParams.append('project_id', params.projectId);
+      if (params.userId) searchParams.append('user_id', params.userId);
+      if (params.startDate) searchParams.append('start_date', params.startDate);
+      if (params.endDate) searchParams.append('end_date', params.endDate);
+      if (params.limit) searchParams.append('limit', params.limit.toString());
+
+      const queryString = searchParams.toString();
+      const endpoint = `/api/v1/time-entries${queryString ? `?${queryString}` : ''}`;
+
+      const data = await this.makeRequest<any[]>(endpoint);
+      return { success: true, data };
+    } catch (error) {
+      console.error('Error fetching time entries:', error);
+      return { success: false };
+    }
+  }
+
+  async getTimeTrackingSummary(params: {
+    projectId?: string;
+    userId?: string;
+    period?: string;
+  }): Promise<{ success: boolean; data?: any }> {
+    try {
+      const searchParams = new URLSearchParams();
+      if (params.projectId) searchParams.append('project_id', params.projectId);
+      if (params.userId) searchParams.append('user_id', params.userId);
+      if (params.period) searchParams.append('period', params.period);
+
+      const queryString = searchParams.toString();
+      const endpoint = `/api/v1/time-tracking/summary${queryString ? `?${queryString}` : ''}`;
+
+      const data = await this.makeRequest<any>(endpoint);
+      return { success: true, data };
+    } catch (error) {
+      console.error('Error fetching time tracking summary:', error);
+      return { success: false };
+    }
+  }
+
+  async getActiveTimer(userId?: string): Promise<{ success: boolean; data?: any }> {
+    try {
+      const endpoint = userId ? `/api/v1/time-tracking/active?user_id=${userId}` : '/api/v1/time-tracking/active';
+      const data = await this.makeRequest<any>(endpoint);
+      return { success: true, data };
+    } catch (error) {
+      console.error('Error fetching active timer:', error);
+      return { success: false };
+    }
+  }
+
+  async startTimer(params: {
+    taskId?: string;
+    projectId?: string;
+    userId: string;
+    description: string;
+    category: string;
+  }): Promise<{ success: boolean; data?: any }> {
+    try {
+      const data = await this.makeRequest<any>('/api/v1/time-tracking/start', {
+        method: 'POST',
+        body: JSON.stringify(params),
+      });
+      return { success: true, data };
+    } catch (error) {
+      console.error('Error starting timer:', error);
+      return { success: false };
+    }
+  }
+
+  async stopTimer(timerId: string): Promise<{ success: boolean; data?: any }> {
+    try {
+      const data = await this.makeRequest<any>(`/api/v1/time-tracking/${timerId}/stop`, {
+        method: 'PATCH',
+      });
+      return { success: true, data };
+    } catch (error) {
+      console.error('Error stopping timer:', error);
+      return { success: false };
+    }
+  }
+
+  async createTimeEntry(entry: any): Promise<{ success: boolean; data?: any }> {
+    try {
+      const data = await this.makeRequest<any>('/api/v1/time-entries', {
+        method: 'POST',
+        body: JSON.stringify(entry),
+      });
+      return { success: true, data };
+    } catch (error) {
+      console.error('Error creating time entry:', error);
+      return { success: false };
+    }
+  }
+
+  async updateTimeEntry(entryId: string, updates: any): Promise<{ success: boolean; data?: any }> {
+    try {
+      const data = await this.makeRequest<any>(`/api/v1/time-entries/${entryId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(updates),
+      });
+      return { success: true, data };
+    } catch (error) {
+      console.error('Error updating time entry:', error);
+      return { success: false };
+    }
+  }
+
+  async deleteTimeEntry(entryId: string): Promise<{ success: boolean }> {
+    try {
+      await this.makeRequest<void>(`/api/v1/time-entries/${entryId}`, {
+        method: 'DELETE',
+      });
+      return { success: true };
+    } catch (error) {
+      console.error('Error deleting time entry:', error);
+      return { success: false };
+    }
+  }
 }
 
 export const projectApiService = new ProjectApiService();

@@ -1,397 +1,316 @@
-// Project Activity Mock Data
+// Activities Mock Data
 
-export interface ProjectActivity {
-  id: number
-  user: string | { name: string; avatar?: string }
-  action: string
-  target?: string
-  type: 'task' | 'comment' | 'file' | 'commit' | 'milestone' | 'team' | 'project' | 'meeting' | 'deployment' | 'approval'
+export interface Activity {
+  id: string
+  type: 'task_created' | 'task_updated' | 'task_completed' | 'comment' | 'file_upload' | 'sprint_start' | 'sprint_end' | 'meeting' | 'commit' | 'deployment' | 'time_logged'
+  title: string
+  description: string
+  user: string
+  userId: string
   timestamp: string
-  description?: string
-  metadata?: {
-    taskId?: string
-    fileSize?: string
-    commitHash?: string
-    branchName?: string
-    buildNumber?: string
-    reviewers?: string[]
-    priority?: string
-    status?: string
-    oldValue?: string
-    newValue?: string
-    duration?: string
-    participants?: string[]
-  }
+  taskId?: string
+  projectId: string
+  tags?: string[]
+  metadata?: Record<string, any>
 }
 
-export const mockProjectActivities: ProjectActivity[] = [
-  // Task activities
+export const mockActivities: Activity[] = [
+  // Today's activities
   {
-    id: 1,
+    id: 'act-001',
+    type: 'task_created',
+    title: 'New task created: User Authentication API',
+    description: 'Created a new user story for implementing OAuth2 authentication with social providers',
     user: 'Sarah Wilson',
-    action: 'completed task',
-    target: 'User Authentication API',
-    type: 'task',
-    timestamp: '2 hours ago',
-    description: 'Implemented OAuth2 integration with Google and GitHub providers',
-    metadata: {
-      taskId: 'TASK-123',
-      priority: 'High',
-      oldValue: 'In Progress',
-      newValue: 'Completed'
-    }
+    userId: 'user-001',
+    timestamp: '2024-01-15T14:30:00Z',
+    taskId: 'TASK-123',
+    projectId: 'PROJ-001',
+    tags: ['authentication', 'oauth', 'backend']
   },
   {
-    id: 2,
+    id: 'act-002',
+    type: 'comment',
+    title: 'Commented on Payment Integration',
+    description: 'We should consider adding support for Apple Pay and Google Pay in addition to Stripe. This would improve conversion rates for mobile users.',
     user: 'Mike Johnson',
-    action: 'created task',
-    target: 'Database Performance Optimization',
-    type: 'task',
-    timestamp: '4 hours ago',
-    description: 'Added new task to address slow query performance issues',
-    metadata: {
-      taskId: 'TASK-124',
-      priority: 'Medium',
-      status: 'To Do'
-    }
+    userId: 'user-002',
+    timestamp: '2024-01-15T13:45:00Z',
+    taskId: 'TASK-124',
+    projectId: 'PROJ-001',
+    tags: ['payment', 'mobile', 'ux']
   },
   {
-    id: 3,
+    id: 'act-003',
+    type: 'task_completed',
+    title: 'Completed: Database Schema Design',
+    description: 'Finished designing the complete database schema including user tables, authentication, and audit logs',
     user: 'Alex Chen',
-    action: 'moved task',
-    target: 'Payment Gateway Integration',
-    type: 'task',
-    timestamp: '6 hours ago',
-    description: 'Moved from In Progress to Code Review',
-    metadata: {
-      taskId: 'TASK-122',
-      oldValue: 'In Progress',
-      newValue: 'Code Review'
-    }
+    userId: 'user-003',
+    timestamp: '2024-01-15T12:20:00Z',
+    taskId: 'TASK-125',
+    projectId: 'PROJ-001',
+    tags: ['database', 'schema', 'backend']
   },
   {
-    id: 4,
+    id: 'act-004',
+    type: 'file_upload',
+    title: 'Uploaded design mockups',
+    description: 'Added high-fidelity mockups for the user dashboard and profile pages',
     user: 'Lisa Park',
-    action: 'assigned task',
-    target: 'Mobile UI Responsive Design',
-    type: 'task',
-    timestamp: '8 hours ago',
-    description: 'Assigned to David Wong for frontend implementation',
-    metadata: {
-      taskId: 'TASK-125',
-      oldValue: 'Unassigned',
-      newValue: 'David Wong'
-    }
+    userId: 'user-004',
+    timestamp: '2024-01-15T11:15:00Z',
+    projectId: 'PROJ-001',
+    tags: ['design', 'mockups', 'ui']
   },
-
-  // Comment activities
   {
-    id: 5,
+    id: 'act-005',
+    type: 'sprint_start',
+    title: 'Sprint 23 started',
+    description: 'Started Sprint 23 with 8 user stories and a target of 45 story points',
     user: 'David Wong',
-    action: 'commented on',
-    target: 'User Authentication API',
-    type: 'comment',
-    timestamp: '3 hours ago',
-    description: 'Great work on the OAuth implementation! The error handling looks solid.',
-    metadata: {
-      taskId: 'TASK-123'
-    }
+    userId: 'user-005',
+    timestamp: '2024-01-15T09:00:00Z',
+    projectId: 'PROJ-001',
+    tags: ['sprint', 'planning']
   },
   {
-    id: 6,
-    user: 'Emma Thompson',
-    action: 'replied to comment on',
-    target: 'Payment Gateway Integration',
-    type: 'comment',
-    timestamp: '5 hours ago',
-    description: 'I think we should also consider adding webhook support for real-time updates.',
-    metadata: {
-      taskId: 'TASK-122'
-    }
-  },
-
-  // File activities
-  {
-    id: 7,
-    user: 'Rajesh Kumar',
-    action: 'uploaded file',
-    target: 'API Documentation v2.1.pdf',
-    type: 'file',
-    timestamp: '1 hour ago',
-    description: 'Updated API documentation with new authentication endpoints',
-    metadata: {
-      fileSize: '2.3 MB'
-    }
-  },
-  {
-    id: 8,
-    user: 'Jennifer Adams',
-    action: 'updated file',
-    target: 'Database Schema Diagram.png',
-    type: 'file',
-    timestamp: '7 hours ago',
-    description: 'Added new tables for user preferences and activity logs',
-    metadata: {
-      fileSize: '856 KB'
-    }
-  },
-
-  // Git commit activities
-  {
-    id: 9,
-    user: 'Tom Rodriguez',
-    action: 'pushed commit',
-    target: 'feat: implement user role management',
-    type: 'commit',
-    timestamp: '2 hours ago',
-    description: 'Added role-based access control with admin, manager, and user roles',
-    metadata: {
-      commitHash: 'a7b3c4d',
-      branchName: 'feature/user-roles'
-    }
-  },
-  {
-    id: 10,
-    user: 'Sophie Martin',
-    action: 'merged pull request',
-    target: 'fix: resolve authentication timeout issues',
-    type: 'commit',
-    timestamp: '5 hours ago',
-    description: 'Merged PR #245 after successful code review',
-    metadata: {
-      commitHash: 'e8f9a2b',
-      branchName: 'bugfix/auth-timeout',
-      reviewers: ['Mike Johnson', 'Sarah Wilson']
-    }
-  },
-
-  // Milestone activities
-  {
-    id: 11,
-    user: 'Project Manager',
-    action: 'completed milestone',
-    target: 'Alpha Release v1.0',
-    type: 'milestone',
-    timestamp: '1 day ago',
-    description: 'Successfully deployed alpha version with core authentication features',
-    metadata: {
-      buildNumber: 'build-156'
-    }
-  },
-  {
-    id: 12,
+    id: 'act-006',
+    type: 'time_logged',
+    title: 'Logged 3 hours on API development',
+    description: 'Worked on implementing REST API endpoints for user authentication',
     user: 'Sarah Wilson',
-    action: 'created milestone',
-    target: 'Beta Release v1.1',
-    type: 'milestone',
-    timestamp: '2 days ago',
-    description: 'Set up milestone for beta release with enhanced UI features',
-    metadata: {}
+    userId: 'user-001',
+    timestamp: '2024-01-15T08:30:00Z',
+    taskId: 'TASK-123',
+    projectId: 'PROJ-001',
+    tags: ['time-tracking', 'development']
   },
 
-  // Team activities
+  // Yesterday's activities
   {
-    id: 13,
-    user: 'Team Lead',
-    action: 'added member',
-    target: 'Jessica Brown joined the team',
-    type: 'team',
-    timestamp: '3 days ago',
-    description: 'Jessica Brown joined as Senior Frontend Developer',
-    metadata: {}
-  },
-  {
-    id: 14,
-    user: 'HR Manager',
-    action: 'updated role',
-    target: 'Alex Chen promoted to Technical Lead',
-    type: 'team',
-    timestamp: '1 week ago',
-    description: 'Alex Chen promoted from Senior Developer to Technical Lead',
-    metadata: {
-      oldValue: 'Senior Developer',
-      newValue: 'Technical Lead'
-    }
-  },
-
-  // Project configuration activities
-  {
-    id: 15,
-    user: 'Project Manager',
-    action: 'updated project settings',
-    target: 'Sprint duration changed to 2 weeks',
-    type: 'project',
-    timestamp: '4 days ago',
-    description: 'Modified sprint duration from 1 week to 2 weeks based on team feedback',
-    metadata: {
-      oldValue: '1 week',
-      newValue: '2 weeks'
-    }
-  },
-  {
-    id: 16,
-    user: 'Admin',
-    action: 'changed methodology',
-    target: 'Switched from Waterfall to Agile',
-    type: 'project',
-    timestamp: '1 week ago',
-    description: 'Project methodology updated to better support iterative development',
-    metadata: {
-      oldValue: 'Waterfall',
-      newValue: 'Agile'
-    }
-  },
-
-  // Meeting activities
-  {
-    id: 17,
-    user: 'Scrum Master',
-    action: 'conducted meeting',
-    target: 'Sprint Planning Session',
+    id: 'act-007',
     type: 'meeting',
-    timestamp: '2 days ago',
-    description: 'Sprint planning for Sprint 12 with story point estimation',
-    metadata: {
-      duration: '2 hours',
-      participants: ['Sarah Wilson', 'Mike Johnson', 'Alex Chen', 'Lisa Park', 'David Wong']
-    }
+    title: 'Daily Standup Meeting',
+    description: 'Team standup meeting - discussed blockers and sprint progress',
+    user: 'David Wong',
+    userId: 'user-005',
+    timestamp: '2024-01-14T09:00:00Z',
+    projectId: 'PROJ-001',
+    tags: ['meeting', 'standup', 'scrum']
   },
   {
-    id: 18,
-    user: 'Team Lead',
-    action: 'scheduled meeting',
-    target: 'Code Review Session',
+    id: 'act-008',
+    type: 'task_updated',
+    title: 'Updated: Mobile Responsive Design',
+    description: 'Changed priority to High and assigned to Emma Rodriguez',
+    user: 'Mike Johnson',
+    userId: 'user-002',
+    timestamp: '2024-01-14T16:45:00Z',
+    taskId: 'TASK-126',
+    projectId: 'PROJ-001',
+    tags: ['mobile', 'responsive', 'priority']
+  },
+  {
+    id: 'act-009',
+    type: 'commit',
+    title: 'Pushed code changes',
+    description: 'Implemented user registration validation and error handling',
+    user: 'Alex Chen',
+    userId: 'user-003',
+    timestamp: '2024-01-14T15:30:00Z',
+    taskId: 'TASK-127',
+    projectId: 'PROJ-001',
+    tags: ['code', 'validation', 'backend']
+  },
+  {
+    id: 'act-010',
+    type: 'file_upload',
+    title: 'Uploaded test documents',
+    description: 'Added comprehensive test cases and API documentation',
+    user: 'Emma Rodriguez',
+    userId: 'user-006',
+    timestamp: '2024-01-14T14:20:00Z',
+    projectId: 'PROJ-001',
+    tags: ['testing', 'documentation', 'api']
+  },
+
+  // This week's activities
+  {
+    id: 'act-011',
+    type: 'deployment',
+    title: 'Deployed to staging environment',
+    description: 'Successfully deployed version 2.1.0 to staging for QA testing',
+    user: 'Tom Anderson',
+    userId: 'user-007',
+    timestamp: '2024-01-13T17:00:00Z',
+    projectId: 'PROJ-001',
+    tags: ['deployment', 'staging', 'qa']
+  },
+  {
+    id: 'act-012',
+    type: 'task_created',
+    title: 'New bug report: Login validation issue',
+    description: 'Users reporting validation errors during social login process',
+    user: 'Jennifer Adams',
+    userId: 'user-008',
+    timestamp: '2024-01-13T13:25:00Z',
+    taskId: 'TASK-128',
+    projectId: 'PROJ-001',
+    tags: ['bug', 'validation', 'login']
+  },
+  {
+    id: 'act-013',
+    type: 'comment',
+    title: 'Commented on Database Performance',
+    description: 'Added indexing suggestions and query optimization recommendations',
+    user: 'Lisa Park',
+    userId: 'user-004',
+    timestamp: '2024-01-12T16:10:00Z',
+    taskId: 'TASK-125',
+    projectId: 'PROJ-001',
+    tags: ['database', 'performance', 'optimization']
+  },
+  {
+    id: 'act-014',
+    type: 'task_completed',
+    title: 'Completed: Email Template System',
+    description: 'Finished implementing customizable email templates for user notifications',
+    user: 'Mike Johnson',
+    userId: 'user-002',
+    timestamp: '2024-01-12T11:45:00Z',
+    taskId: 'TASK-129',
+    projectId: 'PROJ-001',
+    tags: ['email', 'templates', 'notifications']
+  },
+  {
+    id: 'act-015',
+    type: 'sprint_end',
+    title: 'Sprint 22 completed',
+    description: 'Completed Sprint 22 with 42 out of 45 planned story points',
+    user: 'David Wong',
+    userId: 'user-005',
+    timestamp: '2024-01-11T17:00:00Z',
+    projectId: 'PROJ-001',
+    tags: ['sprint', 'completion', 'retrospective']
+  },
+  {
+    id: 'act-016',
     type: 'meeting',
-    timestamp: '5 days ago',
-    description: 'Weekly code review session to discuss best practices',
-    metadata: {
-      duration: '1 hour',
-      participants: ['All Developers']
-    }
+    title: 'Sprint Planning Session',
+    description: 'Planned Sprint 23 activities and estimated story points',
+    user: 'David Wong',
+    userId: 'user-005',
+    timestamp: '2024-01-11T10:00:00Z',
+    projectId: 'PROJ-001',
+    tags: ['meeting', 'planning', 'estimation']
+  },
+  {
+    id: 'act-017',
+    type: 'task_updated',
+    title: 'Updated: API Rate Limiting',
+    description: 'Added technical specifications and acceptance criteria',
+    user: 'Sarah Wilson',
+    userId: 'user-001',
+    timestamp: '2024-01-10T14:30:00Z',
+    taskId: 'TASK-130',
+    projectId: 'PROJ-001',
+    tags: ['api', 'rate-limiting', 'specifications']
+  },
+  {
+    id: 'act-018',
+    type: 'file_upload',
+    title: 'Uploaded architecture diagrams',
+    description: 'Added system architecture diagrams and component specifications',
+    user: 'Alex Chen',
+    userId: 'user-003',
+    timestamp: '2024-01-10T09:15:00Z',
+    projectId: 'PROJ-001',
+    tags: ['architecture', 'diagrams', 'documentation']
+  },
+  {
+    id: 'act-019',
+    type: 'time_logged',
+    title: 'Logged 6 hours on frontend development',
+    description: 'Worked on responsive design implementation and component optimization',
+    user: 'Emma Rodriguez',
+    userId: 'user-006',
+    timestamp: '2024-01-09T18:00:00Z',
+    taskId: 'TASK-126',
+    projectId: 'PROJ-001',
+    tags: ['time-tracking', 'frontend', 'responsive']
+  },
+  {
+    id: 'act-020',
+    type: 'comment',
+    title: 'Reviewed code changes',
+    description: 'Provided feedback on authentication implementation and security considerations',
+    user: 'Tom Anderson',
+    userId: 'user-007',
+    timestamp: '2024-01-09T15:20:00Z',
+    taskId: 'TASK-123',
+    projectId: 'PROJ-001',
+    tags: ['code-review', 'security', 'authentication']
   },
 
-  // Deployment activities
+  // Additional activities from previous week
   {
-    id: 19,
-    user: 'DevOps Engineer',
-    action: 'deployed to staging',
-    target: 'Version 1.2.0-beta',
+    id: 'act-021',
     type: 'deployment',
-    timestamp: '6 hours ago',
-    description: 'Successfully deployed beta version to staging environment',
-    metadata: {
-      buildNumber: 'build-167',
-      branchName: 'release/1.2.0'
-    }
+    title: 'Production deployment successful',
+    description: 'Deployed version 2.0.5 to production with hotfixes',
+    user: 'Tom Anderson',
+    userId: 'user-007',
+    timestamp: '2024-01-08T20:30:00Z',
+    projectId: 'PROJ-001',
+    tags: ['deployment', 'production', 'hotfix']
   },
   {
-    id: 20,
-    user: 'DevOps Engineer',
-    action: 'deployed to production',
-    target: 'Version 1.1.5',
-    type: 'deployment',
-    timestamp: '3 days ago',
-    description: 'Production deployment with security patches and bug fixes',
-    metadata: {
-      buildNumber: 'build-162',
-      branchName: 'hotfix/security-patches'
-    }
-  },
-
-  // Approval activities
-  {
-    id: 21,
-    user: 'Product Owner',
-    action: 'approved requirements',
-    target: 'User Management Module Specifications',
-    type: 'approval',
-    timestamp: '1 week ago',
-    description: 'Approved detailed requirements for user management functionality',
-    metadata: {}
+    id: 'act-022',
+    type: 'meeting',
+    title: 'Sprint Retrospective',
+    description: 'Discussed what went well, what could be improved, and action items',
+    user: 'David Wong',
+    userId: 'user-005',
+    timestamp: '2024-01-08T16:00:00Z',
+    projectId: 'PROJ-001',
+    tags: ['meeting', 'retrospective', 'improvement']
   },
   {
-    id: 22,
-    user: 'Security Team',
-    action: 'approved security review',
-    target: 'Authentication System Security Audit',
-    type: 'approval',
-    timestamp: '5 days ago',
-    description: 'Security audit completed with recommendations implemented',
-    metadata: {
-      reviewers: ['Security Specialist', 'Lead Architect']
-    }
+    id: 'act-023',
+    type: 'task_created',
+    title: 'New feature request: Dark mode support',
+    description: 'Implement dark mode theme option for better user experience',
+    user: 'Lisa Park',
+    userId: 'user-004',
+    timestamp: '2024-01-07T12:00:00Z',
+    taskId: 'TASK-131',
+    projectId: 'PROJ-001',
+    tags: ['feature', 'dark-mode', 'ui', 'ux']
+  },
+  {
+    id: 'act-024',
+    type: 'file_upload',
+    title: 'Uploaded performance benchmarks',
+    description: 'Added performance test results and optimization recommendations',
+    user: 'Jennifer Adams',
+    userId: 'user-008',
+    timestamp: '2024-01-06T14:45:00Z',
+    projectId: 'PROJ-001',
+    tags: ['performance', 'benchmarks', 'optimization']
+  },
+  {
+    id: 'act-025',
+    type: 'task_completed',
+    title: 'Completed: User Profile Management',
+    description: 'Implemented complete user profile CRUD operations with validation',
+    user: 'Sarah Wilson',
+    userId: 'user-001',
+    timestamp: '2024-01-05T16:30:00Z',
+    taskId: 'TASK-132',
+    projectId: 'PROJ-001',
+    tags: ['profile', 'crud', 'validation']
   }
 ]
 
-// Activity filters and utilities
-export const activityTypes = [
-  { value: 'all', label: 'All Activities' },
-  { value: 'task', label: 'Tasks' },
-  { value: 'comment', label: 'Comments' },
-  { value: 'file', label: 'Files' },
-  { value: 'commit', label: 'Code Changes' },
-  { value: 'milestone', label: 'Milestones' },
-  { value: 'team', label: 'Team Changes' },
-  { value: 'project', label: 'Project Updates' },
-  { value: 'meeting', label: 'Meetings' },
-  { value: 'deployment', label: 'Deployments' },
-  { value: 'approval', label: 'Approvals' }
-]
-
-export const activityUsers = [
-  'Sarah Wilson',
-  'Mike Johnson',
-  'Alex Chen',
-  'Lisa Park',
-  'David Wong',
-  'Emma Thompson',
-  'Rajesh Kumar',
-  'Jennifer Adams',
-  'Tom Rodriguez',
-  'Sophie Martin',
-  'Jessica Brown',
-  'Project Manager',
-  'Team Lead',
-  'Scrum Master',
-  'DevOps Engineer',
-  'Product Owner',
-  'Security Team',
-  'HR Manager',
-  'Admin'
-]
-
-// Activity icon mapping
-export const activityIcons = {
-  task: 'CheckCircle',
-  comment: 'MessageSquare',
-  file: 'FileText',
-  commit: 'GitCommit',
-  milestone: 'Flag',
-  team: 'Users',
-  project: 'Settings',
-  meeting: 'Calendar',
-  deployment: 'Upload',
-  approval: 'Star'
-}
-
-// Activity color mapping
-export const activityColors = {
-  task: 'text-blue-600',
-  comment: 'text-green-600',
-  file: 'text-purple-600',
-  commit: 'text-orange-600',
-  milestone: 'text-red-600',
-  team: 'text-indigo-600',
-  project: 'text-gray-600',
-  meeting: 'text-yellow-600',
-  deployment: 'text-pink-600',
-  approval: 'text-emerald-600'
-}
-
-export default {
-  activities: mockProjectActivities,
-  types: activityTypes,
-  users: activityUsers,
-  icons: activityIcons,
-  colors: activityColors
-}
+export default mockActivities

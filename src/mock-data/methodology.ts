@@ -1,402 +1,384 @@
-// Methodology-specific Mock Data
-
-// Agile Methodology Mock Data
-export interface AgileSprint {
-  id: string
-  name: string
-  startDate: string
-  endDate: string
-  status: 'active' | 'planning' | 'completed'
-  goals: string[]
-  velocity: number
-  targetVelocity: number
-  burndownData: number[]
-  daysLeft: number
-  totalDays: number
-}
-
-export interface AgileTask {
-  id: number
-  title: string
-  status: 'Done' | 'In Progress' | 'To Do' | 'Review'
-  points: number
-  assignee: string
-  priority: 'High' | 'Medium' | 'Low' | 'Critical'
-  type?: 'Story' | 'Task' | 'Epic' | 'Bug'
-}
-
-export interface BacklogItem {
-  id: number
-  title: string
-  points: number
-  priority: 'High' | 'Medium' | 'Low' | 'Critical'
-  type: 'Feature' | 'Technical' | 'Enhancement' | 'Bug'
-  estimatedSprint?: string
-}
-
-export interface AgileCeremony {
-  name: string
-  time: string
-  frequency: string
-  nextDate: string
-  duration?: string
-}
-
-export const mockAgileData = {
-  currentSprint: {
-    id: 'sprint-23',
-    name: 'Sprint 23 - User Authentication & Dashboard',
-    startDate: '2024-01-15',
-    endDate: '2024-01-29',
-    status: 'active' as const,
-    goals: [
-      'Complete user authentication system',
-      'Implement dashboard analytics',
-      'Fix critical bugs from backlog'
-    ],
-    velocity: 42,
-    targetVelocity: 45,
-    burndownData: [45, 38, 32, 28, 22, 18, 12, 8, 4, 2],
-    daysLeft: 4,
-    totalDays: 14
-  },
-  sprintTasks: [
-    { id: 1, title: 'User login API', status: 'Done' as const, points: 8, assignee: 'John Doe', priority: 'High' as const },
-    { id: 2, title: 'Dashboard UI components', status: 'In Progress' as const, points: 13, assignee: 'Jane Smith', priority: 'Medium' as const },
-    { id: 3, title: 'Authentication middleware', status: 'Done' as const, points: 5, assignee: 'Mike Johnson', priority: 'High' as const },
-    { id: 4, title: 'User profile page', status: 'To Do' as const, points: 8, assignee: 'Sarah Wilson', priority: 'Low' as const },
-    { id: 5, title: 'Password reset flow', status: 'In Progress' as const, points: 8, assignee: 'Tom Brown', priority: 'Medium' as const }
-  ],
-  backlogItems: [
-    { id: 6, title: 'Advanced search functionality', points: 21, priority: 'Medium' as const, type: 'Feature' as const },
-    { id: 7, title: 'Email notifications system', points: 13, priority: 'Low' as const, type: 'Feature' as const },
-    { id: 8, title: 'Performance optimization', points: 8, priority: 'High' as const, type: 'Technical' as const },
-    { id: 9, title: 'Mobile responsiveness', points: 13, priority: 'Medium' as const, type: 'Enhancement' as const }
-  ],
-  ceremonies: [
-    { name: 'Daily Standup', time: '09:00 AM', frequency: 'Daily', nextDate: '2024-01-16' },
-    { name: 'Sprint Planning', time: '10:00 AM', frequency: 'Every 2 weeks', nextDate: '2024-01-29' },
-    { name: 'Sprint Review', time: '02:00 PM', frequency: 'Every 2 weeks', nextDate: '2024-01-29' },
-    { name: 'Retrospective', time: '03:00 PM', frequency: 'Every 2 weeks', nextDate: '2024-01-29' }
-  ]
-}
+// Methodology Mock Data
 
 // Scrum Methodology Mock Data
 export const mockScrumData = {
   currentSprint: {
-    id: 'sprint-12',
-    name: 'Sprint 12 - Core Features',
+    id: 'sprint-001',
+    name: 'Sprint 23',
     startDate: '2024-01-15',
-    endDate: '2024-01-29',
-    status: 'active' as const,
-    goals: [
-      'Complete user management module',
-      'Implement reporting dashboard',
-      'Resolve critical performance issues'
+    endDate: '2024-01-28',
+    duration: 14,
+    status: 'active',
+    capacity: 80,
+    completed: 45,
+    remaining: 35,
+    burndownData: [
+      { day: 1, remaining: 80, ideal: 77 },
+      { day: 2, remaining: 75, ideal: 74 },
+      { day: 3, remaining: 70, ideal: 71 },
+      { day: 4, remaining: 65, ideal: 68 },
+      { day: 5, remaining: 60, ideal: 65 },
+      { day: 6, remaining: 55, ideal: 62 },
+      { day: 7, remaining: 50, ideal: 59 },
+      { day: 8, remaining: 45, ideal: 56 },
     ],
-    velocity: 38,
-    targetVelocity: 40,
-    burndownData: [40, 35, 30, 25, 18, 15, 10, 6, 3, 1],
-    daysLeft: 3,
-    totalDays: 14,
-    completedStoryPoints: 37,
-    totalStoryPoints: 40
+    velocity: [
+      { sprint: 'Sprint 19', completed: 42, planned: 45 },
+      { sprint: 'Sprint 20', completed: 38, planned: 40 },
+      { sprint: 'Sprint 21', completed: 45, planned: 45 },
+      { sprint: 'Sprint 22', completed: 43, planned: 45 },
+    ],
   },
-  sprintBacklog: [
-    { id: 1, title: 'User registration form', status: 'Done' as const, points: 5, assignee: 'Alice Johnson', priority: 'High' as const, type: 'Story' as const },
-    { id: 2, title: 'Dashboard widgets', status: 'In Progress' as const, points: 8, assignee: 'Bob Smith', priority: 'Medium' as const, type: 'Story' as const },
-    { id: 3, title: 'API authentication', status: 'Done' as const, points: 3, assignee: 'Charlie Brown', priority: 'High' as const, type: 'Task' as const },
-    { id: 4, title: 'User profile editor', status: 'Review' as const, points: 5, assignee: 'Diana Prince', priority: 'Medium' as const, type: 'Story' as const },
-    { id: 5, title: 'Database optimization', status: 'To Do' as const, points: 13, assignee: 'Eve Wilson', priority: 'Low' as const, type: 'Epic' as const }
-  ],
-  productBacklog: [
-    { id: 6, title: 'Advanced reporting system', points: 21, priority: 'High' as const, type: 'Epic' as const, estimatedSprint: 'Sprint 13' },
-    { id: 7, title: 'Mobile app integration', points: 34, priority: 'Medium' as const, type: 'Epic' as const, estimatedSprint: 'Sprint 14-15' },
-    { id: 8, title: 'Real-time notifications', points: 8, priority: 'Medium' as const, type: 'Feature' as const, estimatedSprint: 'Sprint 13' },
-    { id: 9, title: 'Data export functionality', points: 13, priority: 'Low' as const, type: 'Feature' as const, estimatedSprint: 'Sprint 16' }
-  ],
-  scrumEvents: [
+  ceremonies: [
     { name: 'Daily Scrum', time: '09:00 AM', frequency: 'Daily', nextDate: '2024-01-16', duration: '15 min' },
-    { name: 'Sprint Planning', time: '10:00 AM', frequency: 'Every 2 weeks', nextDate: '2024-01-29', duration: '4 hours' },
-    { name: 'Sprint Review', time: '02:00 PM', frequency: 'Every 2 weeks', nextDate: '2024-01-29', duration: '2 hours' },
-    { name: 'Sprint Retrospective', time: '04:00 PM', frequency: 'Every 2 weeks', nextDate: '2024-01-29', duration: '1.5 hours' }
+    { name: 'Sprint Planning', time: '10:00 AM', frequency: 'Bi-weekly', nextDate: '2024-01-29', duration: '4 hours' },
+    { name: 'Sprint Review', time: '02:00 PM', frequency: 'Bi-weekly', nextDate: '2024-01-28', duration: '2 hours' },
+    { name: 'Sprint Retrospective', time: '04:00 PM', frequency: 'Bi-weekly', nextDate: '2024-01-28', duration: '1 hour' },
+    { name: 'Backlog Refinement', time: '11:00 AM', frequency: 'Weekly', nextDate: '2024-01-18', duration: '2 hours' },
   ],
-  scrumRoles: [
-    { role: 'Product Owner', name: 'Sarah Miller', responsibility: 'Manages product backlog and stakeholder requirements' },
+  teamRoles: [
     { role: 'Scrum Master', name: 'Mike Johnson', responsibility: 'Facilitates ceremonies and removes impediments' },
-    { role: 'Development Team', count: 6, responsibility: 'Develops and delivers product increments' }
-  ]
-}
-
-// Waterfall Methodology Mock Data
-export interface WaterfallPhase {
-  id: number
-  name: string
-  description: string
-  status: 'Completed' | 'In Progress' | 'Pending' | 'At Risk'
-  startDate: string
-  endDate: string
-  duration: number
-  progress: number
-  tasks: number
-  completedTasks: number
-  deliverables: string[]
-  dependencies: string[]
-}
-
-export interface WaterfallMilestone {
-  name: string
-  date: string
-  status: 'Completed' | 'At Risk' | 'Pending'
-  phase: string
-}
-
-export const mockWaterfallData = {
-  phases: [
-    {
-      id: 1,
-      name: 'Requirements Analysis',
-      description: 'Gather and document all project requirements',
-      status: 'Completed' as const,
-      startDate: '2024-01-01',
-      endDate: '2024-01-15',
-      duration: 14,
-      progress: 100,
-      tasks: 12,
-      completedTasks: 12,
-      deliverables: ['Requirements Document', 'Use Cases', 'Acceptance Criteria'],
-      dependencies: []
-    },
-    {
-      id: 2,
-      name: 'System Design',
-      description: 'Create system architecture and detailed design',
-      status: 'Completed' as const,
-      startDate: '2024-01-16',
-      endDate: '2024-02-05',
-      duration: 20,
-      progress: 100,
-      tasks: 18,
-      completedTasks: 18,
-      deliverables: ['System Architecture', 'Database Design', 'UI/UX Mockups'],
-      dependencies: ['Requirements Analysis']
-    },
-    {
-      id: 3,
-      name: 'Implementation',
-      description: 'Develop the system based on design specifications',
-      status: 'In Progress' as const,
-      startDate: '2024-02-06',
-      endDate: '2024-03-20',
-      duration: 43,
-      progress: 65,
-      tasks: 45,
-      completedTasks: 29,
-      deliverables: ['Source Code', 'Technical Documentation', 'Build Scripts'],
-      dependencies: ['System Design']
-    }
+    { role: 'Product Owner', name: 'Sarah Wilson', responsibility: 'Defines product vision and manages backlog' },
+    { role: 'Tech Lead', name: 'Alex Chen', responsibility: 'Technical leadership and architecture decisions' },
+    { role: 'Senior Developer', name: 'Emma Rodriguez', responsibility: 'Development and mentoring' },
+    { role: 'Developer', name: 'Tom Anderson', responsibility: 'Feature development and testing' },
+    { role: 'QA Engineer', name: 'Lisa Park', responsibility: 'Quality assurance and testing' },
   ],
-  milestones: [
-    { name: 'Requirements Approved', date: '2024-01-15', status: 'Completed' as const, phase: 'Requirements Analysis' },
-    { name: 'Design Review Complete', date: '2024-02-05', status: 'Completed' as const, phase: 'System Design' },
-    { name: 'Alpha Release', date: '2024-02-28', status: 'Completed' as const, phase: 'Implementation' },
-    { name: 'Beta Release', date: '2024-03-15', status: 'At Risk' as const, phase: 'Implementation' }
-  ],
-  riskAssessment: [
+  backlog: [
     {
-      category: 'Requirements Changes',
-      level: 'High' as const,
-      impact: 'Project delays and scope creep',
-      mitigation: 'Strict change control process implemented'
+      id: 'PBI-001',
+      title: 'User Authentication System',
+      description: 'Implement OAuth2 authentication with social providers',
+      priority: 'High',
+      storyPoints: 13,
+      status: 'Ready',
+      assignee: 'Sarah Wilson',
+      tags: ['authentication', 'security']
     },
     {
-      category: 'Technical Complexity',
-      level: 'Medium' as const,
-      impact: 'Implementation challenges',
-      mitigation: 'Technical proof of concepts completed'
+      id: 'PBI-002',
+      title: 'Payment Integration',
+      description: 'Integrate Stripe payment processing',
+      priority: 'High',
+      storyPoints: 8,
+      status: 'In Progress',
+      assignee: 'Alex Chen',
+      tags: ['payment', 'integration']
+    },
+    {
+      id: 'PBI-003',
+      title: 'Mobile Responsive Design',
+      description: 'Make application responsive for mobile devices',
+      priority: 'Medium',
+      storyPoints: 5,
+      status: 'Done',
+      assignee: 'Emma Rodriguez',
+      tags: ['ui', 'mobile', 'responsive']
     }
   ]
 }
 
 // Kanban Methodology Mock Data
-export interface KanbanColumn {
-  id: string
-  name: string
-  wipLimit: number | null
-  color: string
-  items: KanbanItem[]
-}
-
-export interface KanbanItem {
-  id: number
-  title: string
-  priority: 'Critical' | 'High' | 'Medium' | 'Low'
-  type: 'Feature' | 'Bug' | 'Enhancement' | 'Technical'
-  assignee: string
-  estimate: string
-  tags: string[]
-}
-
 export const mockKanbanData = {
   columns: [
     {
       id: 'backlog',
-      name: 'Backlog',
-      wipLimit: null,
-      color: 'bg-gray-100',
-      items: [
-        { id: 1, title: 'User profile enhancement', priority: 'Medium' as const, type: 'Feature' as const, assignee: 'Alice', estimate: '5h', tags: ['frontend'] },
-        { id: 2, title: 'API rate limiting', priority: 'Low' as const, type: 'Technical' as const, assignee: 'Bob', estimate: '8h', tags: ['backend'] }
+      title: 'Backlog',
+      limit: null,
+      cards: [
+        {
+          id: 'card-001',
+          title: 'API Rate Limiting',
+          description: 'Implement rate limiting for API endpoints',
+          priority: 'Medium',
+          assignee: 'Alex Chen',
+          tags: ['backend', 'security'],
+          createdAt: '2024-01-10',
+          dueDate: '2024-01-25'
+        },
+        {
+          id: 'card-002',
+          title: 'Dark Mode Support',
+          description: 'Add dark mode theme toggle',
+          priority: 'Low',
+          assignee: 'Emma Rodriguez',
+          tags: ['ui', 'theme'],
+          createdAt: '2024-01-12',
+          dueDate: '2024-01-30'
+        }
       ]
     },
     {
-      id: 'doing',
-      name: 'Doing',
-      wipLimit: 3,
-      color: 'bg-yellow-50',
-      items: [
-        { id: 6, title: 'Payment gateway integration', priority: 'High' as const, type: 'Feature' as const, assignee: 'Frank', estimate: '21h', tags: ['payments', 'integration'] }
+      id: 'ready',
+      title: 'Ready',
+      limit: 5,
+      cards: [
+        {
+          id: 'card-003',
+          title: 'Database Migration',
+          description: 'Migrate user data to new schema',
+          priority: 'High',
+          assignee: 'Tom Anderson',
+          tags: ['database', 'migration'],
+          createdAt: '2024-01-08',
+          dueDate: '2024-01-20'
+        }
+      ]
+    },
+    {
+      id: 'in-progress',
+      title: 'In Progress',
+      limit: 3,
+      cards: [
+        {
+          id: 'card-004',
+          title: 'User Dashboard',
+          description: 'Build comprehensive user dashboard',
+          priority: 'High',
+          assignee: 'Sarah Wilson',
+          tags: ['frontend', 'dashboard'],
+          createdAt: '2024-01-05',
+          dueDate: '2024-01-18'
+        },
+        {
+          id: 'card-005',
+          title: 'Email Notifications',
+          description: 'Implement email notification system',
+          priority: 'Medium',
+          assignee: 'Mike Johnson',
+          tags: ['backend', 'notifications'],
+          createdAt: '2024-01-07',
+          dueDate: '2024-01-22'
+        }
+      ]
+    },
+    {
+      id: 'review',
+      title: 'Review',
+      limit: 2,
+      cards: [
+        {
+          id: 'card-006',
+          title: 'Search Functionality',
+          description: 'Add advanced search with filters',
+          priority: 'Medium',
+          assignee: 'Lisa Park',
+          tags: ['search', 'frontend'],
+          createdAt: '2024-01-03',
+          dueDate: '2024-01-16'
+        }
+      ]
+    },
+    {
+      id: 'done',
+      title: 'Done',
+      limit: null,
+      cards: [
+        {
+          id: 'card-007',
+          title: 'Login System',
+          description: 'Basic authentication system',
+          priority: 'High',
+          assignee: 'Alex Chen',
+          tags: ['auth', 'backend'],
+          createdAt: '2023-12-20',
+          dueDate: '2024-01-05',
+          completedAt: '2024-01-04'
+        },
+        {
+          id: 'card-008',
+          title: 'Project Setup',
+          description: 'Initial project configuration',
+          priority: 'High',
+          assignee: 'Tom Anderson',
+          tags: ['setup', 'config'],
+          createdAt: '2023-12-15',
+          dueDate: '2023-12-22',
+          completedAt: '2023-12-21'
+        }
       ]
     }
   ],
   metrics: {
-    throughput: { weekly: 12, monthly: 48, trend: '+15%' },
-    cycleTime: { average: 4.2, trend: '+0.3' },
-    wipLimits: { violations: 0, efficiency: 92 },
-    leadTime: { average: 6.8, p95: 12.4 }
-  }
+    cycleTime: 5.2, // average days
+    leadTime: 8.7, // average days
+    throughput: 12, // cards per week
+    wip: 6, // current work in progress
+    wipLimit: 10
+  },
+  cumulativeFlowData: [
+    { date: '2024-01-01', backlog: 15, ready: 3, inProgress: 2, review: 1, done: 5 },
+    { date: '2024-01-02', backlog: 14, ready: 4, inProgress: 3, review: 1, done: 6 },
+    { date: '2024-01-03', backlog: 13, ready: 4, inProgress: 3, review: 2, done: 6 },
+    { date: '2024-01-04', backlog: 12, ready: 5, inProgress: 2, review: 2, done: 7 },
+    { date: '2024-01-05', backlog: 11, ready: 5, inProgress: 3, review: 1, done: 8 },
+  ]
 }
 
-// DevOps Methodology Mock Data
-export const mockDevOpsData = {
-  cicdPipeline: {
-    stages: [
-      { name: 'Build', status: 'success' as const, duration: '2m 15s', lastRun: '10 min ago' },
-      { name: 'Test', status: 'success' as const, duration: '5m 42s', lastRun: '8 min ago' },
-      { name: 'Security Scan', status: 'warning' as const, duration: '3m 30s', lastRun: '6 min ago' },
-      { name: 'Deploy to Staging', status: 'success' as const, duration: '1m 20s', lastRun: '4 min ago' },
-      { name: 'Integration Tests', status: 'running' as const, duration: '4m 15s', lastRun: 'Running' },
-      { name: 'Deploy to Production', status: 'pending' as const, duration: '-', lastRun: 'Pending' }
-    ],
-    metrics: {
-      successRate: 94,
-      avgBuildTime: '12m 30s',
-      deploymentFrequency: '3.2/day',
-      leadTime: '4.5 hours',
-      mttr: '23 minutes',
-      changeFailureRate: '2.1%'
+// Waterfall Methodology Mock Data
+export const mockWaterfallData = {
+  phases: [
+    {
+      id: 'requirements',
+      name: 'Requirements Analysis',
+      description: 'Gather and analyze project requirements',
+      status: 'completed',
+      progress: 100,
+      startDate: '2024-01-01',
+      endDate: '2024-01-15',
+      duration: 14,
+      deliverables: [
+        'Requirements Document',
+        'Functional Specifications',
+        'Non-functional Requirements',
+        'Acceptance Criteria'
+      ],
+      tasks: [
+        { id: 'req-001', name: 'Stakeholder Interviews', status: 'completed', assignee: 'Sarah Wilson' },
+        { id: 'req-002', name: 'Requirements Documentation', status: 'completed', assignee: 'Mike Johnson' },
+        { id: 'req-003', name: 'Requirements Review', status: 'completed', assignee: 'Alex Chen' }
+      ]
+    },
+    {
+      id: 'design',
+      name: 'System Design',
+      description: 'Create system architecture and detailed design',
+      status: 'completed',
+      progress: 100,
+      startDate: '2024-01-16',
+      endDate: '2024-02-05',
+      duration: 20,
+      deliverables: [
+        'System Architecture Document',
+        'Database Design',
+        'UI/UX Mockups',
+        'Technical Specifications'
+      ],
+      tasks: [
+        { id: 'des-001', name: 'Architecture Design', status: 'completed', assignee: 'Alex Chen' },
+        { id: 'des-002', name: 'Database Schema', status: 'completed', assignee: 'Tom Anderson' },
+        { id: 'des-003', name: 'UI Design', status: 'completed', assignee: 'Emma Rodriguez' }
+      ]
+    },
+    {
+      id: 'implementation',
+      name: 'Implementation',
+      description: 'Develop the system according to design specifications',
+      status: 'in-progress',
+      progress: 65,
+      startDate: '2024-02-06',
+      endDate: '2024-03-20',
+      duration: 43,
+      deliverables: [
+        'Source Code',
+        'Unit Tests',
+        'Integration Tests',
+        'Code Documentation'
+      ],
+      tasks: [
+        { id: 'imp-001', name: 'Backend Development', status: 'in-progress', assignee: 'Alex Chen' },
+        { id: 'imp-002', name: 'Frontend Development', status: 'in-progress', assignee: 'Emma Rodriguez' },
+        { id: 'imp-003', name: 'Database Implementation', status: 'completed', assignee: 'Tom Anderson' },
+        { id: 'imp-004', name: 'API Development', status: 'in-progress', assignee: 'Sarah Wilson' }
+      ]
+    },
+    {
+      id: 'testing',
+      name: 'Testing',
+      description: 'Comprehensive testing of the implemented system',
+      status: 'pending',
+      progress: 0,
+      startDate: '2024-03-21',
+      endDate: '2024-04-10',
+      duration: 20,
+      deliverables: [
+        'Test Plans',
+        'Test Cases',
+        'Test Reports',
+        'Bug Reports'
+      ],
+      tasks: [
+        { id: 'test-001', name: 'Unit Testing', status: 'pending', assignee: 'Lisa Park' },
+        { id: 'test-002', name: 'Integration Testing', status: 'pending', assignee: 'Mike Johnson' },
+        { id: 'test-003', name: 'User Acceptance Testing', status: 'pending', assignee: 'Sarah Wilson' }
+      ]
+    },
+    {
+      id: 'deployment',
+      name: 'Deployment',
+      description: 'Deploy the system to production environment',
+      status: 'pending',
+      progress: 0,
+      startDate: '2024-04-11',
+      endDate: '2024-04-20',
+      duration: 9,
+      deliverables: [
+        'Deployment Guide',
+        'Production Environment',
+        'User Manual',
+        'Training Materials'
+      ],
+      tasks: [
+        { id: 'dep-001', name: 'Production Setup', status: 'pending', assignee: 'Tom Anderson' },
+        { id: 'dep-002', name: 'Data Migration', status: 'pending', assignee: 'Alex Chen' },
+        { id: 'dep-003', name: 'User Training', status: 'pending', assignee: 'Sarah Wilson' }
+      ]
+    },
+    {
+      id: 'maintenance',
+      name: 'Maintenance',
+      description: 'Ongoing maintenance and support',
+      status: 'pending',
+      progress: 0,
+      startDate: '2024-04-21',
+      endDate: '2024-10-21',
+      duration: 183,
+      deliverables: [
+        'Maintenance Plan',
+        'Support Documentation',
+        'Performance Reports',
+        'Enhancement Requests'
+      ],
+      tasks: [
+        { id: 'main-001', name: 'Performance Monitoring', status: 'pending', assignee: 'Tom Anderson' },
+        { id: 'main-002', name: 'Bug Fixes', status: 'pending', assignee: 'Alex Chen' },
+        { id: 'main-003', name: 'User Support', status: 'pending', assignee: 'Mike Johnson' }
+      ]
     }
-  },
-  infrastructure: {
-    environments: [
-      {
-        name: 'Development',
-        status: 'healthy' as const,
-        uptime: '99.8%',
-        lastDeploy: '2 hours ago',
-        version: 'v2.3.1-dev',
-        resources: { cpu: 45, memory: 62, disk: 34 }
-      },
-      {
-        name: 'Production',
-        status: 'warning' as const,
-        uptime: '99.7%',
-        lastDeploy: '3 days ago',
-        version: 'v2.2.8',
-        resources: { cpu: 78, memory: 82, disk: 45 }
-      }
-    ]
-  },
-  monitoring: {
-    alerts: [
-      { level: 'critical' as const, message: 'High CPU usage on Production', service: 'User Service', time: '5 min ago' },
-      { level: 'warning' as const, message: 'Slow response times detected', service: 'API Gateway', time: '15 min ago' }
-    ],
-    metrics: {
-      availability: 99.7,
-      responseTime: 245,
-      errorRate: 0.12,
-      throughput: 1250
+  ],
+  milestones: [
+    { name: 'Requirements Approved', date: '2024-01-15', status: 'completed' },
+    { name: 'Design Sign-off', date: '2024-02-05', status: 'completed' },
+    { name: 'Alpha Release', date: '2024-03-01', status: 'completed' },
+    { name: 'Beta Release', date: '2024-03-20', status: 'at-risk' },
+    { name: 'Production Release', date: '2024-04-20', status: 'pending' },
+  ],
+  risks: [
+    {
+      id: 'risk-001',
+      description: 'Integration complexity with third-party services',
+      impact: 'High',
+      probability: 'Medium',
+      mitigation: 'Early proof of concept development',
+      status: 'active'
+    },
+    {
+      id: 'risk-002',
+      description: 'Resource availability during peak periods',
+      impact: 'Medium',
+      probability: 'High',
+      mitigation: 'Cross-training team members',
+      status: 'active'
     }
-  }
+  ]
 }
 
-// Lean Methodology Mock Data
-export const mockLeanData = {
-  valueStreamMapping: {
-    steps: [
-      {
-        name: 'Requirement Analysis',
-        type: 'value-add' as const,
-        duration: 2,
-        waitTime: 1,
-        efficiency: 67,
-        improvements: ['Standardize requirement templates', 'Reduce review cycles']
-      },
-      {
-        name: 'Development',
-        type: 'value-add' as const,
-        duration: 8,
-        waitTime: 0.5,
-        efficiency: 94,
-        improvements: ['Pair programming', 'Automated testing']
-      }
-    ],
-    metrics: {
-      totalLeadTime: 19,
-      totalValueAddTime: 13.5,
-      totalWasteTime: 8,
-      processEfficiency: 71
-    }
-  },
-  wasteIdentification: {
-    categories: [
-      {
-        type: 'Waiting',
-        description: 'Delays between process steps',
-        instances: 12,
-        impact: 'High' as const,
-        cost: 8400,
-        examples: ['Code review bottlenecks', 'Environment provisioning delays']
-      },
-      {
-        type: 'Defects',
-        description: 'Bugs and rework requirements',
-        instances: 8,
-        impact: 'Medium' as const,
-        cost: 5600,
-        examples: ['Integration failures', 'UI inconsistencies']
-      }
-    ],
-    totalWasteCost: 32300,
-    wasteReduction: 18
-  },
-  continuousImprovement: {
-    kaizen: [
-      {
-        id: 'K001',
-        title: 'Reduce code review time',
-        status: 'In Progress' as const,
-        impact: 'High' as const,
-        owner: 'Development Team',
-        startDate: '2024-01-10',
-        expectedCompletion: '2024-01-25',
-        progress: 60
-      }
-    ]
-  }
-}
+export type MethodologyType = 'Scrum' | 'Kanban' | 'Waterfall'
 
-// Common methodology types and utilities
-export type MethodologyType = 'Agile' | 'Scrum' | 'Waterfall' | 'Kanban' | 'DevOps' | 'Lean'
-
-export const methodologyMockData = {
-  agile: mockAgileData,
+export const methodologyData = {
   scrum: mockScrumData,
-  waterfall: mockWaterfallData,
   kanban: mockKanbanData,
-  devops: mockDevOpsData,
-  lean: mockLeanData
+  waterfall: mockWaterfallData
 }
 
-export default methodologyMockData
+export default methodologyData
