@@ -64,10 +64,7 @@ import {
   TrendingUp
 } from 'lucide-react'
 import { toast } from 'sonner@2.0.3'
-import { BacklogDialog } from '../Planning/BacklogDialog'
-import { EpicDialog } from '../Planning/EpicDialog'
-import { SprintDialog } from '../Planning/SprintDialog'
-import { BacklogItemActions } from '../Planning/BacklogItemActions'
+// Planning components removed - module no longer available
 
 // Enhanced sample data
 const projects = [

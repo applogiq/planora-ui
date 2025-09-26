@@ -155,16 +155,22 @@ export class EpicApiService {
   async getEpics(
     page: number = 1,
     per_page: number = 50,
-    project_id?: string
+    project_id?: string,
+    status?: string,
+    priority?: string,
+    assignee_id?: string,
+    search?: string
   ): Promise<EpicsResponse> {
     const params = new URLSearchParams({
       page: page.toString(),
       per_page: per_page.toString(),
     });
 
-    if (project_id) {
-      params.append('project_id', project_id);
-    }
+    if (project_id) params.append('project_id', project_id);
+    if (status) params.append('status', status);
+    if (priority) params.append('priority', priority);
+    if (assignee_id) params.append('assignee_id', assignee_id);
+    if (search) params.append('search', search);
 
     const url = `/?${params.toString()}`;
 

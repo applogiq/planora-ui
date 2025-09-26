@@ -1,10 +1,7 @@
 import { createBrowserRouter, Navigate, useParams, useNavigate } from 'react-router-dom'
 import { Dashboard } from '../pages/Dashboard/Dashboard'
 import { Projects } from '../pages/Project/Projects'
-import { ProjectDetails } from '../pages/Project/ProjectDetails'
-import { Tasks } from '../pages/Project/TasksEnhanced'
-import { Boards } from '../pages/Project Boards/Boards'
-import { TimeTracking } from '../pages/Time Tracking/TimeTracking'
+import { ProjectDetails } from '../pages/ProjectDetails'
 import { Customers } from '../pages/Customers/Customers'
 import { Reports } from '../pages/Reports/Reports'
 import { Admin } from '../pages/Admin/Admin'
@@ -18,10 +15,10 @@ const ProjectsWrapper = ({ user }: { user: any }) => {
   return <Projects onProjectSelect={(projectId) => navigate(`/projects/${projectId}`)} user={user} />
 }
 
-const ProjectDetailsWrapper = ({ user }: { user: any }) => {
+const ProjectDetailsWrapper = ({ user, onLogout }: { user: any, onLogout: () => void }) => {
   const { projectId } = useParams<{ projectId: string }>()
   const navigate = useNavigate()
-  return <ProjectDetails projectId={projectId || ''} onBack={() => navigate('/projects')} user={user} />
+  return <ProjectDetails projectId={projectId || ''} onBack={() => navigate('/projects')} user={user} onLogout={onLogout} />
 }
 
 export const createAppRouter = (user: any, onLogin: (userData: any) => void, onLogout: () => void) => {
@@ -29,6 +26,10 @@ export const createAppRouter = (user: any, onLogin: (userData: any) => void, onL
     {
       path: "/login",
       element: user ? <Navigate to="/" replace /> : <Auth onLogin={onLogin} />
+    },
+    {
+      path: "/projects/:projectId",
+      element: user ? <ProjectDetailsWrapper user={user} onLogout={onLogout} /> : <Navigate to="/login" replace />
     },
     {
       path: "/",
@@ -45,22 +46,6 @@ export const createAppRouter = (user: any, onLogin: (userData: any) => void, onL
         {
           path: "projects",
           element: <ProjectsWrapper user={user} />
-        },
-        {
-          path: "projects/:projectId",
-          element: <ProjectDetailsWrapper user={user} />
-        },
-        {
-          path: "planning",
-          element: <Tasks user={user} />
-        },
-        {
-          path: "boards",
-          element: <Boards user={user} />
-        },
-        {
-          path: "timetracking",
-          element: <TimeTracking user={user} />
         },
         {
           path: "customers",

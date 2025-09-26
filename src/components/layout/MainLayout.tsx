@@ -32,7 +32,7 @@ export function MainLayout({ user, onLogout }: MainLayoutProps) {
     const path = location.pathname.slice(1) // Remove leading slash
     if (path === '' || path === 'dashboard') return 'dashboard'
     if (path.startsWith('projects/')) return 'projects'
-    if (path === 'planning') return 'tasks'
+    // Planning module removed
     return path
   }
 
@@ -43,10 +43,7 @@ export function MainLayout({ user, onLogout }: MainLayoutProps) {
     const moduleNames = {
       dashboard: 'Dashboard',
       projects: 'Projects',
-      tasks: 'Planning',
-      planning: 'Planning',
-      boards: 'Project Boards',
-      timetracking: 'Time Tracking',
+      // Removed modules: Planning, Project Boards, Time Tracking
       customers: 'Customers',
       reports: 'Reports',
       admin: 'Admin'
@@ -105,11 +102,11 @@ export function MainLayout({ user, onLogout }: MainLayoutProps) {
   // Role-based access control function
   const hasModuleAccess = (userRole: string, module: string) => {
     const roleAccess = {
-      admin: ['dashboard', 'projects', 'tasks', 'boards', 'timetracking', 'customers', 'reports', 'admin'],
-      super_admin: ['dashboard', 'projects', 'tasks', 'boards', 'timetracking', 'customers', 'reports', 'admin'],
-      project_manager: ['dashboard', 'projects', 'tasks', 'boards', 'timetracking', 'customers', 'reports', 'profile'],
-      developer: ['dashboard', 'projects', 'tasks', 'boards', 'timetracking', 'reports', 'profile'],
-      tester: ['dashboard', 'projects', 'tasks', 'boards', 'timetracking', 'reports', 'profile']
+      admin: ['dashboard', 'projects', 'customers', 'reports', 'admin'],
+      super_admin: ['dashboard', 'projects', 'customers', 'reports', 'admin'],
+      project_manager: ['dashboard', 'projects', 'customers', 'reports', 'profile'],
+      developer: ['dashboard', 'projects', 'reports', 'profile'],
+      tester: ['dashboard', 'projects', 'reports', 'profile']
     }
 
     return roleAccess[userRole as keyof typeof roleAccess]?.includes(module) || false

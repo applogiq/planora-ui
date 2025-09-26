@@ -6,16 +6,13 @@ import { Button } from '../ui/button'
 import {
   LayoutDashboard,
   FolderOpen,
-  CheckSquare,
   Users,
   BarChart3,
   Settings,
-  Clock,
   ChevronRight,
   Shield,
   UserCheck,
   Target,
-  LayoutGrid
 } from 'lucide-react'
 
 
@@ -41,30 +38,6 @@ const getNavigationItems = (userRole: string) => {
       icon: FolderOpen,
       badge: null,
       path: '/projects',
-      roles: ['admin', 'super_admin', 'project_manager', 'developer', 'tester']
-    },
-    {
-      id: 'tasks',
-      label: 'Planning',
-      icon: CheckSquare,
-      badge: null,
-      path: '/planning',
-      roles: ['admin', 'super_admin', 'project_manager', 'developer', 'tester']
-    },
-    {
-      id: 'boards',
-      label: 'Project Boards',
-      icon: LayoutGrid,
-      badge: null,
-      path: '/boards',
-      roles: ['admin', 'super_admin', 'project_manager', 'developer', 'tester']
-    },
-    {
-      id: 'timetracking',
-      label: 'Time Tracking',
-      icon: Clock,
-      badge: null,
-      path: '/timetracking',
       roles: ['admin', 'super_admin', 'project_manager', 'developer', 'tester']
     },
     {

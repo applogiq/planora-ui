@@ -63,7 +63,7 @@ import {
 import { ProjectDashboard } from './ProjectDashboard'
 import { TasksView } from './TasksView'
 import { FilesView } from './FilesView'
-import { TimeTrackingView } from './TimeTrackingView'
+// TimeTrackingView removed - module no longer available
 import { ActivityView } from './ActivityView'
 import { TaskModal } from './TaskModal'
 import { ProjectEditModal } from './ProjectEditModal'
@@ -537,7 +537,10 @@ export function ProjectDetails({ projectId, onBack, user }: ProjectDetailsProps)
         </TabsContent>
 
         <TabsContent value="time">
-          <TimeTrackingView project={displayProject} />
+          {/* TimeTrackingView removed - module no longer available */}
+          <div className="p-4 text-center text-muted-foreground">
+            Time tracking module has been removed
+          </div>
         </TabsContent>
 
         <TabsContent value="activity">

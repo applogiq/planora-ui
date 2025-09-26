@@ -19,7 +19,6 @@ export * from './reports';
 export * from './methodology';
 export * from './activities';
 export * from './project-files';
-export * from './time-tracking';
 
 // Common data types and utilities
 export interface SearchResult {
@@ -36,7 +35,7 @@ export const mockSearchResults: SearchResult[] = [
     title: 'Implement OAuth2 Social Login',
     type: 'task',
     description: 'Add Google, Facebook, and GitHub authentication options',
-    url: '/boards/task/TASK-001'
+    url: '/projects/task/TASK-001'
   },
   {
     id: 'PROJ-001',
@@ -76,7 +75,7 @@ export const mockNotifications: Notification[] = [
     message: 'Sarah Wilson mentioned you in "Payment Gateway Integration"',
     timestamp: '2025-01-15T10:30:00Z',
     read: false,
-    actionUrl: '/boards/task/TASK-012',
+    actionUrl: '/projects/task/TASK-012',
     priority: 'high',
     fromUser: 'Sarah Wilson',
     relatedItem: 'TASK-012'
@@ -88,7 +87,7 @@ export const mockNotifications: Notification[] = [
     message: 'You have been assigned to "Database Performance Optimization"',
     timestamp: '2025-01-15T09:15:00Z',
     read: false,
-    actionUrl: '/boards/task/TASK-005',
+    actionUrl: '/projects/task/TASK-005',
     priority: 'medium',
     fromUser: 'Project Manager',
     relatedItem: 'TASK-005'
@@ -100,7 +99,7 @@ export const mockNotifications: Notification[] = [
     message: 'Security Audit Report is due in 2 days',
     timestamp: '2025-01-15T08:00:00Z',
     read: true,
-    actionUrl: '/boards/task/TASK-015',
+    actionUrl: '/projects/task/TASK-015',
     priority: 'high',
     relatedItem: 'TASK-015'
   }
@@ -130,5 +129,4 @@ export default {
   methodology: () => import('./methodology'),
   activities: () => import('./activities'),
   projectFiles: () => import('./project-files'),
-  timeTracking: () => import('./time-tracking')
 };

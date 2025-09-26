@@ -71,13 +71,16 @@ export const useTimeTracking = (projectId: string, userId?: string) => {
         }
       } catch (err) {
         console.warn('Time tracking API call failed, using mock data:', err)
-        // Import mock data dynamically
-        import('../mock-data/time-tracking').then(({ mockTimeTrackingSummary, mockTimeEntries }) => {
-          setSummary(mockTimeTrackingSummary)
-          setAllEntries(mockTimeEntries)
-          const today = new Date().toISOString().split('T')[0]
-          setTodaysEntries(mockTimeEntries.filter(entry => entry.date === today))
+        // Time tracking mock data removed - module no longer available
+        setSummary({
+          totalHours: 0,
+          billableHours: 0,
+          activeTasks: 0,
+          weeklyTarget: 40,
+          completionRate: 0
         })
+        setAllEntries([])
+        setTodaysEntries([])
       } finally {
         setLoading(false)
       }
