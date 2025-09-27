@@ -29,6 +29,7 @@ interface EpicCreateModalProps {
   onClose: () => void
   onSuccess: () => void
   user: any
+  teamMembers?: any[]
 }
 
 export function EpicCreateModal({
@@ -36,7 +37,8 @@ export function EpicCreateModal({
   isOpen,
   onClose,
   onSuccess,
-  user
+  user,
+  teamMembers = []
 }: EpicCreateModalProps) {
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState<CreateEpicRequest>({
@@ -223,6 +225,32 @@ export function EpicCreateModal({
                   <SelectItem value="Completed">Completed</SelectItem>
                   <SelectItem value="On Hold">On Hold</SelectItem>
                   <SelectItem value="Cancelled">Cancelled</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Assignee */}
+            <div>
+              <Label htmlFor="assignee">Assignee</Label>
+              <Select
+                value={formData.assignee_id || 'unassigned'}
+                onValueChange={(value) => handleInputChange('assignee_id', value === 'unassigned' ? '' : value)}
+              >
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="Select assignee..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unassigned">Unassigned</SelectItem>
+                  {teamMembers.map((member) => (
+                    <SelectItem key={member.id} value={member.id}>
+                      <div className="flex items-center space-x-2">
+                        <div className="w-6 h-6 rounded-full bg-[#28A745] flex items-center justify-center text-white text-xs font-medium">
+                          {member.name?.charAt(0) || 'U'}
+                        </div>
+                        <span>{member.name}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

@@ -79,8 +79,8 @@ export interface ProjectMemberDetail {
 export interface ProjectTeamMembersResponse {
   project_id: string;
   project_name: string;
-  team_lead: ProjectMemberDetail;
-  team_members: ProjectMemberDetail[];
+  team_lead_detail: ProjectMemberDetail;
+  team_members_detail: ProjectMemberDetail[];
 }
 
 

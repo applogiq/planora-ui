@@ -2,66 +2,97 @@ import { authApiService } from './authApi';
 import { getApiUrl } from '../config/api';
 
 export interface Story {
-  id: string;
   title: string;
   description: string;
   story_type: string;
-  status: string;
   priority: string;
-  assignee_id: string | null;
+  status: string;
+  epic_id: string;
+  epic_title: string;
   project_id: string;
-  epic_id?: string | null;
-  start_date?: string;
-  due_date?: string;
+  project_name: string;
+  sprint_id: string;
+  assignee_id: string;
+  assignee_name: string;
+  reporter_id: string;
+  reporter_name: string;
+  story_points: number;
+  business_value: string;
+  effort: string;
+  labels: string[];
+  acceptance_criteria: string[];
+  subtasks: SubTask[];
+  comments: Comment[];
+  attached_files: AttachedFile[];
   progress: number;
+  start_date: string;
+  end_date: string;
   tags: string[];
-  story_points?: number;
-  acceptance_criteria?: string[];
-  attachments?: StoryAttachment[];
-  comments?: StoryComment[];
-  created_at: string;
-  updated_at: string;
-  assignee?: {
-    id: string;
-    name: string;
-    email: string;
-    avatar?: string;
-  };
-  image_url?: string;
+  activity: Activity[];
 }
 
-export interface StoryAttachment {
+export interface SubTask {
+  task_name: string;
+  description: string;
+  assignee: string;
+  priority: string;
+  due_date: string;
+}
+
+export interface Comment {
+  id: string;
+  author_id: string;
+  author_name: string;
+  content: string;
+  created_at: string;
+}
+
+export interface AttachedFile {
   id: string;
   filename: string;
-  url: string;
-  size: number;
-  type: string;
+  file_path: string;
+  file_size: number;
+  uploaded_by: string;
   uploaded_at: string;
 }
 
-export interface StoryComment {
+export interface Activity {
   id: string;
   user_id: string;
   user_name: string;
-  text: string;
-  created_at: string;
+  action: string;
+  description: string;
+  timestamp: string;
 }
 
 export interface CreateStoryRequest {
   title: string;
   description: string;
   story_type: string;
-  status: string;
   priority: string;
-  assignee_id: string | null;
+  status: string;
+  epic_id?: string;
+  epic_title?: string;
   project_id: string;
-  epic_id?: string | null;
-  start_date?: string;
-  due_date?: string;
-  progress?: number;
-  tags?: string[];
+  project_name?: string;
+  sprint_id?: string;
+  assignee_id?: string;
+  assignee_name?: string;
+  reporter_id?: string;
+  reporter_name?: string;
   story_points?: number;
+  business_value?: string;
+  effort?: string;
+  labels?: string[];
   acceptance_criteria?: string[];
+  subtasks?: SubTask[];
+  comments?: Comment[];
+  attached_files?: AttachedFile[];
+  progress?: number;
+  start_date?: string;
+  end_date?: string;
+  tags?: string[];
+  activity?: Activity[];
 }
 
 export interface UpdateStoryRequest extends Partial<CreateStoryRequest> {
@@ -161,73 +192,18 @@ export class StoriesApiService {
     return this.makeRequest<Story>(`/api/v1/stories/${id}`);
   }
 
-  async createStory(storyData: CreateStoryRequest, imageFile?: File): Promise<Story> {
-    if (imageFile) {
-      const formData = new FormData();
-
-      // Add story fields
-      formData.append('title', storyData.title);
-      formData.append('description', storyData.description);
-      formData.append('story_type', storyData.story_type);
-      formData.append('status', storyData.status);
-      formData.append('priority', storyData.priority);
-      formData.append('project_id', storyData.project_id);
-
-      if (storyData.assignee_id) formData.append('assignee_id', storyData.assignee_id);
-      if (storyData.epic_id) formData.append('epic_id', storyData.epic_id);
-      if (storyData.start_date) formData.append('start_date', storyData.start_date);
-      if (storyData.due_date) formData.append('due_date', storyData.due_date);
-      if (storyData.progress !== undefined) formData.append('progress', storyData.progress.toString());
-      if (storyData.story_points !== undefined) formData.append('story_points', storyData.story_points.toString());
-      if (storyData.acceptance_criteria) formData.append('acceptance_criteria', JSON.stringify(storyData.acceptance_criteria));
-
-      if (storyData.tags && storyData.tags.length > 0) {
-        formData.append('tags', JSON.stringify(storyData.tags));
-      }
-
-      // Add image file
-      formData.append('image', imageFile);
-
-      return this.makeRequest<Story>('/api/v1/stories/', {
-        method: 'POST',
-        body: formData,
-      });
-    } else {
-      return this.makeRequest<Story>('/api/v1/stories/', {
-        method: 'POST',
-        body: JSON.stringify(storyData),
-      });
-    }
+  async createStory(storyData: CreateStoryRequest): Promise<Story> {
+    return this.makeRequest<Story>('/api/v1/stories/', {
+      method: 'POST',
+      body: JSON.stringify(storyData),
+    });
   }
 
-  async updateStory(id: string, storyData: Partial<CreateStoryRequest>, imageFile?: File): Promise<Story> {
-    if (imageFile) {
-      const formData = new FormData();
-
-      // Add story fields that are being updated
-      Object.entries(storyData).forEach(([key, value]) => {
-        if (value !== undefined && value !== null) {
-          if (key === 'tags' && Array.isArray(value)) {
-            formData.append(key, JSON.stringify(value));
-          } else {
-            formData.append(key, value.toString());
-          }
-        }
-      });
-
-      // Add image file
-      formData.append('image', imageFile);
-
-      return this.makeRequest<Story>(`/api/v1/stories/${id}`, {
-        method: 'PUT',
-        body: formData,
-      });
-    } else {
-      return this.makeRequest<Story>(`/api/v1/stories/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify(storyData),
-      });
-    }
+  async updateStory(id: string, storyData: Partial<CreateStoryRequest>): Promise<Story> {
+    return this.makeRequest<Story>(`/api/v1/stories/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(storyData),
+    });
   }
 
   async deleteStory(id: string): Promise<void> {

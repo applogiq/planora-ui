@@ -1,12 +1,13 @@
 import { EpicList } from './EpicList'
 
-interface EpicManagementProps {
+interface EpicProps {
   projectId: string
   user: any
+  teamMembers?: any[]
 }
 
-export function EpicManagement({ projectId, user }: EpicManagementProps) {
-  return <EpicList projectId={projectId} user={user} />
+export function Epic({ projectId, user, teamMembers = [] }: EpicProps) {
+  return <EpicList projectId={projectId} user={user} teamMembers={teamMembers} />
 }
 
 export { EpicList } from './EpicList'

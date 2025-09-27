@@ -1,4 +1,5 @@
 import { createBrowserRouter, Navigate, useParams, useNavigate } from 'react-router-dom'
+import { useProjectId } from '../hooks/useProjectId'
 import { Dashboard } from '../pages/Dashboard/Dashboard'
 import { Projects } from '../pages/Project/Projects'
 import { ProjectDetails } from '../pages/ProjectDetails'
@@ -16,8 +17,9 @@ const ProjectsWrapper = ({ user }: { user: any }) => {
 }
 
 const ProjectDetailsWrapper = ({ user, onLogout }: { user: any, onLogout: () => void }) => {
-  const { projectId } = useParams<{ projectId: string }>()
   const navigate = useNavigate()
+  const projectId = useProjectId()
+
   return <ProjectDetails projectId={projectId || ''} onBack={() => navigate('/projects')} user={user} onLogout={onLogout} />
 }
 

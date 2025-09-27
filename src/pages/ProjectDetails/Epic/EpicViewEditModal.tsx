@@ -27,7 +27,6 @@ import {
   Plus,
   Edit,
   Save,
-  Cancel,
   User,
   Calendar,
   Target,
@@ -44,6 +43,7 @@ interface EpicViewEditModalProps {
   onClose: () => void
   onSuccess: () => void
   user: any
+  teamMembers?: any[]
 }
 
 export function EpicViewEditModal({
@@ -51,22 +51,32 @@ export function EpicViewEditModal({
   isOpen,
   onClose,
   onSuccess,
-  user
+  user,
+  teamMembers = []
 }: EpicViewEditModalProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [loading, setLoading] = useState(false)
+  // Helper function to safely get epic values
+  const getSafeEpicValue = (value: any, defaultValue: any) => {
+    if (value === null || value === undefined || value === '') {
+      return defaultValue
+    }
+    return value
+  }
+
   const [formData, setFormData] = useState({
-    title: epic.title,
-    description: epic.description,
-    priority: epic.priority,
-    status: epic.status,
-    due_date: epic.due_date,
-    total_story_points: epic.total_story_points,
-    completed_story_points: epic.completed_story_points,
-    total_tasks: epic.total_tasks,
-    completed_tasks: epic.completed_tasks,
-    labels: epic.labels,
-    business_value: epic.business_value
+    title: getSafeEpicValue(epic.title, ''),
+    description: getSafeEpicValue(epic.description, ''),
+    priority: getSafeEpicValue(epic.priority, 'Medium'),
+    status: getSafeEpicValue(epic.status, 'Not Started'),
+    assignee_id: getSafeEpicValue(epic.assignee_id, ''),
+    due_date: getSafeEpicValue(epic.due_date, ''),
+    total_story_points: getSafeEpicValue(epic.total_story_points, 0),
+    completed_story_points: getSafeEpicValue(epic.completed_story_points, 0),
+    total_tasks: getSafeEpicValue(epic.total_tasks, 0),
+    completed_tasks: getSafeEpicValue(epic.completed_tasks, 0),
+    labels: getSafeEpicValue(epic.labels, []),
+    business_value: getSafeEpicValue(epic.business_value, '')
   })
 
   const [newLabel, setNewLabel] = useState('')
@@ -74,17 +84,18 @@ export function EpicViewEditModal({
   useEffect(() => {
     if (epic) {
       setFormData({
-        title: epic.title,
-        description: epic.description,
-        priority: epic.priority,
-        status: epic.status,
-        due_date: epic.due_date,
-        total_story_points: epic.total_story_points,
-        completed_story_points: epic.completed_story_points,
-        total_tasks: epic.total_tasks,
-        completed_tasks: epic.completed_tasks,
-        labels: epic.labels,
-        business_value: epic.business_value
+        title: getSafeEpicValue(epic.title, ''),
+        description: getSafeEpicValue(epic.description, ''),
+        priority: getSafeEpicValue(epic.priority, 'Medium'),
+        status: getSafeEpicValue(epic.status, 'Not Started'),
+        assignee_id: getSafeEpicValue(epic.assignee_id, ''),
+        due_date: getSafeEpicValue(epic.due_date, ''),
+        total_story_points: getSafeEpicValue(epic.total_story_points, 0),
+        completed_story_points: getSafeEpicValue(epic.completed_story_points, 0),
+        total_tasks: getSafeEpicValue(epic.total_tasks, 0),
+        completed_tasks: getSafeEpicValue(epic.completed_tasks, 0),
+        labels: getSafeEpicValue(epic.labels, []),
+        business_value: getSafeEpicValue(epic.business_value, '')
       })
     }
   }, [epic])
@@ -140,17 +151,18 @@ export function EpicViewEditModal({
 
   const handleCancel = () => {
     setFormData({
-      title: epic.title,
-      description: epic.description,
-      priority: epic.priority,
-      status: epic.status,
-      due_date: epic.due_date,
-      total_story_points: epic.total_story_points,
-      completed_story_points: epic.completed_story_points,
-      total_tasks: epic.total_tasks,
-      completed_tasks: epic.completed_tasks,
-      labels: epic.labels,
-      business_value: epic.business_value
+      title: getSafeEpicValue(epic.title, ''),
+      description: getSafeEpicValue(epic.description, ''),
+      priority: getSafeEpicValue(epic.priority, 'Medium'),
+      status: getSafeEpicValue(epic.status, 'Not Started'),
+      assignee_id: getSafeEpicValue(epic.assignee_id, ''),
+      due_date: getSafeEpicValue(epic.due_date, ''),
+      total_story_points: getSafeEpicValue(epic.total_story_points, 0),
+      completed_story_points: getSafeEpicValue(epic.completed_story_points, 0),
+      total_tasks: getSafeEpicValue(epic.total_tasks, 0),
+      completed_tasks: getSafeEpicValue(epic.completed_tasks, 0),
+      labels: getSafeEpicValue(epic.labels, []),
+      business_value: getSafeEpicValue(epic.business_value, '')
     })
     setIsEditing(false)
   }
@@ -233,7 +245,7 @@ export function EpicViewEditModal({
                     onClick={handleCancel}
                     disabled={loading}
                   >
-                    <Cancel className="w-4 h-4 mr-2" />
+                    <X className="w-4 h-4 mr-2" />
                     Cancel
                   </Button>
                   <Button
@@ -302,7 +314,7 @@ export function EpicViewEditModal({
                 <Label htmlFor="status">Status</Label>
                 {isEditing ? (
                   <Select
-                    value={formData.status}
+                    value={formData.status || 'Not Started'}
                     onValueChange={(value) => handleInputChange('status', value)}
                   >
                     <SelectTrigger className="mt-1">
@@ -329,7 +341,7 @@ export function EpicViewEditModal({
                 <Label htmlFor="priority">Priority</Label>
                 {isEditing ? (
                   <Select
-                    value={formData.priority}
+                    value={formData.priority || 'Medium'}
                     onValueChange={(value) => handleInputChange('priority', value)}
                   >
                     <SelectTrigger className="mt-1">
@@ -350,6 +362,50 @@ export function EpicViewEditModal({
                   </div>
                 )}
               </div>
+            </div>
+
+            {/* Assignee */}
+            <div>
+              <Label htmlFor="assignee">Assignee</Label>
+              {isEditing ? (
+                <Select
+                  value={formData.assignee_id || 'unassigned'}
+                  onValueChange={(value) => handleInputChange('assignee_id', value === 'unassigned' ? '' : value)}
+                >
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="Select assignee..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="unassigned">Unassigned</SelectItem>
+                    {teamMembers.map((member) => (
+                      <SelectItem key={member.id} value={member.id}>
+                        <div className="flex items-center space-x-2">
+                          <div className="w-6 h-6 rounded-full bg-[#28A745] flex items-center justify-center text-white text-xs font-medium">
+                            {member.name?.charAt(0) || 'U'}
+                          </div>
+                          <span>{member.name}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <div className="mt-1">
+                  {epic.assignee_name ? (
+                    <div className="flex items-center space-x-2">
+                      <div className="w-8 h-8 rounded-full bg-[#28A745] flex items-center justify-center text-white text-sm font-medium">
+                        {epic.assignee_name?.charAt(0) || 'U'}
+                      </div>
+                      <div>
+                        <div className="font-medium">{epic.assignee_name}</div>
+                        <div className="text-sm text-gray-500">Team Member</div>
+                      </div>
+                    </div>
+                  ) : (
+                    <span className="text-gray-500 italic">Unassigned</span>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Due Date */}
@@ -597,15 +653,14 @@ export function EpicViewEditModal({
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {epic.assignee ? (
+                  {epic.assignee_name ? (
                     <div className="flex items-center space-x-3">
                       <div className="w-10 h-10 rounded-full bg-[#28A745] flex items-center justify-center text-white font-medium">
-                        {epic.assignee.name.charAt(0)}
+                        {epic.assignee_name.charAt(0)}
                       </div>
                       <div>
-                        <div className="font-medium">{epic.assignee.name}</div>
-                        <div className="text-sm text-gray-500">{epic.assignee.email}</div>
-                        <div className="text-sm text-gray-500">{epic.assignee.department}</div>
+                        <div className="font-medium">{epic.assignee_name}</div>
+                        <div className="text-sm text-gray-500">Team Member</div>
                       </div>
                     </div>
                   ) : (

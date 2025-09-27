@@ -410,7 +410,6 @@ export function Tasks({ user }: TasksProps) {
         priority: backlogItem.priority,
         project_id: backlogItem.projectId,
         assignee_id: backlogItem.assigneeId,
-        epic_id: backlogItem.epicId || null,
         story_points: backlogItem.storyPoints || 0,
         acceptance_criteria: backlogItem.acceptanceCriteria.filter(criteria => criteria.trim() !== ''),
         tags: backlogItem.labels || []

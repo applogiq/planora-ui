@@ -32,10 +32,11 @@ import {
   User
 } from 'lucide-react'
 import logoImage from 'figma:asset/6748e9361ee0546a59b88c4fb2d8d612f9260020.png'
+import { SessionStorageService } from '../../utils/sessionStorage'
 import { ProjectDashboard } from './ProjectDashboard'
 import { TasksView } from './TasksView'
 import { FilesView } from './FilesView'
-import { BacklogView } from './BacklogView'
+import { BacklogView } from './backlog'
 import { SprintsView } from './SprintsView'
 import { KanbanBoardView } from './KanbanBoardView'
 import { WaterfallPhasesView } from './WaterfallPhasesView'
@@ -46,7 +47,7 @@ import { ReportsView } from './ReportsView'
 import { ActivityView } from './ActivityView'
 import { ProjectSettings } from './ProjectSettings'
 import { ProjectEditModal } from './ProjectEditModal'
-import { EpicManagement } from './EpicManagement'
+import { Epic } from './Epic'
 
 interface ProjectDetailsProps {
   projectId: string
@@ -64,17 +65,27 @@ export function ProjectDetails({ projectId, onBack, user, onLogout }: ProjectDet
     error
   } = useAppSelector((state) => state.projects)
 
+
   const [activeView, setActiveView] = useState('dashboard')
   const [showEditModal, setShowEditModal] = useState(false)
   const [darkMode, setDarkMode] = useState(false)
   const [showUserMenu, setShowUserMenu] = useState(false)
 
-  // Load project data
+  // Load project data and manage session storage
   useEffect(() => {
     if (projectId) {
       dispatch(fetchProjectById(projectId))
+      // Store project ID in session storage for persistence
+      SessionStorageService.setCurrentProjectId(projectId)
     }
   }, [dispatch, projectId])
+
+  // Store project data in session storage when loaded
+  useEffect(() => {
+    if (project) {
+      SessionStorageService.setCurrentProjectData(project)
+    }
+  }, [project])
 
   // Toggle dark mode
   useEffect(() => {
@@ -112,6 +123,7 @@ export function ProjectDetails({ projectId, onBack, user, onLogout }: ProjectDet
       case 'agile':
         return [
           { value: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+          { value: 'epics', label: 'Epics', icon: Layers },
           { value: 'backlog', label: 'Backlog', icon: GitBranch },
           { value: 'sprints', label: 'Sprints', icon: Target },
           { value: 'tasks', label: 'Tasks', icon: CheckSquare },
@@ -194,8 +206,10 @@ export function ProjectDetails({ projectId, onBack, user, onLogout }: ProjectDet
     switch (activeView) {
       case 'dashboard':
         return <ProjectDashboard project={project} user={user} />
+      case 'epics':
+        return <Epic projectId={projectId} user={user} teamMembers={project?.team_members_detail || []} />
       case 'backlog':
-        return <BacklogView project={project} user={user} />
+        return <BacklogView projectId={projectId} user={user} project={project} />
       case 'sprints':
         return <SprintsView project={project} user={user} />
       case 'kanban':
