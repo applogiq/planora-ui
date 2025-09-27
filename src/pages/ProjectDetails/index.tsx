@@ -34,7 +34,7 @@ import {
 import logoImage from 'figma:asset/6748e9361ee0546a59b88c4fb2d8d612f9260020.png'
 import { SessionStorageService } from '../../utils/sessionStorage'
 import { ProjectDashboard } from './ProjectDashboard'
-import { TasksView } from './TasksView'
+import { TasksView } from './Tasks/TasksView'
 import { FilesView } from './FilesView'
 import { BacklogView } from './backlog'
 import { SprintsView } from './SprintsView'
@@ -392,55 +392,55 @@ export function ProjectDetails({ projectId, onBack, user, onLogout }: ProjectDet
 
       <div className="flex h-screen pt-16">
 
-        {/* Left Sidebar - Exactly matching screenshot */}
-        <div className="w-80 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700">
+        {/* Left Sidebar - Compact design */}
+        <div className="w-48 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700">
 
-          {/* Project Information */}
-          <div className="p-6 border-b border-gray-100 dark:border-gray-700">
-            <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
+          {/* Project Information - Compact */}
+          <div className="p-3 border-b border-gray-100 dark:border-gray-700">
+            <h1 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2 truncate">
               {project.name}
             </h1>
-            <p className="text-gray-500 dark:text-gray-400 text-sm mb-4">
-              {project.description || 'Complete redesign of the main web application with new UI/UX'}
+            <p className="text-gray-500 dark:text-gray-400 text-xs mb-2 line-clamp-2">
+              {project.description || 'Project description'}
             </p>
 
-            {/* Status Badges */}
-            <div className="flex gap-2 mb-4">
+            {/* Status Badges - Stacked */}
+            <div className="flex flex-col gap-1 mb-2">
               <Badge
                 variant="secondary"
-                className="bg-green-100 text-green-800 hover:bg-green-100"
+                className="bg-green-100 text-green-800 hover:bg-green-100 text-xs py-0.5"
               >
                 {project.status}
               </Badge>
               <Badge
                 variant="secondary"
-                className="bg-red-100 text-red-800 hover:bg-red-100"
+                className="bg-red-100 text-red-800 hover:bg-red-100 text-xs py-0.5"
               >
-                {project.priority} priority
+                {project.priority}
               </Badge>
             </div>
 
-            {/* Team Members */}
-            <div className="flex items-center gap-1 mb-4">
+            {/* Team Members - Compact */}
+            <div className="flex items-center gap-1">
               {project?.teamMembers?.slice(0, 3).map((memberId: string, index: number) => (
                 <div
                   key={memberId || index}
-                  className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center text-white text-xs font-medium"
+                  className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center text-white text-xs font-medium"
                 >
                   {memberId?.charAt(0)?.toUpperCase() || '?'}
                 </div>
               ))}
               {project?.teamMembers?.length > 3 && (
-                <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 text-xs">
+                <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 text-xs">
                   +{project.teamMembers.length - 3}
                 </div>
               )}
             </div>
           </div>
 
-          {/* Navigation Menu */}
+          {/* Navigation Menu - Compact */}
           <div className="flex-1">
-            <nav className="p-4 space-y-1">
+            <nav className="p-2 space-y-1">
               {menuItems.map((item) => {
                 const Icon = item.icon
                 const isActive = activeView === item.value
@@ -450,30 +450,30 @@ export function ProjectDetails({ projectId, onBack, user, onLogout }: ProjectDet
                     key={item.value}
                     onClick={() => setActiveView(item.value)}
                     className={`
-                      w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium text-left transition-colors
+                      w-full flex items-center space-x-2 px-2 py-2 rounded-lg text-xs font-medium text-left transition-colors
                       ${isActive
                         ? 'bg-green-100 text-green-900 dark:bg-green-900 dark:text-green-100'
                         : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-100'
                       }
                     `}
                   >
-                    <Icon className="w-4 h-4" />
-                    <span>{item.label}</span>
+                    <Icon className="w-4 h-4 flex-shrink-0" />
+                    <span className="truncate">{item.label}</span>
                   </button>
                 )
               })}
             </nav>
           </div>
 
-          {/* Progress Section at Bottom */}
-          <div className="p-6 border-t border-gray-100 dark:border-gray-700">
-            <div className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
+          {/* Progress Section at Bottom - Compact */}
+          <div className="p-3 border-t border-gray-100 dark:border-gray-700">
+            <div className="text-xs font-medium text-gray-900 dark:text-gray-100 mb-1">
               Progress
             </div>
-            <div className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">
+            <div className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-1">
               {project.progress || 75}%
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-2 mb-1">
+            <div className="w-full bg-gray-200 rounded-full h-2">
               <div
                 className="bg-green-500 h-2 rounded-full transition-all duration-300"
                 style={{ width: `${project.progress || 75}%` }}

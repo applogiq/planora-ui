@@ -2,24 +2,24 @@ import { authApiService } from './authApi';
 import { getApiUrl } from '../config/api';
 
 export interface Task {
-  id: string;
+  id?: string;
   title: string;
   description: string;
   status: string;
   priority: string;
-  assignee_id: string | null;
   project_id: string;
-  epic_id?: string | null;
+  assignee_id?: string | null;
   start_date?: string;
   due_date?: string;
   progress: number;
   tags: string[];
-  subtasks?: Subtask[];
-  comments?: Comment[];
-  attachments?: Attachment[];
-  time_tracked?: string;
-  created_at: string;
-  updated_at: string;
+  subtasks: any[];
+  comments: any[];
+  attachments: any[];
+  is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
+  assignee_name?: string;
   assignee?: {
     id: string;
     name: string;
@@ -59,16 +59,16 @@ export interface CreateTaskRequest {
   description: string;
   status: string;
   priority: string;
-  assignee_id: string | null;
   project_id: string;
-  epic_id?: string | null;
+  assignee_id?: string | null;
   start_date?: string;
   due_date?: string;
   progress?: number;
   tags?: string[];
-  subtasks?: Subtask[];
-  comments?: Comment[];
-  attachments?: Attachment[];
+  subtasks?: any[];
+  comments?: any[];
+  attachments?: any[];
+  is_active?: boolean;
 }
 
 export interface UpdateTaskRequest extends Partial<CreateTaskRequest> {

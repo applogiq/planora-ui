@@ -2,6 +2,7 @@ import { authApiService } from './authApi';
 import { getApiUrl } from '../config/api';
 
 export interface Story {
+  id: string;
   title: string;
   description: string;
   story_type: string;

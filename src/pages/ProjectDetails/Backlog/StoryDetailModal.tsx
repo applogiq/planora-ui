@@ -25,6 +25,7 @@ import {
   Activity
 } from 'lucide-react'
 import { Story, storiesApiService, SubTask } from '../../../services/storiesApi'
+import { epicApiService, Epic } from '../../../services/epicApi'
 import { ProjectMemberDetail } from '../../../services/projectApi'
 import { SessionStorageService } from '../../../utils/sessionStorage'
 import { toast } from 'sonner'
@@ -47,6 +48,8 @@ export function StoryDetailModal({ story, isOpen, onClose, onUpdate, projectId: 
   const [newComment, setNewComment] = useState('')
   const [projectTeamMembers, setProjectTeamMembers] = useState<ProjectMemberDetail[]>([])
   const [projectTeamLead, setProjectTeamLead] = useState<ProjectMemberDetail | null>(null)
+  const [epics, setEpics] = useState<Epic[]>([])
+  const [epicsLoading, setEpicsLoading] = useState(false)
 
   useEffect(() => {
     if (story) {
@@ -61,6 +64,27 @@ export function StoryDetailModal({ story, isOpen, onClose, onUpdate, projectId: 
       setProjectTeamLead(project.team_lead_detail)
     }
   }, [project])
+
+  // Load epics when modal opens
+  useEffect(() => {
+    if (isOpen && effectiveProjectId) {
+      fetchEpics()
+    }
+  }, [isOpen, effectiveProjectId])
+
+  const fetchEpics = async () => {
+    if (!effectiveProjectId) return
+
+    try {
+      setEpicsLoading(true)
+      const response = await epicApiService.getEpics(1, 50, effectiveProjectId)
+      setEpics(response.items)
+    } catch (error) {
+      console.error('Error fetching epics:', error)
+    } finally {
+      setEpicsLoading(false)
+    }
+  }
 
 
   if (!story) return null
@@ -94,8 +118,8 @@ export function StoryDetailModal({ story, isOpen, onClose, onUpdate, projectId: 
 
   const handleSave = async () => {
     try {
-      if (editedStory.epic_id) {
-        await storiesApiService.updateStory(editedStory.epic_id, editedStory)
+      if (editedStory.id) {
+        await storiesApiService.updateStory(editedStory.id, editedStory)
         toast.success('Story updated successfully')
         setIsEditing(false)
         onUpdate()
@@ -177,6 +201,40 @@ export function StoryDetailModal({ story, isOpen, onClose, onUpdate, projectId: 
               <div className="flex-1 space-y-4">
                 {isEditing ? (
                   <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label>Story Type</Label>
+                        <Select
+                          value={editedStory.story_type || ''}
+                          onValueChange={(value) => setEditedStory({ ...editedStory, story_type: value })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="story">Story</SelectItem>
+                            <SelectItem value="bug">Bug</SelectItem>
+                            <SelectItem value="task">Task</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label>Priority</Label>
+                        <Select
+                          value={editedStory.priority || ''}
+                          onValueChange={(value) => setEditedStory({ ...editedStory, priority: value })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select priority" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="high">High</SelectItem>
+                            <SelectItem value="medium">Medium</SelectItem>
+                            <SelectItem value="low">Low</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
                     <div>
                       <Label>Title</Label>
                       <Input
@@ -190,6 +248,146 @@ export function StoryDetailModal({ story, isOpen, onClose, onUpdate, projectId: 
                         value={editedStory.description || ''}
                         onChange={(e) => setEditedStory({ ...editedStory, description: e.target.value })}
                         rows={4}
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label>Story Points</Label>
+                        <Input
+                          type="number"
+                          placeholder="0"
+                          value={editedStory.story_points || ''}
+                          onChange={(e) => setEditedStory({ ...editedStory, story_points: parseInt(e.target.value) || 0 })}
+                        />
+                      </div>
+                      <div>
+                        <Label>Status</Label>
+                        <Select
+                          value={editedStory.status || ''}
+                          onValueChange={(value) => setEditedStory({ ...editedStory, status: value })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select status" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="todo">To Do</SelectItem>
+                            <SelectItem value="in-progress">In Progress</SelectItem>
+                            <SelectItem value="done">Done</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div>
+                      <Label>Epic</Label>
+                      <Select
+                        value={editedStory.epic_id || 'no-epic'}
+                        onValueChange={(value) => {
+                          if (value === 'no-epic') {
+                            setEditedStory({
+                              ...editedStory,
+                              epic_id: '',
+                              epic_title: ''
+                            })
+                          } else {
+                            const selectedEpic = epics.find(epic => epic.id === value)
+                            setEditedStory({
+                              ...editedStory,
+                              epic_id: value,
+                              epic_title: selectedEpic?.title || ''
+                            })
+                          }
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select epic" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="no-epic">No Epic</SelectItem>
+                          {epicsLoading ? (
+                            <SelectItem value="loading" disabled>Loading epics...</SelectItem>
+                          ) : epics.length > 0 ? (
+                            epics.map((epic) => (
+                              <SelectItem key={epic.id} value={epic.id}>
+                                {epic.title} ({epic.status})
+                              </SelectItem>
+                            ))
+                          ) : (
+                            <SelectItem value="no-epics" disabled>No epics available</SelectItem>
+                          )}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Business Value</Label>
+                      <Textarea
+                        placeholder="Describe the business value and rationale for this story..."
+                        rows={3}
+                        value={editedStory.business_value || ''}
+                        onChange={(e) => setEditedStory({ ...editedStory, business_value: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <Label>Acceptance Criteria</Label>
+                      <div className="space-y-2">
+                        {Array.isArray(editedStory.acceptance_criteria) ? editedStory.acceptance_criteria.map((criteria, index) => (
+                          <div key={index} className="flex items-center space-x-2">
+                            <Input
+                              placeholder="Enter acceptance criteria"
+                              value={criteria}
+                              onChange={(e) => {
+                                const newCriteria = [...(editedStory.acceptance_criteria || [])]
+                                newCriteria[index] = e.target.value
+                                setEditedStory({ ...editedStory, acceptance_criteria: newCriteria })
+                              }}
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                const newCriteria = editedStory.acceptance_criteria?.filter((_, i) => i !== index) || []
+                                setEditedStory({ ...editedStory, acceptance_criteria: newCriteria })
+                              }}
+                              className="text-red-600 hover:text-red-700"
+                            >
+                              <X className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        )) : (
+                          <div className="flex items-center space-x-2">
+                            <Input
+                              placeholder="Enter acceptance criteria"
+                              value=""
+                              onChange={(e) => {
+                                setEditedStory({ ...editedStory, acceptance_criteria: [e.target.value] })
+                              }}
+                            />
+                          </div>
+                        )}
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const newCriteria = [...(editedStory.acceptance_criteria || []), '']
+                            setEditedStory({ ...editedStory, acceptance_criteria: newCriteria })
+                          }}
+                          className="w-full"
+                        >
+                          <Plus className="w-4 h-4 mr-2" />
+                          Add Acceptance Criteria
+                        </Button>
+                      </div>
+                    </div>
+                    <div>
+                      <Label>Labels (comma-separated)</Label>
+                      <Input
+                        placeholder="frontend, ui, enhancement"
+                        value={editedStory.labels?.join(', ') || ''}
+                        onChange={(e) => setEditedStory({
+                          ...editedStory,
+                          labels: e.target.value.split(',').map(label => label.trim()).filter(label => label)
+                        })}
                       />
                     </div>
                   </div>

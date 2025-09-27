@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Button } from '../../../components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card'
 import { Badge } from '../../../components/ui/badge'
+import { Avatar, AvatarFallback, AvatarImage } from '../../../components/ui/avatar'
 import { Input } from '../../../components/ui/input'
 import {
   Select,
@@ -41,7 +42,13 @@ import {
   Target,
   CheckCircle2,
   Clock,
-  AlertCircle
+  AlertCircle,
+  Grid3x3,
+  List,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight
 } from 'lucide-react'
 import { epicApiService, Epic, EpicsResponse } from '../../../services/epicApi'
 import { EpicCreateModal } from './EpicCreateModal'
@@ -65,17 +72,19 @@ export function EpicList({ projectId, user, teamMembers = [] }: EpicListProps) {
   const [showViewEditModal, setShowViewEditModal] = useState(false)
   const [deleteEpicId, setDeleteEpicId] = useState<string | null>(null)
 
-  // Filters
+  // Filters and Pagination
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [priorityFilter, setPriorityFilter] = useState('all')
+  const [viewMode, setViewMode] = useState<'card' | 'table'>('table')
+  const [itemsPerPage] = useState(10)
 
   const loadEpics = async (page = 1) => {
     try {
       setLoading(true)
       const response: EpicsResponse = await epicApiService.getEpics(
         page,
-        20,
+        itemsPerPage,
         projectId,
         statusFilter === 'all' ? undefined : statusFilter,
         priorityFilter === 'all' ? undefined : priorityFilter,
@@ -158,105 +167,157 @@ export function EpicList({ projectId, user, teamMembers = [] }: EpicListProps) {
   }
 
   return (
-    <div className="space-y-8">
-      {/* Header Section */}
-      <div className="space-y-6">
-        {/* Title */}
-        <div className="space-y-2">
+    <div className="space-y-6">
+      {/* Header - Title and Create Button */}
+      <div className="flex items-center justify-between">
+        <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
             Epic Management
           </h1>
-          <p className="text-gray-600 dark:text-gray-400">
+          <p className="text-gray-600 dark:text-gray-400 mt-1">
             Manage project epics and track their progress
           </p>
         </div>
+        <Button
+          onClick={handleCreateEpic}
+          className="bg-[#28A745] hover:bg-[#218838] text-white px-6 py-2"
+        >
+          <Plus className="w-4 h-4 mr-2" />
+          Create Epic
+        </Button>
+      </div>
 
-        {/* Controls Row - All in one line */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 shadow-sm">
-          <div className="flex flex-wrap items-center gap-4">
-            {/* Search */}
-            <div className="relative min-w-[300px] flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                placeholder="Search epics..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 h-10 border-gray-300 dark:border-gray-600 focus:border-[#28A745] focus:ring-[#28A745] focus:ring-1"
-              />
-            </div>
+      {/* Filters and Controls Row */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-4">
+          {/* Search */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              placeholder="Search epics..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 w-80 h-10"
+            />
+          </div>
 
-            {/* Status Filter */}
-            <div className="flex items-center gap-2">
-              <Filter className="w-4 h-4 text-gray-500" />
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-40 h-10 border-gray-300 dark:border-gray-600 focus:border-[#28A745] focus:ring-[#28A745] focus:ring-1">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Statuses</SelectItem>
-                  <SelectItem value="Not Started">Not Started</SelectItem>
-                  <SelectItem value="In Progress">In Progress</SelectItem>
-                  <SelectItem value="Completed">Completed</SelectItem>
-                  <SelectItem value="On Hold">On Hold</SelectItem>
-                  <SelectItem value="Cancelled">Cancelled</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          {/* Status Filter */}
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="All Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Statuses</SelectItem>
+              <SelectItem value="Not Started">Not Started</SelectItem>
+              <SelectItem value="In Progress">In Progress</SelectItem>
+              <SelectItem value="Completed">Completed</SelectItem>
+              <SelectItem value="On Hold">On Hold</SelectItem>
+              <SelectItem value="Cancelled">Cancelled</SelectItem>
+            </SelectContent>
+          </Select>
 
-            {/* Priority Filter */}
-            <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-              <SelectTrigger className="w-40 h-10 border-gray-300 dark:border-gray-600 focus:border-[#28A745] focus:ring-[#28A745] focus:ring-1">
-                <SelectValue placeholder="Priority" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Priorities</SelectItem>
-                <SelectItem value="Low">Low</SelectItem>
-                <SelectItem value="Medium">Medium</SelectItem>
-                <SelectItem value="High">High</SelectItem>
-                <SelectItem value="Critical">Critical</SelectItem>
-              </SelectContent>
-            </Select>
+          {/* Priority Filter */}
+          <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="All Priorities" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Priorities</SelectItem>
+              <SelectItem value="Low">Low</SelectItem>
+              <SelectItem value="Medium">Medium</SelectItem>
+              <SelectItem value="High">High</SelectItem>
+              <SelectItem value="Critical">Critical</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
 
-            {/* Create Epic Button */}
+        <div className="flex items-center space-x-4">
+          {/* View Toggle */}
+          <div className="flex items-center space-x-2 bg-gray-100 rounded-lg p-1">
             <Button
-              onClick={handleCreateEpic}
-              className="bg-[#28A745] hover:bg-[#218838] text-white h-10 px-6 font-medium whitespace-nowrap shadow-sm"
+              variant={viewMode === 'card' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('card')}
+              className="h-8 px-3"
             >
-              <Plus className="w-4 h-4 mr-2" />
-              Create Epic
+              <Grid3x3 className="w-4 h-4 mr-1" />
+              Cards
             </Button>
+            <Button
+              variant={viewMode === 'table' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('table')}
+              className="h-8 px-3"
+            >
+              <List className="w-4 h-4 mr-1" />
+              Table
+            </Button>
+          </div>
+
+          {/* Results Count */}
+          <div className="text-sm text-gray-600">
+            Showing {totalItems > 0 ? ((currentPage - 1) * itemsPerPage) + 1 : 0}-{Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems} epics
           </div>
         </div>
       </div>
 
-      {/* Results Section */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
-        {/* Results Header */}
-        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-[#28A745]/10 rounded-lg">
-                <Target className="w-5 h-5 text-[#28A745]" />
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Epics</h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400">{totalItems} total epics</p>
-              </div>
+      {/* Epic Statistics */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-4 text-center">
+            <div className="flex items-center justify-center mb-2">
+              <Target className="w-5 h-5 text-[#007BFF] mr-2" />
             </div>
-            <Badge variant="outline" className="bg-[#28A745]/10 text-[#28A745] border-[#28A745]/20 font-medium">
-              {epics.length} of {totalItems}
-            </Badge>
-          </div>
-        </div>
+            <div className="text-2xl font-semibold text-[#007BFF]">
+              {epics.filter(epic => epic.status === 'In Progress').length}
+            </div>
+            <div className="text-xs text-muted-foreground">Active Epics</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 text-center">
+            <div className="flex items-center justify-center mb-2">
+              <CheckCircle2 className="w-5 h-5 text-[#28A745] mr-2" />
+            </div>
+            <div className="text-2xl font-semibold text-[#28A745]">
+              {epics.filter(epic => epic.status === 'Completed').length}
+            </div>
+            <div className="text-xs text-muted-foreground">Completed</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 text-center">
+            <div className="flex items-center justify-center mb-2">
+              <Clock className="w-5 h-5 text-[#FFC107] mr-2" />
+            </div>
+            <div className="text-2xl font-semibold text-[#FFC107]">
+              {Math.round(epics.reduce((sum, epic) => sum + (epic.completion_percentage || 0), 0) / Math.max(epics.length, 1))}%
+            </div>
+            <div className="text-xs text-muted-foreground">Avg Progress</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 text-center">
+            <div className="flex items-center justify-center mb-2">
+              <AlertCircle className="w-5 h-5 text-[#DC3545] mr-2" />
+            </div>
+            <div className="text-2xl font-semibold text-[#DC3545]">
+              {epics.filter(epic => epic.priority === 'High' || epic.priority === 'Critical').length}
+            </div>
+            <div className="text-xs text-muted-foreground">High Priority</div>
+          </CardContent>
+        </Card>
+      </div>
 
-        {/* Content Area */}
-        <div className="p-0">
-          {loading ? (
-            <div className="flex flex-col items-center justify-center py-20">
-              <div className="animate-spin rounded-full h-12 w-12 border-4 border-gray-200 border-t-[#28A745] mb-4"></div>
-              <p className="text-gray-500 dark:text-gray-400">Loading epics...</p>
-            </div>
-          ) : epics.length > 0 ? (
+      {/* Content Section */}
+      <div className="space-y-4">
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-20">
+            <div className="animate-spin rounded-full h-12 w-12 border-4 border-gray-200 border-t-[#28A745] mb-4"></div>
+            <p className="text-gray-500 dark:text-gray-400">Loading epics...</p>
+          </div>
+        ) : epics.length > 0 ? (
+          viewMode === 'table' ? (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
@@ -277,7 +338,7 @@ export function EpicList({ projectId, user, teamMembers = [] }: EpicListProps) {
                       className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors duration-200 border-b border-gray-100 dark:border-gray-700/50 cursor-pointer"
                       onClick={() => handleViewEpic(epic)}
                     >
-                      <TableCell className="px-6 py-4">
+                      <TableCell className="px-4 py-4">
                         <div className="space-y-1 max-w-xs">
                           <div className="font-medium text-gray-900 dark:text-gray-100 line-clamp-1">
                             {epic.title}
@@ -299,9 +360,12 @@ export function EpicList({ projectId, user, teamMembers = [] }: EpicListProps) {
                       </TableCell>
                       <TableCell className="px-4 py-4">
                         <div className="flex items-center space-x-3">
-                          <div className="w-8 h-8 rounded-full bg-[#28A745] flex items-center justify-center text-white text-sm font-medium">
-                            {epic.assignee_name?.charAt(0) || 'U'}
-                          </div>
+                          <Avatar className="w-8 h-8 ring-2 ring-green-100 dark:ring-green-900">
+                            <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${epic.assignee_name || 'unassigned'}`} alt={epic.assignee_name} />
+                            <AvatarFallback className="bg-[#28A745] text-white text-sm font-medium">
+                              {epic.assignee_name?.charAt(0) || 'U'}
+                            </AvatarFallback>
+                          </Avatar>
                           <div className="min-w-0">
                             <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
                               {epic.assignee_name || 'Unassigned'}
@@ -380,73 +444,225 @@ export function EpicList({ projectId, user, teamMembers = [] }: EpicListProps) {
                 </TableBody>
               </Table>
             </div>
-          ) : null}
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 p-6">
+              {epics.map((epic) => (
+                <Card
+                  key={epic.id}
+                  className="group relative overflow-hidden hover:shadow-xl transition-all duration-300 hover:scale-[1.02] border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 bg-white dark:bg-gray-800 cursor-pointer"
+                  onClick={() => handleViewEpic(epic)}
+                >
+                  {/* Status Indicator Bar */}
+                  <div className={`absolute top-0 left-0 right-0 h-1 ${
+                    epic.status === 'Completed' ? 'bg-gradient-to-r from-green-400 to-green-600' :
+                    epic.status === 'In Progress' ? 'bg-gradient-to-r from-blue-400 to-blue-600' :
+                    epic.status === 'Planning' ? 'bg-gradient-to-r from-yellow-400 to-yellow-600' :
+                    'bg-gradient-to-r from-gray-400 to-gray-600'
+                  }`} />
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-              <div className="text-sm text-gray-600 dark:text-gray-400">
-                Showing <span className="font-medium text-gray-900 dark:text-gray-100">{((currentPage - 1) * 20) + 1}</span> to <span className="font-medium text-gray-900 dark:text-gray-100">{Math.min(currentPage * 20, totalItems)}</span> of <span className="font-medium text-gray-900 dark:text-gray-100">{totalItems}</span> results
-              </div>
-              <div className="flex items-center space-x-3">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => loadEpics(currentPage - 1)}
-                  disabled={currentPage === 1}
-                  className="h-9 px-4 border-gray-300 dark:border-gray-600"
-                >
-                  Previous
-                </Button>
-                <div className="flex items-center space-x-2">
-                  <span className="text-sm text-gray-500">Page</span>
-                  <span className="text-sm font-medium text-gray-900 dark:text-gray-100 bg-[#28A745]/10 px-2 py-1 rounded">
-                    {currentPage}
-                  </span>
-                  <span className="text-sm text-gray-500">of {totalPages}</span>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => loadEpics(currentPage + 1)}
-                  disabled={currentPage === totalPages}
-                  className="h-9 px-4 border-gray-300 dark:border-gray-600"
-                >
-                  Next
-                </Button>
-              </div>
+                  <CardContent className="p-6">
+                    <div className="space-y-5">
+                      {/* Header with Action Buttons */}
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1 pr-4">
+                          <div className="flex items-center space-x-2 mb-2">
+                            <Target className="w-5 h-5 text-indigo-500" />
+                            <h3 className="font-bold text-gray-900 dark:text-gray-100 text-lg leading-tight">
+                              {epic.title}
+                            </h3>
+                          </div>
+                          <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-3 leading-relaxed">
+                            {epic.description}
+                          </p>
+                        </div>
+                        <div className="flex flex-col space-y-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0 hover:bg-blue-100 hover:text-blue-600 rounded-full"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleViewEpic(epic)
+                            }}
+                          >
+                            <Eye className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0 hover:bg-green-100 hover:text-green-600 rounded-full"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleViewEpic(epic)
+                            }}
+                          >
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Status and Priority Badges */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <Badge
+                            variant="outline"
+                            className={`px-3 py-1 font-semibold text-xs rounded-full shadow-sm ${
+                              epic.status === 'Completed' ? 'bg-green-50 text-green-700 border-green-200' :
+                              epic.status === 'In Progress' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                              epic.status === 'Planning' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
+                              'bg-gray-50 text-gray-700 border-gray-200'
+                            }`}
+                          >
+                            <CheckCircle2 className="w-3 h-3 mr-1" />
+                            {epic.status}
+                          </Badge>
+                          <Badge
+                            variant="outline"
+                            className={`px-3 py-1 font-semibold text-xs rounded-full shadow-sm ${
+                              epic.priority === 'Critical' ? 'bg-red-50 text-red-700 border-red-200' :
+                              epic.priority === 'High' ? 'bg-orange-50 text-orange-700 border-orange-200' :
+                              epic.priority === 'Medium' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
+                              'bg-green-50 text-green-700 border-green-200'
+                            }`}
+                          >
+                            <AlertCircle className="w-3 h-3 mr-1" />
+                            {epic.priority}
+                          </Badge>
+                        </div>
+                      </div>
+
+                      {/* Progress Section */}
+                      <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-2">
+                            <Clock className="w-4 h-4 text-gray-500" />
+                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Progress</span>
+                          </div>
+                          <span className="text-xl font-bold text-gray-900 dark:text-gray-100">
+                            {epic.completion_percentage}%
+                          </span>
+                        </div>
+                        <div className="relative w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
+                          <div
+                            className={`h-3 rounded-full transition-all duration-500 ${
+                              epic.completion_percentage >= 80 ? 'bg-gradient-to-r from-green-400 to-green-600' :
+                              epic.completion_percentage >= 50 ? 'bg-gradient-to-r from-yellow-400 to-yellow-600' :
+                              'bg-gradient-to-r from-blue-400 to-blue-600'
+                            }`}
+                            style={{ width: `${epic.completion_percentage}%` }}
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-pulse" />
+                        </div>
+                      </div>
+
+                      {/* Bottom Info */}
+                      <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
+                        {/* Assignee */}
+                        <div className="flex items-center space-x-3">
+                          <div className="relative">
+                            <Avatar className="w-10 h-10 ring-2 ring-blue-100 dark:ring-blue-900">
+                              <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${epic.assignee_name || 'unassigned'}`} alt={epic.assignee_name} />
+                              <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-purple-600 text-white text-sm font-bold">
+                                {epic.assignee_name ? epic.assignee_name.substring(0, 2).toUpperCase() : 'UN'}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-400 rounded-full border-2 border-white shadow-sm" />
+                          </div>
+                          <div>
+                            <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+                              {epic.assignee_name || 'Unassigned'}
+                            </span>
+                            <p className="text-xs text-gray-500">Assignee</p>
+                          </div>
+                        </div>
+
+                        {/* Due Date */}
+                        <div className="text-right">
+                          <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
+                            <Calendar className="w-4 h-4" />
+                            <span className="font-medium">
+                              {epic.due_date ? formatDate(epic.due_date) : 'No due date'}
+                            </span>
+                          </div>
+                          <p className="text-xs text-gray-500 mt-1">Due date</p>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+
+                  {/* Hover overlay effect */}
+                  <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+                </Card>
+              ))}
             </div>
-          )}
-        </div>
-      </div>
+          )
+        ) : null}
 
-      {/* Empty State */}
-      {epics.length === 0 && !loading && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
-          <div className="py-20 px-6">
-            <div className="text-center">
-              <div className="w-16 h-16 bg-[#28A745]/10 rounded-full flex items-center justify-center mx-auto mb-6">
-                <Target className="w-8 h-8 text-[#28A745]" />
-              </div>
-              <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
-                No epics found
-              </h3>
-              <p className="text-gray-600 dark:text-gray-400 mb-8 max-w-md mx-auto">
-                {searchTerm || statusFilter !== 'all' || priorityFilter !== 'all'
-                  ? 'No epics match your current filters. Try adjusting your search criteria or filters.'
-                  : 'Get started by creating your first epic to organize and track related user stories and tasks.'}
-              </p>
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+            <div className="text-sm text-gray-600">
+              Page {currentPage} of {totalPages}
+            </div>
+            <div className="flex items-center space-x-2">
               <Button
-                onClick={handleCreateEpic}
-                className="bg-[#28A745] hover:bg-[#218838] text-white h-10 px-6 font-medium shadow-sm"
+                variant="outline"
+                size="sm"
+                onClick={() => loadEpics(1)}
+                disabled={currentPage === 1}
+                className="h-8 w-8 p-0"
               >
-                <Plus className="w-4 h-4 mr-2" />
-                Create Your First Epic
+                <ChevronsLeft className="w-4 h-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => loadEpics(currentPage - 1)}
+                disabled={currentPage === 1}
+                className="h-8 w-8 p-0"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </Button>
+
+              {/* Page Numbers */}
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                const pageNum = Math.max(1, Math.min(totalPages - 4, currentPage - 2)) + i
+                if (pageNum > totalPages) return null
+                return (
+                  <Button
+                    key={pageNum}
+                    variant={currentPage === pageNum ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => loadEpics(pageNum)}
+                    className="h-8 w-8 p-0"
+                  >
+                    {pageNum}
+                  </Button>
+                )
+              })}
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => loadEpics(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className="h-8 w-8 p-0"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => loadEpics(totalPages)}
+                disabled={currentPage === totalPages}
+                className="h-8 w-8 p-0"
+              >
+                <ChevronsRight className="w-4 h-4" />
               </Button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Modals */}
       {showCreateModal && (

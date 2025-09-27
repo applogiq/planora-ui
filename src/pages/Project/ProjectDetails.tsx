@@ -61,11 +61,11 @@ import {
   Trash2
 } from 'lucide-react'
 import { ProjectDashboard } from './ProjectDashboard'
-import { TasksView } from './TasksView'
+import { TasksView } from '../ProjectDetails/Tasks/TasksView'
 import { FilesView } from './FilesView'
 // TimeTrackingView removed - module no longer available
 import { ActivityView } from './ActivityView'
-import { TaskModal } from './TaskModal'
+import { TaskModal } from '../ProjectDetails/Tasks/TaskModal'
 import { ProjectEditModal } from './ProjectEditModal'
 import { ProjectSettings } from './ProjectSettings'
 import { MethodologyViewRouter } from './MethodologyViews/MethodologyViewRouter'

@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card'
 import { Button } from '../../../components/ui/button'
 import { Badge } from '../../../components/ui/badge'
-import { Avatar, AvatarFallback } from '../../../components/ui/avatar'
+import { Avatar, AvatarFallback, AvatarImage } from '../../../components/ui/avatar'
 import { Input } from '../../../components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select'
 import { Textarea } from '../../../components/ui/textarea'
@@ -25,9 +25,19 @@ import {
   FileText,
   MessageSquare,
   Paperclip,
-  X
+  X,
+  Grid3x3,
+  List,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  ArrowRight,
+  MoreHorizontal
 } from 'lucide-react'
 import { storiesApiService, Story, CreateStoryRequest, SubTask } from '../../../services/storiesApi'
+import { epicApiService, Epic } from '../../../services/epicApi'
+import { sprintsApiService, Sprint } from '../../../services/sprintsApi'
 import { ProjectMemberDetail } from '../../../services/projectApi'
 import { StoryDetailModal } from './StoryDetailModal'
 import { SessionStorageService } from '../../../utils/sessionStorage'
@@ -70,6 +80,9 @@ export function BacklogView({ projectId: propProjectId, user, project }: Backlog
   const [searchTerm, setSearchTerm] = useState('')
   const [filterType, setFilterType] = useState('all')
   const [filterPriority, setFilterPriority] = useState('all')
+  const [viewMode, setViewMode] = useState<'card' | 'table'>('table')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage] = useState(10)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [selectedItem, setSelectedItem] = useState<Story | null>(null)
   const [showDetailModal, setShowDetailModal] = useState(false)
@@ -77,6 +90,12 @@ export function BacklogView({ projectId: propProjectId, user, project }: Backlog
   const [loading, setLoading] = useState(true)
   const [projectTeamMembers, setProjectTeamMembers] = useState<ProjectMemberDetail[]>([])
   const [projectTeamLead, setProjectTeamLead] = useState<ProjectMemberDetail | null>(null)
+  const [epics, setEpics] = useState<Epic[]>([])
+  const [epicsLoading, setEpicsLoading] = useState(false)
+  const [sprints, setSprints] = useState<Sprint[]>([])
+  const [sprintsLoading, setSprintsLoading] = useState(false)
+  const [showMoveToSprintModal, setShowMoveToSprintModal] = useState(false)
+  const [selectedStoryForMove, setSelectedStoryForMove] = useState<Story | null>(null)
   const [createStoryData, setCreateStoryData] = useState<CreateStoryRequest>({
     title: '',
     description: '',
@@ -95,6 +114,8 @@ export function BacklogView({ projectId: propProjectId, user, project }: Backlog
   useEffect(() => {
     if (effectiveProjectId) {
       fetchStories()
+      fetchEpics()
+      fetchSprints()
     }
   }, [effectiveProjectId])
 
@@ -136,6 +157,42 @@ export function BacklogView({ projectId: propProjectId, user, project }: Backlog
     }
   }
 
+  const fetchEpics = async () => {
+    if (!effectiveProjectId) {
+      console.warn('No project ID available for fetching epics')
+      return
+    }
+
+    try {
+      setEpicsLoading(true)
+      const response = await epicApiService.getEpics(1, 50, effectiveProjectId)
+      setEpics(response.items)
+    } catch (error) {
+      console.error('Error fetching epics:', error)
+      toast.error('Failed to fetch epics')
+    } finally {
+      setEpicsLoading(false)
+    }
+  }
+
+  const fetchSprints = async () => {
+    if (!effectiveProjectId) {
+      console.warn('No project ID available for fetching sprints')
+      return
+    }
+
+    try {
+      setSprintsLoading(true)
+      const response = await sprintsApiService.getSprints(effectiveProjectId)
+      setSprints(response.items)
+    } catch (error) {
+      console.error('Error fetching sprints:', error)
+      toast.error('Failed to fetch sprints')
+    } finally {
+      setSprintsLoading(false)
+    }
+  }
+
   const handleCreateStory = async () => {
     try {
       if (!createStoryData.title.trim()) {
@@ -155,7 +212,6 @@ export function BacklogView({ projectId: propProjectId, user, project }: Backlog
         // Clean other optional fields
         epic_id: createStoryData.epic_id?.trim() || undefined,
         epic_title: createStoryData.epic_title?.trim() || undefined,
-        sprint_id: createStoryData.sprint_id?.trim() || undefined,
         business_value: createStoryData.business_value?.trim() || undefined,
         // Clean labels array
         labels: createStoryData.labels?.filter(label => label.trim()) || [],
@@ -208,12 +264,66 @@ export function BacklogView({ projectId: propProjectId, user, project }: Backlog
     }
   }
 
+  const handleMoveToSprint = (story: Story) => {
+    setSelectedStoryForMove(story)
+    setShowMoveToSprintModal(true)
+  }
+
+  const handleConfirmMoveToSprint = async (sprintId: string) => {
+    if (!selectedStoryForMove) return
+
+    try {
+      const updateData = sprintId === 'remove-from-sprint'
+        ? { sprint_id: '' }
+        : { sprint_id: sprintId }
+
+      await storiesApiService.updateStory(selectedStoryForMove.id, updateData)
+
+      const successMessage = sprintId === 'remove-from-sprint'
+        ? 'Story removed from sprint successfully'
+        : 'Story moved to sprint successfully'
+
+      toast.success(successMessage)
+      setShowMoveToSprintModal(false)
+      setSelectedStoryForMove(null)
+      fetchStories()
+    } catch (error) {
+      console.error('Error updating story sprint:', error)
+      toast.error('Failed to update story sprint')
+    }
+  }
+
   const getTypeIcon = (type: string) => {
     switch (type) {
-      case 'story': return <Target className="w-4 h-4 text-blue-600" />
-      case 'bug': return <AlertTriangle className="w-4 h-4 text-red-600" />
-      case 'task': return <CheckCircle className="w-4 h-4 text-green-600" />
-      default: return <Target className="w-4 h-4 text-blue-600" />
+      case 'story': return <Target className="w-5 h-5 text-blue-600" />
+      case 'bug': return <AlertTriangle className="w-5 h-5 text-red-600" />
+      case 'task': return <CheckCircle className="w-5 h-5 text-green-600" />
+      default: return <Target className="w-5 h-5 text-blue-600" />
+    }
+  }
+
+  const getTypeBadge = (type: string) => {
+    switch (type) {
+      case 'story':
+        return <Badge className="bg-blue-100 text-blue-800 border-blue-300 text-xs font-medium px-2 py-1">
+          <Target className="w-3 h-3 mr-1" />
+          Story
+        </Badge>
+      case 'bug':
+        return <Badge className="bg-red-100 text-red-800 border-red-300 text-xs font-medium px-2 py-1">
+          <AlertTriangle className="w-3 h-3 mr-1" />
+          Bug
+        </Badge>
+      case 'task':
+        return <Badge className="bg-green-100 text-green-800 border-green-300 text-xs font-medium px-2 py-1">
+          <CheckCircle className="w-3 h-3 mr-1" />
+          Task
+        </Badge>
+      default:
+        return <Badge className="bg-blue-100 text-blue-800 border-blue-300 text-xs font-medium px-2 py-1">
+          <Target className="w-3 h-3 mr-1" />
+          Story
+        </Badge>
     }
   }
 
@@ -247,99 +357,274 @@ export function BacklogView({ projectId: propProjectId, user, project }: Backlog
     return matchesSearch && matchesType && matchesPriority
   })
 
+  // Pagination calculations
+  const totalItems = filteredItems.length
+  const totalPages = Math.ceil(totalItems / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const endIndex = startIndex + itemsPerPage
+  const paginatedItems = filteredItems.slice(startIndex, endIndex)
+
+  // Reset page when filters change
+  React.useEffect(() => {
+    setCurrentPage(1)
+  }, [searchTerm, filterType, filterPriority])
+
+  const BacklogTable = ({ items }: { items: Story[] }) => (
+    <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead className="bg-gray-50 border-b border-gray-200">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Story
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Type
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Priority
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Status
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Assignee
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Points
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Epic
+              </th>
+              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Actions
+              </th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {items.map((item) => (
+              <tr
+                key={item.id}
+                className="hover:bg-gray-50 cursor-pointer transition-colors duration-150"
+                onClick={() => {
+                  setSelectedItem(item)
+                  setShowDetailModal(true)
+                }}
+              >
+                <td className="px-6 py-4">
+                  <div className="flex items-start space-x-3">
+                    <GripVertical className="w-4 h-4 text-gray-400 mt-1 cursor-grab" />
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-medium text-gray-900 truncate">
+                        {item.title}
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1 line-clamp-2">
+                        {item.description}
+                      </div>
+                    </div>
+                  </div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="flex items-center">
+                    {getTypeIcon(item.story_type)}
+                    <span className="ml-2 text-sm text-gray-900 capitalize">{item.story_type}</span>
+                  </div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <Badge variant="outline" className={getPriorityColor(item.priority)}>
+                    {item.priority.toUpperCase()}
+                  </Badge>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <Badge variant="outline" className={getStatusColor(item.status)}>
+                    {item.status.replace('-', ' ').toUpperCase()}
+                  </Badge>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="flex items-center">
+                    <Avatar className="w-6 h-6 ring-1 ring-blue-100 dark:ring-blue-900">
+                      <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${item.assignee_name || 'unassigned'}`} alt={item.assignee_name} />
+                      <AvatarFallback className="bg-gradient-to-br from-blue-500 to-blue-600 text-white text-xs">
+                        {item.assignee_name ? item.assignee_name.substring(0, 2).toUpperCase() : 'UN'}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="ml-2 text-sm text-gray-900">
+                      {item.assignee_name || 'Unassigned'}
+                    </span>
+                  </div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  {item.story_points || '-'}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <span className="text-sm text-gray-600 bg-gray-100 px-2 py-1 rounded">
+                    {item.epic_title || 'No Epic'}
+                  </span>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-center">
+                  <div className="flex items-center justify-center space-x-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0 hover:bg-blue-50"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setSelectedItem(item)
+                        setShowDetailModal(true)
+                      }}
+                    >
+                      <Edit className="w-4 h-4 text-blue-600" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0 hover:bg-green-50"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleMoveToSprint(item)
+                      }}
+                      title="Move to Sprint"
+                    >
+                      <ArrowRight className="w-4 h-4 text-green-600" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0 hover:bg-red-50"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleDeleteStory(item.id)
+                      }}
+                    >
+                      <Trash2 className="w-4 h-4 text-red-600" />
+                    </Button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+
   const BacklogItemCard = ({ item }: { item: Story }) => (
-    <Card className="cursor-pointer hover:shadow-md transition-shadow">
-      <CardContent className="p-4">
+    <Card className="cursor-pointer hover:shadow-xl transition-all duration-300 hover:border-blue-300 dark:hover:border-blue-600 border border-gray-200 dark:border-gray-700 border-l-4 border-l-gray-300 hover:border-l-blue-500 dark:border-l-gray-600 dark:hover:border-l-blue-400 bg-white dark:bg-gray-800">
+      <CardContent className="p-5">
         <div className="flex items-start space-x-4">
-          <div className="flex items-center space-x-2 flex-shrink-0">
-            <GripVertical className="w-4 h-4 text-muted-foreground cursor-grab" />
+          <div className="flex items-center space-x-3 flex-shrink-0">
+            <GripVertical className="w-4 h-4 text-muted-foreground cursor-grab hover:text-gray-600" />
             {getTypeIcon(item.story_type)}
           </div>
 
           <div className="flex-1 min-w-0">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center space-x-2">
-                <span className="text-sm font-medium">{item.epic_title || 'No Epic'}</span>
-                <Badge variant="outline" className={getPriorityColor(item.priority)} style={{ fontSize: '10px' }}>
-                  {item.priority}
-                </Badge>
-                {item.story_points && (
-                  <Badge variant="outline" className="text-xs">
-                    {item.story_points} pts
+            {/* Header with Type Badge and Epic */}
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center space-x-3">
+                {getTypeBadge(item.story_type)}
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm font-medium text-gray-600 bg-gray-100 px-2 py-1 rounded-md">
+                    {item.epic_title || 'No Epic'}
+                  </span>
+                  <Badge variant="outline" className={`${getPriorityColor(item.priority)} font-medium`}>
+                    {item.priority.toUpperCase()}
                   </Badge>
-                )}
+                </div>
               </div>
               <div className="flex items-center space-x-1">
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-6 w-6 p-0"
+                  className="h-8 w-8 p-0 hover:bg-blue-50"
                   onClick={(e) => {
                     e.stopPropagation()
                     setSelectedItem(item)
                     setShowDetailModal(true)
                   }}
                 >
-                  <Edit className="w-3 h-3" />
+                  <Edit className="w-4 h-4 text-blue-600" />
                 </Button>
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-6 w-6 p-0 text-red-600"
+                  className="h-8 w-8 p-0 hover:bg-green-50"
                   onClick={(e) => {
                     e.stopPropagation()
-                    handleDeleteStory(item.epic_id)
+                    handleMoveToSprint(item)
+                  }}
+                  title="Move to Sprint"
+                >
+                  <ArrowRight className="w-4 h-4 text-green-600" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0 hover:bg-red-50"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleDeleteStory(item.id)
                   }}
                 >
-                  <Trash2 className="w-3 h-3" />
+                  <Trash2 className="w-4 h-4 text-red-600" />
                 </Button>
               </div>
             </div>
 
-            <h4 className="font-medium mb-1 line-clamp-1">{item.title}</h4>
-            <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{item.description}</p>
+            {/* Title and Description */}
+            <h4 className="font-semibold text-gray-900 mb-2 text-base leading-tight">{item.title}</h4>
+            <p className="text-sm text-gray-600 mb-4 line-clamp-2 leading-relaxed">{item.description}</p>
 
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center space-x-2">
-                <Avatar className="w-6 h-6">
-                  <AvatarFallback className="bg-[#28A745] text-white text-xs">
+            {/* Assignee and Status */}
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center space-x-3">
+                <Avatar className="w-7 h-7 ring-2 ring-blue-100 dark:ring-blue-900">
+                  <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${item.assignee_name || 'unassigned'}`} alt={item.assignee_name} />
+                  <AvatarFallback className="bg-gradient-to-br from-blue-500 to-blue-600 text-white text-xs font-medium">
                     {item.assignee_name ? item.assignee_name.substring(0, 2).toUpperCase() : 'UN'}
                   </AvatarFallback>
                 </Avatar>
-                <span className="text-xs text-muted-foreground">{item.assignee_name || 'Unassigned'}</span>
+                <span className="text-sm font-medium text-gray-700">{item.assignee_name || 'Unassigned'}</span>
               </div>
 
               <div className="flex items-center space-x-2">
-                {item.business_value && (
-                  <Badge variant="outline" className="text-xs">
-                    Value: {item.business_value}
+                {item.story_points && (
+                  <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 font-medium">
+                    {item.story_points} pts
                   </Badge>
                 )}
-                <Badge variant="outline" className={getStatusColor(item.status)} style={{ fontSize: '10px' }}>
-                  {item.status.replace('-', ' ')}
+                <Badge variant="outline" className={`${getStatusColor(item.status)} font-medium`}>
+                  {item.status.replace('-', ' ').toUpperCase()}
                 </Badge>
               </div>
             </div>
 
-            {/* Additional info badges */}
-            <div className="flex items-center space-x-2 text-xs text-muted-foreground">
-              {item.comments && item.comments.length > 0 && (
-                <div className="flex items-center space-x-1">
-                  <MessageSquare className="w-3 h-3" />
-                  <span>{item.comments.length}</span>
-                </div>
-              )}
-              {item.attached_files && item.attached_files.length > 0 && (
-                <div className="flex items-center space-x-1">
-                  <Paperclip className="w-3 h-3" />
-                  <span>{item.attached_files.length}</span>
-                </div>
-              )}
-              {item.subtasks && item.subtasks.length > 0 && (
-                <div className="flex items-center space-x-1">
-                  <FileText className="w-3 h-3" />
-                  <span>{item.subtasks.length} subtasks</span>
-                </div>
+            {/* Additional info and metrics */}
+            <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+              <div className="flex items-center space-x-4 text-xs text-gray-500">
+                {item.comments && item.comments.length > 0 && (
+                  <div className="flex items-center space-x-1 bg-gray-50 px-2 py-1 rounded">
+                    <MessageSquare className="w-3 h-3" />
+                    <span className="font-medium">{item.comments.length}</span>
+                  </div>
+                )}
+                {item.attached_files && item.attached_files.length > 0 && (
+                  <div className="flex items-center space-x-1 bg-gray-50 px-2 py-1 rounded">
+                    <Paperclip className="w-3 h-3" />
+                    <span className="font-medium">{item.attached_files.length}</span>
+                  </div>
+                )}
+                {item.subtasks && item.subtasks.length > 0 && (
+                  <div className="flex items-center space-x-1 bg-gray-50 px-2 py-1 rounded">
+                    <FileText className="w-3 h-3" />
+                    <span className="font-medium">{item.subtasks.length} subtasks</span>
+                  </div>
+                )}
+              </div>
+
+              {item.business_value && (
+                <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200 text-xs font-medium">
+                  Value: {item.business_value}
+                </Badge>
               )}
             </div>
           </div>
@@ -350,50 +635,56 @@ export function BacklogView({ projectId: propProjectId, user, project }: Backlog
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Header - Title and Create Button */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-semibold">Product Backlog</h2>
-          <p className="text-muted-foreground">Manage and prioritize product backlog items</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+            Product Backlog
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-1">
+            Manage and prioritize product backlog items
+          </p>
         </div>
-
         <Button
-          className="bg-[#28A745] hover:bg-[#218838]"
           onClick={() => setShowCreateModal(true)}
+          className="bg-[#28A745] hover:bg-[#218838] text-white px-6 py-2"
         >
           <Plus className="w-4 h-4 mr-2" />
-          Create Item
+          Create Story
         </Button>
       </div>
 
-      {/* Filters and Search */}
+      {/* Filters and Controls Row */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
+          {/* Search */}
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
-              placeholder="Search backlog items..."
+              placeholder="Search stories, tasks, and bugs..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9 w-64"
+              className="pl-10 w-80 h-10"
             />
           </div>
 
+          {/* Type Filter */}
           <Select value={filterType} onValueChange={setFilterType}>
-            <SelectTrigger className="w-32">
-              <SelectValue placeholder="Type" />
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="All Types" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Types</SelectItem>
-              <SelectItem value="story">Story</SelectItem>
-              <SelectItem value="bug">Bug</SelectItem>
-              <SelectItem value="task">Task</SelectItem>
+              <SelectItem value="story">Stories</SelectItem>
+              <SelectItem value="bug">Bugs</SelectItem>
+              <SelectItem value="task">Tasks</SelectItem>
             </SelectContent>
           </Select>
 
+          {/* Priority Filter */}
           <Select value={filterPriority} onValueChange={setFilterPriority}>
-            <SelectTrigger className="w-32">
-              <SelectValue placeholder="Priority" />
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="All Priority" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Priority</SelectItem>
@@ -403,32 +694,73 @@ export function BacklogView({ projectId: propProjectId, user, project }: Backlog
             </SelectContent>
           </Select>
         </div>
+
+        <div className="flex items-center space-x-4">
+          {/* View Toggle */}
+          <div className="flex items-center space-x-2 bg-gray-100 rounded-lg p-1">
+            <Button
+              variant={viewMode === 'card' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('card')}
+              className="h-8 px-3"
+            >
+              <Grid3x3 className="w-4 h-4 mr-1" />
+              Cards
+            </Button>
+            <Button
+              variant={viewMode === 'table' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('table')}
+              className="h-8 px-3"
+            >
+              <List className="w-4 h-4 mr-1" />
+              Table
+            </Button>
+          </div>
+
+          {/* Results Count */}
+          <div className="text-sm text-gray-600">
+            Showing {startIndex + 1}-{Math.min(endIndex, totalItems)} of {totalItems} items
+          </div>
+        </div>
       </div>
 
       {/* Backlog Statistics */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-4 text-center">
+            <div className="flex items-center justify-center mb-2">
+              <Target className="w-5 h-5 text-[#007BFF] mr-2" />
+            </div>
             <div className="text-2xl font-semibold text-[#007BFF]">{stories.filter(i => i.story_type === 'story').length}</div>
             <div className="text-xs text-muted-foreground">Stories</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
+            <div className="flex items-center justify-center mb-2">
+              <AlertTriangle className="w-5 h-5 text-[#DC3545] mr-2" />
+            </div>
             <div className="text-2xl font-semibold text-[#DC3545]">{stories.filter(i => i.story_type === 'bug').length}</div>
             <div className="text-xs text-muted-foreground">Bugs</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
-            <div className="text-2xl font-semibold text-[#28A745]">{stories.reduce((sum, i) => sum + (i.story_points || 0), 0)}</div>
-            <div className="text-xs text-muted-foreground">Story Points</div>
+            <div className="flex items-center justify-center mb-2">
+              <CheckCircle className="w-5 h-5 text-[#28A745] mr-2" />
+            </div>
+            <div className="text-2xl font-semibold text-[#28A745]">{stories.filter(i => i.story_type === 'task').length}</div>
+            <div className="text-xs text-muted-foreground">Tasks</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
-            <div className="text-2xl font-semibold text-[#FFC107]">{stories.filter(i => i.status === 'todo').length}</div>
-            <div className="text-xs text-muted-foreground">Todo Items</div>
+            <div className="flex items-center justify-center mb-2">
+              <Users className="w-5 h-5 text-[#6F42C1] mr-2" />
+            </div>
+            <div className="text-2xl font-semibold text-[#6F42C1]">{stories.reduce((sum, i) => sum + (i.story_points || 0), 0)}</div>
+            <div className="text-xs text-muted-foreground">Story Points</div>
           </CardContent>
         </Card>
       </div>
@@ -460,18 +792,87 @@ export function BacklogView({ projectId: propProjectId, user, project }: Backlog
               </Button>
             </CardContent>
           </Card>
+        ) : viewMode === 'table' ? (
+          <BacklogTable items={paginatedItems} />
         ) : (
-          filteredItems.map((item) => (
-            <div
-              key={item.epic_id}
-              onClick={() => {
-                setSelectedItem(item)
-                setShowDetailModal(true)
-              }}
-            >
-              <BacklogItemCard item={item} />
+          <div className="space-y-4">
+            {paginatedItems.map((item) => (
+              <div
+                key={item.id}
+                onClick={() => {
+                  setSelectedItem(item)
+                  setShowDetailModal(true)
+                }}
+              >
+                <BacklogItemCard item={item} />
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+            <div className="text-sm text-gray-600">
+              Page {currentPage} of {totalPages}
             </div>
-          ))
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(1)}
+                disabled={currentPage === 1}
+                className="h-8 w-8 p-0"
+              >
+                <ChevronsLeft className="w-4 h-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(currentPage - 1)}
+                disabled={currentPage === 1}
+                className="h-8 w-8 p-0"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </Button>
+
+              {/* Page Numbers */}
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                const pageNum = Math.max(1, Math.min(totalPages - 4, currentPage - 2)) + i
+                if (pageNum > totalPages) return null
+                return (
+                  <Button
+                    key={pageNum}
+                    variant={currentPage === pageNum ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setCurrentPage(pageNum)}
+                    className="h-8 w-8 p-0"
+                  >
+                    {pageNum}
+                  </Button>
+                )
+              })}
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className="h-8 w-8 p-0"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(totalPages)}
+                disabled={currentPage === totalPages}
+                className="h-8 w-8 p-0"
+              >
+                <ChevronsRight className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
         )}
       </div>
 
@@ -487,6 +888,53 @@ export function BacklogView({ projectId: propProjectId, user, project }: Backlog
         projectId={effectiveProjectId || ''}
         project={project}
       />
+
+      {/* Move to Sprint Modal */}
+      <Dialog open={showMoveToSprintModal} onOpenChange={setShowMoveToSprintModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Move Story to Sprint</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Move "{selectedStoryForMove?.title}" to a sprint:
+            </p>
+            <div>
+              <Label htmlFor="sprint-select">Select Sprint</Label>
+              <Select onValueChange={handleConfirmMoveToSprint}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select sprint" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="remove-from-sprint">Remove from Sprint</SelectItem>
+                  {sprintsLoading ? (
+                    <SelectItem value="loading" disabled>Loading sprints...</SelectItem>
+                  ) : sprints.length > 0 ? (
+                    sprints.map((sprint) => (
+                      <SelectItem key={sprint.id} value={sprint.id}>
+                        {sprint.name} ({sprint.status})
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <SelectItem value="no-sprints" disabled>No sprints available</SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex justify-end space-x-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowMoveToSprintModal(false)
+                  setSelectedStoryForMove(null)
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Create Item Modal */}
       <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
@@ -580,7 +1028,47 @@ export function BacklogView({ projectId: propProjectId, user, project }: Backlog
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <Label htmlFor="epic">Epic</Label>
+                <Select
+                  value={createStoryData.epic_id || 'no-epic'}
+                  onValueChange={(value) => {
+                    if (value === 'no-epic') {
+                      setCreateStoryData({
+                        ...createStoryData,
+                        epic_id: '',
+                        epic_title: ''
+                      })
+                    } else {
+                      const selectedEpic = epics.find(epic => epic.id === value)
+                      setCreateStoryData({
+                        ...createStoryData,
+                        epic_id: value,
+                        epic_title: selectedEpic?.title || ''
+                      })
+                    }
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select epic" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="no-epic">No Epic</SelectItem>
+                    {epicsLoading ? (
+                      <SelectItem value="loading" disabled>Loading epics...</SelectItem>
+                    ) : epics.length > 0 ? (
+                      epics.map((epic) => (
+                        <SelectItem key={epic.id} value={epic.id}>
+                          {epic.title} ({epic.status})
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem value="no-epics" disabled>No epics available</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
               <div>
                 <Label htmlFor="assignee">Assignee</Label>
                 <Select

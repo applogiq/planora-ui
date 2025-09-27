@@ -19,7 +19,7 @@ import {
   GitBranch,
   Flag
 } from 'lucide-react'
-import { TaskModal } from './TaskModal'
+import { TaskModal } from './Tasks/TaskModal'
 
 interface AgileProjectDashboardProps {
   project: any

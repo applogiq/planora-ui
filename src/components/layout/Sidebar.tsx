@@ -154,10 +154,6 @@ export function Sidebar({ activeModule, user }: SidebarProps) {
             )
           })}
         </nav>
-
-
-
-
       </div>
     </aside>
   )
