@@ -21,6 +21,7 @@ import {
 import { Badge } from '../../../components/ui/badge'
 import { CalendarIcon, X, Plus } from 'lucide-react'
 import { epicApiService, CreateEpicRequest } from '../../../services/epicApi'
+import { ProjectStatusItem, ProjectPriorityItem } from '../../../services/projectApi'
 import { toast } from 'sonner'
 
 interface EpicCreateModalProps {
@@ -30,6 +31,8 @@ interface EpicCreateModalProps {
   onSuccess: () => void
   user: any
   teamMembers?: any[]
+  availableStatuses?: ProjectStatusItem[]
+  availablePriorities?: ProjectPriorityItem[]
 }
 
 export function EpicCreateModal({
@@ -38,7 +41,9 @@ export function EpicCreateModal({
   onClose,
   onSuccess,
   user,
-  teamMembers = []
+  teamMembers = [],
+  availableStatuses,
+  availablePriorities
 }: EpicCreateModalProps) {
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState<CreateEpicRequest>({
@@ -201,10 +206,20 @@ export function EpicCreateModal({
                   <SelectValue placeholder="Select priority" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Low">Low</SelectItem>
-                  <SelectItem value="Medium">Medium</SelectItem>
-                  <SelectItem value="High">High</SelectItem>
-                  <SelectItem value="Critical">Critical</SelectItem>
+                  {availablePriorities && availablePriorities.length > 0 ? (
+                    availablePriorities.map((priority) => (
+                      <SelectItem key={priority.id} value={priority.name}>
+                        {priority.name}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <>
+                      <SelectItem value="Low">Low</SelectItem>
+                      <SelectItem value="Medium">Medium</SelectItem>
+                      <SelectItem value="High">High</SelectItem>
+                      <SelectItem value="Critical">Critical</SelectItem>
+                    </>
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -220,11 +235,21 @@ export function EpicCreateModal({
                   <SelectValue placeholder="Select status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Not Started">Not Started</SelectItem>
-                  <SelectItem value="In Progress">In Progress</SelectItem>
-                  <SelectItem value="Completed">Completed</SelectItem>
-                  <SelectItem value="On Hold">On Hold</SelectItem>
-                  <SelectItem value="Cancelled">Cancelled</SelectItem>
+                  {availableStatuses && availableStatuses.length > 0 ? (
+                    availableStatuses.map((status) => (
+                      <SelectItem key={status.id} value={status.name}>
+                        {status.name}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <>
+                      <SelectItem value="Not Started">Not Started</SelectItem>
+                      <SelectItem value="In Progress">In Progress</SelectItem>
+                      <SelectItem value="Completed">Completed</SelectItem>
+                      <SelectItem value="On Hold">On Hold</SelectItem>
+                      <SelectItem value="Cancelled">Cancelled</SelectItem>
+                    </>
+                  )}
                 </SelectContent>
               </Select>
             </div>

@@ -38,7 +38,8 @@ import {
 import { storiesApiService, Story, CreateStoryRequest, SubTask } from '../../../services/storiesApi'
 import { epicApiService, Epic } from '../../../services/epicApi'
 import { sprintsApiService, Sprint } from '../../../services/sprintsApi'
-import { ProjectMemberDetail } from '../../../services/projectApi'
+import { ProjectMemberDetail, projectApiService, ProjectMastersResponse, ProjectPriorityItem } from '../../../services/projectApi'
+import { getEnrichedTeamMemberDetails, getAssigneeDisplayInfo, EnrichedMemberDetail } from '../../../utils/teamMemberDetails'
 import { StoryDetailModal } from './StoryDetailModal'
 import { SessionStorageService } from '../../../utils/sessionStorage'
 import { toast } from 'sonner'
@@ -90,12 +91,17 @@ export function BacklogView({ projectId: propProjectId, user, project }: Backlog
   const [loading, setLoading] = useState(true)
   const [projectTeamMembers, setProjectTeamMembers] = useState<ProjectMemberDetail[]>([])
   const [projectTeamLead, setProjectTeamLead] = useState<ProjectMemberDetail | null>(null)
+  const [enrichedMembersMap, setEnrichedMembersMap] = useState<Map<string, EnrichedMemberDetail>>(new Map())
   const [epics, setEpics] = useState<Epic[]>([])
   const [epicsLoading, setEpicsLoading] = useState(false)
   const [sprints, setSprints] = useState<Sprint[]>([])
   const [sprintsLoading, setSprintsLoading] = useState(false)
   const [showMoveToSprintModal, setShowMoveToSprintModal] = useState(false)
   const [selectedStoryForMove, setSelectedStoryForMove] = useState<Story | null>(null)
+
+  // Project Master Data
+  const [projectMasters, setProjectMasters] = useState<ProjectMastersResponse | null>(null)
+  const [availablePriorities, setAvailablePriorities] = useState<ProjectPriorityItem[]>([])
   const [createStoryData, setCreateStoryData] = useState<CreateStoryRequest>({
     title: '',
     description: '',
@@ -116,6 +122,7 @@ export function BacklogView({ projectId: propProjectId, user, project }: Backlog
       fetchStories()
       fetchEpics()
       fetchSprints()
+      loadProjectMasters()
     }
   }, [effectiveProjectId])
 
@@ -124,8 +131,20 @@ export function BacklogView({ projectId: propProjectId, user, project }: Backlog
     if (project?.team_members_detail && project?.team_lead_detail) {
       setProjectTeamMembers(project.team_members_detail)
       setProjectTeamLead(project.team_lead_detail)
+
+      // Load enriched member details
+      loadEnrichedMemberDetails([...project.team_members_detail, project.team_lead_detail])
     }
   }, [project])
+
+  const loadEnrichedMemberDetails = async (members: ProjectMemberDetail[]) => {
+    try {
+      const enrichedMap = await getEnrichedTeamMemberDetails(members)
+      setEnrichedMembersMap(enrichedMap)
+    } catch (error) {
+      console.error('Error loading enriched member details:', error)
+    }
+  }
 
   // Update createStoryData when effectiveProjectId changes
   useEffect(() => {
@@ -137,6 +156,22 @@ export function BacklogView({ projectId: propProjectId, user, project }: Backlog
     }
   }, [effectiveProjectId])
 
+  const loadProjectMasters = async () => {
+    if (!effectiveProjectId) {
+      console.warn('No project ID available for fetching project masters')
+      return
+    }
+
+    try {
+      const masters = await projectApiService.getProjectMasters()
+      setProjectMasters(masters)
+      setAvailablePriorities(masters.priorities || [])
+    } catch (error) {
+      console.error('Error loading project masters:', error)
+      // Continue with default options if API fails
+      setAvailablePriorities([])
+    }
+  }
 
   const fetchStories = async () => {
     if (!effectiveProjectId) {
@@ -442,15 +477,28 @@ export function BacklogView({ projectId: propProjectId, user, project }: Backlog
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex items-center">
-                    <Avatar className="w-6 h-6 ring-1 ring-blue-100 dark:ring-blue-900">
-                      <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${item.assignee_name || 'unassigned'}`} alt={item.assignee_name} />
-                      <AvatarFallback className="bg-gradient-to-br from-blue-500 to-blue-600 text-white text-xs">
-                        {item.assignee_name ? item.assignee_name.substring(0, 2).toUpperCase() : 'UN'}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span className="ml-2 text-sm text-gray-900">
-                      {item.assignee_name || 'Unassigned'}
-                    </span>
+                    {(() => {
+                      const assigneeInfo = getAssigneeDisplayInfo(item.assignee_id || null, item.assignee_name || null, enrichedMembersMap)
+                      return (
+                        <>
+                          <Avatar className="w-6 h-6 ring-1 ring-blue-100 dark:ring-blue-900">
+                            <AvatarFallback className="bg-gradient-to-br from-blue-500 to-blue-600 text-white text-xs">
+                              {assigneeInfo.initials}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="ml-2 flex flex-col">
+                            <span className="text-sm text-gray-900">
+                              {assigneeInfo.name}
+                            </span>
+                            {assigneeInfo.isAssigned && assigneeInfo.role && (
+                              <span className="text-xs text-muted-foreground">
+                                {assigneeInfo.role}
+                              </span>
+                            )}
+                          </div>
+                        </>
+                      )
+                    })()}
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -577,13 +625,24 @@ export function BacklogView({ projectId: propProjectId, user, project }: Backlog
             {/* Assignee and Status */}
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center space-x-3">
-                <Avatar className="w-7 h-7 ring-2 ring-blue-100 dark:ring-blue-900">
-                  <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${item.assignee_name || 'unassigned'}`} alt={item.assignee_name} />
-                  <AvatarFallback className="bg-gradient-to-br from-blue-500 to-blue-600 text-white text-xs font-medium">
-                    {item.assignee_name ? item.assignee_name.substring(0, 2).toUpperCase() : 'UN'}
-                  </AvatarFallback>
-                </Avatar>
-                <span className="text-sm font-medium text-gray-700">{item.assignee_name || 'Unassigned'}</span>
+                {(() => {
+                  const assigneeInfo = getAssigneeDisplayInfo(item.assignee_id || null, item.assignee_name || null, enrichedMembersMap)
+                  return (
+                    <>
+                      <Avatar className="w-7 h-7 ring-2 ring-blue-100 dark:ring-blue-900">
+                        <AvatarFallback className="bg-gradient-to-br from-blue-500 to-blue-600 text-white text-xs font-medium">
+                          {assigneeInfo.initials}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium text-gray-700">{assigneeInfo.name}</span>
+                        {assigneeInfo.isAssigned && assigneeInfo.role && (
+                          <span className="text-xs text-muted-foreground">{assigneeInfo.role}</span>
+                        )}
+                      </div>
+                    </>
+                  )
+                })()}
               </div>
 
               <div className="flex items-center space-x-2">
@@ -688,9 +747,19 @@ export function BacklogView({ projectId: propProjectId, user, project }: Backlog
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Priority</SelectItem>
-              <SelectItem value="high">High</SelectItem>
-              <SelectItem value="medium">Medium</SelectItem>
-              <SelectItem value="low">Low</SelectItem>
+              {availablePriorities && availablePriorities.length > 0 ? (
+                availablePriorities.map((priority) => (
+                  <SelectItem key={priority.id} value={priority.name.toLowerCase()}>
+                    {priority.name}
+                  </SelectItem>
+                ))
+              ) : (
+                <>
+                  <SelectItem value="high">High</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="low">Low</SelectItem>
+                </>
+              )}
             </SelectContent>
           </Select>
         </div>
@@ -887,6 +956,7 @@ export function BacklogView({ projectId: propProjectId, user, project }: Backlog
         onUpdate={fetchStories}
         projectId={effectiveProjectId || ''}
         project={project}
+        availablePriorities={availablePriorities}
       />
 
       {/* Move to Sprint Modal */}
@@ -970,9 +1040,19 @@ export function BacklogView({ projectId: propProjectId, user, project }: Backlog
                     <SelectValue placeholder="Select priority" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="high">High</SelectItem>
-                    <SelectItem value="medium">Medium</SelectItem>
-                    <SelectItem value="low">Low</SelectItem>
+                    {availablePriorities && availablePriorities.length > 0 ? (
+                      availablePriorities.map((priority) => (
+                        <SelectItem key={priority.id} value={priority.name.toLowerCase()}>
+                          {priority.name}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <>
+                        <SelectItem value="high">High</SelectItem>
+                        <SelectItem value="medium">Medium</SelectItem>
+                        <SelectItem value="low">Low</SelectItem>
+                      </>
+                    )}
                   </SelectContent>
                 </Select>
               </div>

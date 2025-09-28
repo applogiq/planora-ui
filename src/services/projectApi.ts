@@ -83,6 +83,24 @@ export interface ProjectTeamMembersResponse {
   team_members_detail: ProjectMemberDetail[];
 }
 
+export interface ProjectMember {
+  member_id: string;
+  role_id: string;
+  project_id: string;
+  joined_at: string;
+  left_at: string | null;
+  is_active: boolean;
+  id: string;
+  created_at: string;
+  updated_at: string | null;
+  member_name: string;
+  member_email: string;
+  member_profile: string;
+  role_name: string;
+}
+
+export type ProjectMembersResponse = ProjectMember[];
+
 
 export interface CreateProjectRequest {
   name: string;
@@ -309,6 +327,10 @@ export class ProjectApiService {
 
   async getProjectTeamMembers(projectId: string): Promise<ProjectTeamMembersResponse> {
     return this.makeRequest<ProjectTeamMembersResponse>(`/api/v1/projects/members/${projectId}`);
+  }
+
+  async getProjectMembersV2(projectId: string): Promise<ProjectMembersResponse> {
+    return this.makeRequest<ProjectMembersResponse>(`/api/v1/projects/members/${projectId}`);
   }
 
   async updateTask(taskId: string, updates: any): Promise<{ success: boolean; data?: any }> {

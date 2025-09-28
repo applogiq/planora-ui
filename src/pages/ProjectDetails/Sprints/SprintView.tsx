@@ -32,7 +32,7 @@ import {
   ChevronsRight
 } from 'lucide-react'
 import { sprintsApiService, Sprint } from '../../../services/sprintsApi'
-import { ProjectMemberDetail } from '../../../services/projectApi'
+import { ProjectMemberDetail, projectApiService, ProjectMastersResponse, ProjectStatusItem } from '../../../services/projectApi'
 import { SprintFormModal } from './SprintFormModal'
 import { SessionStorageService } from '../../../utils/sessionStorage'
 import { toast } from 'sonner'
@@ -80,9 +80,14 @@ export function SprintView({ projectId: propProjectId, user, project }: SprintVi
   const [loading, setLoading] = useState(true)
   const [projectTeamLead, setProjectTeamLead] = useState<ProjectMemberDetail | null>(null)
 
+  // Project Master Data
+  const [projectMasters, setProjectMasters] = useState<ProjectMastersResponse | null>(null)
+  const [availableStatuses, setAvailableStatuses] = useState<ProjectStatusItem[]>([])
+
   useEffect(() => {
     if (effectiveProjectId) {
       fetchSprints()
+      loadProjectMasters()
     }
   }, [effectiveProjectId])
 
@@ -91,6 +96,23 @@ export function SprintView({ projectId: propProjectId, user, project }: SprintVi
       setProjectTeamLead(project.team_lead_detail)
     }
   }, [project])
+
+  const loadProjectMasters = async () => {
+    if (!effectiveProjectId) {
+      console.warn('No project ID available for fetching project masters')
+      return
+    }
+
+    try {
+      const masters = await projectApiService.getProjectMasters()
+      setProjectMasters(masters)
+      setAvailableStatuses(masters.statuses || [])
+    } catch (error) {
+      console.error('Error loading project masters:', error)
+      // Continue with default options if API fails
+      setAvailableStatuses([])
+    }
+  }
 
   const fetchSprints = async () => {
     if (!effectiveProjectId) {
@@ -458,10 +480,20 @@ export function SprintView({ projectId: propProjectId, user, project }: SprintVi
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="planning">Planning</SelectItem>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="completed">Completed</SelectItem>
-              <SelectItem value="on-hold">On Hold</SelectItem>
+              {availableStatuses && availableStatuses.length > 0 ? (
+                availableStatuses.map((status) => (
+                  <SelectItem key={status.id} value={status.name.toLowerCase()}>
+                    {status.name}
+                  </SelectItem>
+                ))
+              ) : (
+                <>
+                  <SelectItem value="planning">Planning</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                  <SelectItem value="on-hold">On Hold</SelectItem>
+                </>
+              )}
             </SelectContent>
           </Select>
         </div>
@@ -637,6 +669,7 @@ export function SprintView({ projectId: propProjectId, user, project }: SprintVi
         projectId={effectiveProjectId || ''}
         projectTeamLead={projectTeamLead}
         mode="create"
+        availableStatuses={availableStatuses}
       />
 
       {/* Edit Sprint Modal */}
@@ -655,6 +688,7 @@ export function SprintView({ projectId: propProjectId, user, project }: SprintVi
         projectTeamLead={projectTeamLead}
         mode="edit"
         sprint={selectedSprint}
+        availableStatuses={availableStatuses}
       />
     </div>
   )

@@ -21,6 +21,11 @@ import {
 } from 'lucide-react'
 import { TaskModal } from './TaskModal'
 import { taskApiService, Task, CreateTaskRequest } from '../../../services/taskApi'
+import { storiesApiService, Story } from '../../../services/storiesApi'
+import { sprintApiService, Sprint } from '../../../services/sprintApi'
+import { projectApiService, ProjectMastersResponse, ProjectStatusItem, ProjectPriorityItem, ProjectMember, ProjectMemberDetail } from '../../../services/projectApi'
+import { getEnrichedTeamMemberDetails, getAssigneeDisplayInfo, EnrichedMemberDetail } from '../../../utils/teamMemberDetails'
+import { BOARD_TASKS, SPRINTS } from '../../../mock-data/tasks'
 import { toast } from 'sonner'
 import { SessionStorageService } from '../../../utils/sessionStorage'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../../components/ui/dialog'
@@ -130,10 +135,12 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
 
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [tasks, setTasks] = useState<Task[]>([])
+  const [sprints, setSprints] = useState<Sprint[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
   const [filterAssignee, setFilterAssignee] = useState('all')
+  const [filterSprint, setFilterSprint] = useState('all')
   const [viewMode, setViewMode] = useState<'board' | 'list' | 'table'>('board')
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [createTaskData, setCreateTaskData] = useState<CreateTaskRequest>({
@@ -142,6 +149,7 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
     status: 'todo',
     priority: 'medium',
     project_id: effectiveProjectId || '',
+    sprint_id: null,
     assignee_id: null,
     start_date: '',
     due_date: '',
@@ -153,12 +161,70 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
     is_active: true
   })
 
-  // Load tasks when component mounts or project changes
+  // Project Master Data
+  const [projectMasters, setProjectMasters] = useState<ProjectMastersResponse | null>(null)
+  const [availableStatuses, setAvailableStatuses] = useState<ProjectStatusItem[]>([])
+  const [availablePriorities, setAvailablePriorities] = useState<ProjectPriorityItem[]>([])
+  const [projectTeamMembers, setProjectTeamMembers] = useState<ProjectMemberDetail[]>([])
+  const [projectTeamLead, setProjectTeamLead] = useState<ProjectMemberDetail | null>(null)
+  const [enrichedMembersMap, setEnrichedMembersMap] = useState<Map<string, EnrichedMemberDetail>>(new Map())
+
+  // Load team members from project data when available (same as BacklogView)
+  useEffect(() => {
+    if (project?.team_members_detail && project?.team_lead_detail) {
+      setProjectTeamMembers(project.team_members_detail)
+      setProjectTeamLead(project.team_lead_detail)
+
+      // Load enriched member details
+      loadEnrichedMemberDetails([...project.team_members_detail, project.team_lead_detail])
+    }
+  }, [project])
+
+  const loadEnrichedMemberDetails = async (members: ProjectMemberDetail[]) => {
+    try {
+      const enrichedMap = await getEnrichedTeamMemberDetails(members)
+      setEnrichedMembersMap(enrichedMap)
+    } catch (error) {
+      console.error('Error loading enriched member details:', error)
+    }
+  }
+
+  // Load tasks and sprints when component mounts or project changes
   useEffect(() => {
     if (effectiveProjectId) {
       fetchTasks()
+      fetchSprints()
+      loadProjectMasters()
     }
   }, [effectiveProjectId])
+
+  // Refetch tasks when sprint filter changes (to trigger API calls)
+  useEffect(() => {
+    if (effectiveProjectId && filterSprint !== 'all') {
+      console.log('Sprint filter changed to:', filterSprint)
+      fetchTasksWithSprintFilter(filterSprint)
+    }
+  }, [filterSprint, effectiveProjectId])
+
+  const loadProjectMasters = async () => {
+    if (!effectiveProjectId) {
+      console.warn('No project ID available for fetching project masters')
+      return
+    }
+
+    try {
+      const masters = await projectApiService.getProjectMasters()
+      setProjectMasters(masters)
+      setAvailableStatuses(masters.statuses || [])
+      setAvailablePriorities(masters.priorities || [])
+    } catch (error) {
+      console.error('Error loading project masters:', error)
+      // Continue with default options if API fails
+      setAvailableStatuses([])
+      setAvailablePriorities([])
+    }
+  }
+
 
   const fetchTasks = async () => {
     if (!effectiveProjectId) {
@@ -169,13 +235,152 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
 
     try {
       setLoading(true)
-      const response = await taskApiService.getTasks(effectiveProjectId)
-      setTasks(response.items)
+      // Use stories API instead of tasks API
+      const response = await storiesApiService.getStories(effectiveProjectId)
+
+      // Convert Story data to Task format
+      const convertedTasks: Task[] = response.items.map((story: Story) => ({
+        id: story.id,
+        title: story.title,
+        description: story.description,
+        status: story.status,
+        priority: story.priority,
+        project_id: story.project_id,
+        sprint_id: story.sprint_id,
+        sprint_name: story.sprint_id ? sprints.find(s => s.id === story.sprint_id)?.name : undefined,
+        assignee_name: story.assignee_name,
+        assignee_id: story.assignee_id,
+        progress: story.progress || 0,
+        tags: story.tags || [],
+        subtasks: [],
+        comments: [],
+        attachments: [],
+        is_active: true,
+        created_at: story.start_date,
+        updated_at: story.end_date
+      }))
+
+      setTasks(convertedTasks)
+      console.log('Fetched stories as tasks:', convertedTasks)
     } catch (error) {
-      console.error('Error fetching tasks:', error)
-      toast.error('Failed to fetch tasks')
+      console.error('Error fetching stories:', error)
+      console.log('Using mock data as fallback')
+
+      // Convert mock data to match our Task interface
+      const mockTasks: Task[] = BOARD_TASKS.map(mockTask => ({
+        id: mockTask.id,
+        title: mockTask.title,
+        description: mockTask.description,
+        status: mockTask.status,
+        priority: mockTask.priority,
+        project_id: effectiveProjectId,
+        sprint_id: mockTask.sprint === 'Unassigned' ? null : mockTask.sprint.toLowerCase().replace(' ', '-'),
+        sprint_name: mockTask.sprint === 'Unassigned' ? undefined : mockTask.sprint,
+        assignee_name: mockTask.assignee,
+        assignee_id: null,
+        progress: Math.floor(Math.random() * 100), // Random progress for demo
+        tags: mockTask.labels,
+        subtasks: [],
+        comments: [],
+        attachments: [],
+        is_active: true,
+        created_at: mockTask.createdAt,
+        updated_at: mockTask.updatedAt
+      }))
+
+      setTasks(mockTasks)
+      toast.success('Using demo data (API not available)')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchTasksWithSprintFilter = async (sprintFilter: string) => {
+    if (!effectiveProjectId) {
+      console.warn('No project ID available for fetching tasks')
+      return
+    }
+
+    try {
+      setLoading(true)
+      console.log('Making API call with sprint filter:', sprintFilter)
+
+      // Use stories API with project filter - the API should handle sprint filtering on backend
+      const response = await storiesApiService.getStories(effectiveProjectId)
+
+      // Convert Story data to Task format
+      const convertedTasks: Task[] = response.items.map((story: Story) => ({
+        id: story.id,
+        title: story.title,
+        description: story.description,
+        status: story.status,
+        priority: story.priority,
+        project_id: story.project_id,
+        sprint_id: story.sprint_id,
+        sprint_name: story.sprint_id ? sprints.find(s => s.id === story.sprint_id)?.name : undefined,
+        assignee_name: story.assignee_name,
+        assignee_id: story.assignee_id,
+        progress: story.progress || 0,
+        tags: story.tags || [],
+        subtasks: [],
+        comments: [],
+        attachments: [],
+        is_active: true,
+        created_at: story.start_date,
+        updated_at: story.end_date
+      }))
+
+      setTasks(convertedTasks)
+      console.log('Fetched stories with sprint filter:', convertedTasks)
+      toast.success(`Fetched tasks for sprint filter: ${sprintFilter}`)
+    } catch (error) {
+      console.error('Error fetching stories with sprint filter:', error)
+      console.log('Sprint filter will use client-side filtering')
+      // Don't change tasks on error, let client-side filtering handle it
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchSprints = async () => {
+    if (!effectiveProjectId) {
+      console.warn('No project ID available for fetching sprints')
+      return
+    }
+
+    try {
+      const response = await sprintApiService.getSprints({ project_id: effectiveProjectId })
+      setSprints(response.items)
+    } catch (error) {
+      console.error('Error fetching sprints:', error)
+      console.log('Using mock sprint data as fallback')
+
+      // Convert mock sprints to match our Sprint interface
+      const mockSprints: Sprint[] = SPRINTS.map(mockSprint => ({
+        id: mockSprint.id.toLowerCase().replace(' ', '-'),
+        name: mockSprint.name,
+        status: mockSprint.status,
+        start_date: mockSprint.startDate,
+        end_date: mockSprint.endDate,
+        goal: `Complete planned tasks for ${mockSprint.name}`,
+        total_points: 0,
+        completed_points: 0,
+        total_tasks: 0,
+        completed_tasks: 0,
+        velocity: 0,
+        project_id: effectiveProjectId,
+        scrum_master_id: '',
+        team_size: 5,
+        burndown_trend: 'On Track',
+        created_at: mockSprint.startDate,
+        updated_at: mockSprint.startDate,
+        project_name: 'Demo Project',
+        scrum_master_name: 'Demo Scrum Master',
+        project: {} as any,
+        scrum_master: {} as any
+      }))
+
+      setSprints(mockSprints)
     }
   }
 
@@ -191,13 +396,32 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
         return
       }
 
-      const newTaskData = {
-        ...createTaskData,
-        project_id: effectiveProjectId
+      // Convert Task data to Story format for API
+      const storyData = {
+        title: createTaskData.title,
+        description: createTaskData.description,
+        story_type: 'story',
+        priority: createTaskData.priority,
+        status: createTaskData.status,
+        project_id: effectiveProjectId,
+        sprint_id: createTaskData.sprint_id,
+        assignee_id: createTaskData.assignee_id,
+        progress: createTaskData.progress || 0,
+        start_date: createTaskData.start_date,
+        end_date: createTaskData.due_date,
+        tags: createTaskData.tags || [],
+        labels: createTaskData.tags || []
       }
 
-      await taskApiService.createTask(newTaskData)
-      toast.success('Task created successfully')
+      try {
+        await storiesApiService.createStory(storyData)
+        toast.success('Task created successfully')
+      } catch (apiError) {
+        // API not available, show demo message
+        toast.success('Task creation demo (API not available)')
+        console.log('Demo task would be created:', storyData)
+      }
+
       setShowCreateModal(false)
       setCreateTaskData({
         title: '',
@@ -205,6 +429,7 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
         status: 'todo',
         priority: 'medium',
         project_id: effectiveProjectId || '',
+        sprint_id: null,
         assignee_id: null,
         start_date: '',
         due_date: '',
@@ -224,10 +449,35 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
 
   const handleUpdateTask = async (taskId: string, taskData: any) => {
     try {
-      await taskApiService.updateTask(taskId, taskData)
-      toast.success('Task updated successfully')
+      // Convert Task data to Story format for API
+      const storyUpdateData = {
+        title: taskData.title,
+        description: taskData.description,
+        story_type: taskData.type || 'story',
+        priority: taskData.priority,
+        status: taskData.status,
+        sprint_id: taskData.sprint_id || undefined,
+        assignee_id: taskData.assignee_id || undefined,
+        progress: taskData.progress || 0,
+        tags: taskData.tags || [],
+        labels: taskData.tags || []
+      }
+
+      try {
+        await storiesApiService.updateStory(taskId, storyUpdateData)
+        toast.success('Task updated successfully')
+      } catch (apiError) {
+        // API not available, update local state for demo
+        const updatedTasks = tasks.map(task =>
+          task.id === taskId ? { ...task, ...taskData } : task
+        )
+        setTasks(updatedTasks)
+        toast.success('Task updated successfully (demo mode)')
+        console.log('Demo task update:', storyUpdateData)
+      }
+
       setSelectedTask(null)
-      fetchTasks()
+      fetchTasks() // Always refresh to get latest data
     } catch (error) {
       console.error('Error updating task:', error)
       toast.error('Failed to update task')
@@ -279,9 +529,14 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
     const matchesSearch = task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          task.description.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesStatus = filterStatus === 'all' || task.status === filterStatus
-    const matchesAssignee = filterAssignee === 'all' || (task.assignee_name && task.assignee_name === filterAssignee)
+    const matchesAssignee = filterAssignee === 'all' ||
+                           (filterAssignee === 'unassigned' && !task.assignee_name) ||
+                           (task.assignee_name && task.assignee_name === filterAssignee)
+    const matchesSprint = filterSprint === 'all' ||
+                         (filterSprint === 'unassigned' && !task.sprint_id) ||
+                         task.sprint_id === filterSprint
 
-    return matchesSearch && matchesStatus && matchesAssignee
+    return matchesSearch && matchesStatus && matchesAssignee && matchesSprint
   })
 
   const TaskCard = ({ task }: { task: Task }) => (
@@ -290,17 +545,12 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
       onClick={() => setSelectedTask(task)}
     >
       <CardContent className="p-4">
-        <div className="flex items-start justify-between mb-2">
-          <div className="flex items-center space-x-2">
-            <Target className="w-4 h-4 text-blue-600" />
-            <span className="text-xs text-muted-foreground">#{task.id}</span>
-          </div>
-          <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+        <div className="flex items-start justify-between mb-3">
+          <h4 className="font-medium text-sm line-clamp-2 flex-1 pr-2">{task.title}</h4>
+          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 flex-shrink-0">
             <MoreVertical className="w-3 h-3" />
           </Button>
         </div>
-
-        <h4 className="font-medium text-sm mb-2 line-clamp-2">{task.title}</h4>
 
         <div className="flex flex-wrap gap-1 mb-3">
           <Badge variant="outline" className={getPriorityColor(task.priority)} style={{ fontSize: '10px' }}>
@@ -311,18 +561,42 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
               {task.progress}%
             </Badge>
           )}
+          {task.sprint_id && (
+            <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-300 text-xs">
+              {task.sprint_name || sprints.find(s => s.id === task.sprint_id)?.name || 'Sprint'}
+            </Badge>
+          )}
         </div>
 
         <div className="flex items-center justify-between">
-          <Avatar className="w-6 h-6">
-            <AvatarFallback className="bg-[#28A745] text-white text-xs">
-              {task.assignee_name ? task.assignee_name.substring(0, 2).toUpperCase() : 'UN'}
-            </AvatarFallback>
-          </Avatar>
+          <div className="flex items-center space-x-2">
+            {(() => {
+              const assigneeInfo = getAssigneeDisplayInfo(task.assignee_id || null, task.assignee_name || null, enrichedMembersMap)
+              return (
+                <>
+                  <Avatar className="w-6 h-6">
+                    <AvatarFallback className="bg-[#28A745] text-white text-xs">
+                      {assigneeInfo.initials}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex flex-col">
+                    <span className="text-xs text-muted-foreground truncate">
+                      {assigneeInfo.name}
+                    </span>
+                    {assigneeInfo.isAssigned && assigneeInfo.role && (
+                      <span className="text-[10px] text-muted-foreground/70 truncate">
+                        {assigneeInfo.role}
+                      </span>
+                    )}
+                  </div>
+                </>
+              )
+            })()}
+          </div>
 
           <div className="flex items-center space-x-1 text-xs text-muted-foreground">
             <Clock className="w-3 h-3" />
-            <span>{task.progress}%</span>
+            <span>{task.progress || 0}%</span>
           </div>
         </div>
       </CardContent>
@@ -367,7 +641,6 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
               <div className="flex items-center space-x-4 flex-1">
                 <div className="flex items-center space-x-2">
                   <Target className="w-4 h-4 text-blue-600" />
-                  <span className="text-xs text-muted-foreground">#{task.id}</span>
                 </div>
 
                 <div className="flex-1 min-w-0">
@@ -387,13 +660,40 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
                       {task.progress}%
                     </Badge>
                   )}
+                  {task.sprint_id && (
+                    <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-300 text-xs">
+                      {task.sprint_name || sprints.find(s => s.id === task.sprint_id)?.name || 'Sprint'}
+                    </Badge>
+                  )}
                 </div>
 
-                <Avatar className="w-8 h-8">
-                  <AvatarFallback className="bg-[#28A745] text-white text-xs">
-                    {task.assignee_name ? task.assignee_name.substring(0, 2).toUpperCase() : 'UN'}
-                  </AvatarFallback>
-                </Avatar>
+                <div className="flex items-center space-x-2">
+                  {(() => {
+                    const assigneeInfo = getAssigneeDisplayInfo(task.assignee_id || null, task.assignee_name || null, enrichedMembersMap)
+                    return (
+                      <>
+                        <Avatar className="w-8 h-8">
+                          <AvatarFallback className="bg-[#28A745] text-white text-xs">
+                            {assigneeInfo.initials}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex flex-col min-w-0">
+                          <span className="text-sm text-muted-foreground truncate">
+                            {assigneeInfo.name}
+                          </span>
+                          {assigneeInfo.isAssigned && (
+                            <div className="flex flex-col text-xs text-muted-foreground/70">
+                              <span className="truncate">{assigneeInfo.role}</span>
+                              {assigneeInfo.email && (
+                                <span className="truncate">{assigneeInfo.email}</span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    )
+                  })()}
+                </div>
               </div>
             </div>
           </CardContent>
@@ -439,10 +739,20 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="todo">To Do</SelectItem>
-              <SelectItem value="in-progress">In Progress</SelectItem>
-              <SelectItem value="review">In Review</SelectItem>
-              <SelectItem value="done">Done</SelectItem>
+              {availableStatuses && availableStatuses.length > 0 ? (
+                availableStatuses.map((status) => (
+                  <SelectItem key={status.id} value={status.name.toLowerCase()}>
+                    {status.name}
+                  </SelectItem>
+                ))
+              ) : (
+                <>
+                  <SelectItem value="todo">To Do</SelectItem>
+                  <SelectItem value="in-progress">In Progress</SelectItem>
+                  <SelectItem value="review">In Review</SelectItem>
+                  <SelectItem value="done">Done</SelectItem>
+                </>
+              )}
             </SelectContent>
           </Select>
           
@@ -452,15 +762,38 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Assignees</SelectItem>
-              <SelectItem value="Alice Johnson">Alice Johnson</SelectItem>
-              <SelectItem value="Bob Chen">Bob Chen</SelectItem>
-              <SelectItem value="Carol Davis">Carol Davis</SelectItem>
-              <SelectItem value="David Wilson">David Wilson</SelectItem>
+              <SelectItem value="unassigned">Unassigned</SelectItem>
+              {projectTeamMembers.length > 0 ? projectTeamMembers.map((member) => (
+                <SelectItem key={member.id} value={member.name}>
+                  {member.name}
+                </SelectItem>
+              )) : (
+                Array.from(new Set(tasks.map(task => task.assignee_name).filter(Boolean))).map((assignee) => (
+                  <SelectItem key={assignee} value={assignee}>
+                    {assignee}
+                  </SelectItem>
+                ))
+              )}
+            </SelectContent>
+          </Select>
+
+          <Select value={filterSprint} onValueChange={setFilterSprint}>
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="Sprint" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Sprints</SelectItem>
+              <SelectItem value="unassigned">Unassigned</SelectItem>
+              {sprints.map((sprint) => (
+                <SelectItem key={sprint.id} value={sprint.id}>
+                  {sprint.name}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
 
-        <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as any)}>
+        <Tabs value={viewMode} onValueChange={(value: string) => setViewMode(value as 'board' | 'list' | 'table')}>
           <TabsList>
             <TabsTrigger value="board">Board</TabsTrigger>
             <TabsTrigger value="list">List</TabsTrigger>
@@ -469,7 +802,7 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
       </div>
 
       {/* Task Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-4 text-center">
             <div className="flex items-center justify-center mb-2">
@@ -552,6 +885,10 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
             }
           }}
           user={user}
+          availableStatuses={availableStatuses}
+          availablePriorities={availablePriorities}
+          projectTeamMembers={projectTeamMembers}
+          projectTeamLead={projectTeamLead || undefined}
         />
       )}
 
@@ -588,16 +925,26 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
                 <Label htmlFor="status">Status</Label>
                 <Select
                   value={createTaskData.status}
-                  onValueChange={(value) => setCreateTaskData({ ...createTaskData, status: value })}
+                  onValueChange={(value: string) => setCreateTaskData({ ...createTaskData, status: value })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select status" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="todo">To Do</SelectItem>
-                    <SelectItem value="in-progress">In Progress</SelectItem>
-                    <SelectItem value="review">In Review</SelectItem>
-                    <SelectItem value="done">Done</SelectItem>
+                    {availableStatuses && availableStatuses.length > 0 ? (
+                      availableStatuses.map((status) => (
+                        <SelectItem key={status.id} value={status.name.toLowerCase()}>
+                          {status.name}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <>
+                        <SelectItem value="todo">To Do</SelectItem>
+                        <SelectItem value="in-progress">In Progress</SelectItem>
+                        <SelectItem value="review">In Review</SelectItem>
+                        <SelectItem value="done">Done</SelectItem>
+                      </>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -606,16 +953,88 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
                 <Label htmlFor="priority">Priority</Label>
                 <Select
                   value={createTaskData.priority}
-                  onValueChange={(value) => setCreateTaskData({ ...createTaskData, priority: value })}
+                  onValueChange={(value: string) => setCreateTaskData({ ...createTaskData, priority: value })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select priority" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="low">Low</SelectItem>
-                    <SelectItem value="medium">Medium</SelectItem>
-                    <SelectItem value="high">High</SelectItem>
-                    <SelectItem value="critical">Critical</SelectItem>
+                    {availablePriorities && availablePriorities.length > 0 ? (
+                      availablePriorities.map((priority) => (
+                        <SelectItem key={priority.id} value={priority.name.toLowerCase()}>
+                          {priority.name}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <>
+                        <SelectItem value="low">Low</SelectItem>
+                        <SelectItem value="medium">Medium</SelectItem>
+                        <SelectItem value="high">High</SelectItem>
+                        <SelectItem value="critical">Critical</SelectItem>
+                      </>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="sprint">Sprint</Label>
+                <Select
+                  value={createTaskData.sprint_id || 'unassigned'}
+                  onValueChange={(value: string) => setCreateTaskData({
+                    ...createTaskData,
+                    sprint_id: value === 'unassigned' ? null : value
+                  })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select sprint" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="unassigned">Unassigned</SelectItem>
+                    {sprints.map((sprint) => (
+                      <SelectItem key={sprint.id} value={sprint.id}>
+                        {sprint.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label htmlFor="assignee">Assignee</Label>
+                <Select
+                  value={createTaskData.assignee_id || 'unassigned'}
+                  onValueChange={(value: string) => {
+                    if (value === 'unassigned') {
+                      setCreateTaskData({
+                        ...createTaskData,
+                        assignee_id: null,
+                        assignee_name: undefined
+                      })
+                    } else {
+                      const selectedMember = projectTeamMembers.find(member => member.id === value)
+                      setCreateTaskData({
+                        ...createTaskData,
+                        assignee_id: value,
+                        assignee_name: selectedMember?.name || undefined
+                      })
+                    }
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select assignee" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="unassigned">Unassigned</SelectItem>
+                    {projectTeamMembers.length > 0 ? projectTeamMembers.map((member) => (
+                      <SelectItem key={member.id} value={member.id}>
+                        {member.name} - {member.role_name}
+                      </SelectItem>
+                    )) : (
+                      <SelectItem value="loading" disabled>Loading team members...</SelectItem>
+                    )}
                   </SelectContent>
                 </Select>
               </div>

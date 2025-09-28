@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../../components/ui/dialog'
 import { Button } from '../../../components/ui/button'
 import { Input } from '../../../components/ui/input'
@@ -7,17 +7,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Badge } from '../../../components/ui/badge'
 import { Avatar, AvatarFallback } from '../../../components/ui/avatar'
 import { Label } from '../../../components/ui/label'
-import { 
-  Clock, 
-  Calendar, 
-  User, 
-  Tag, 
-  AlertCircle, 
+import {
+  Clock,
+  Calendar,
+  User,
+  Tag,
+  AlertCircle,
   MessageSquare,
   Paperclip,
   Save,
   X
 } from 'lucide-react'
+import { ProjectStatusItem, ProjectPriorityItem, ProjectMemberDetail } from '../../../services/projectApi'
 
 interface TaskModalProps {
   task: any
@@ -25,6 +26,10 @@ interface TaskModalProps {
   onClose: () => void
   onUpdate: (task: any) => void
   user: any
+  availableStatuses?: ProjectStatusItem[]
+  availablePriorities?: ProjectPriorityItem[]
+  projectTeamMembers?: ProjectMemberDetail[]
+  projectTeamLead?: ProjectMemberDetail
 }
 
 const statusOptions = [
@@ -49,9 +54,16 @@ const typeOptions = [
   { value: 'epic', label: 'Epic' }
 ]
 
-export function TaskModal({ task, isOpen, onClose, onUpdate, user }: TaskModalProps) {
+export function TaskModal({ task, isOpen, onClose, onUpdate, user, availableStatuses, availablePriorities, projectTeamMembers = [], projectTeamLead }: TaskModalProps) {
   const [editedTask, setEditedTask] = useState(task)
   const [newComment, setNewComment] = useState('')
+
+  // Update editedTask when task prop changes
+  useEffect(() => {
+    if (task) {
+      setEditedTask(task)
+    }
+  }, [task])
 
   const handleSave = () => {
     onUpdate(editedTask)
@@ -65,11 +77,29 @@ export function TaskModal({ task, isOpen, onClose, onUpdate, user }: TaskModalPr
   }
 
   const getStatusColor = (status: string) => {
+    // Try to find color from available statuses first
+    if (availableStatuses && availableStatuses.length > 0) {
+      const statusItem = availableStatuses.find(s => s.name.toLowerCase() === status.toLowerCase())
+      if (statusItem && statusItem.color) {
+        return `bg-[${statusItem.color}] text-white`
+      }
+    }
+
+    // Fallback to static colors
     const option = statusOptions.find(opt => opt.value === status)
     return option?.color || 'bg-gray-100 text-gray-800'
   }
 
   const getPriorityColor = (priority: string) => {
+    // Try to find color from available priorities first
+    if (availablePriorities && availablePriorities.length > 0) {
+      const priorityItem = availablePriorities.find(p => p.name.toLowerCase() === priority.toLowerCase())
+      if (priorityItem && priorityItem.color) {
+        return `bg-[${priorityItem.color}] text-white`
+      }
+    }
+
+    // Fallback to static colors
     const option = priorityOptions.find(opt => opt.value === priority)
     return option?.color || 'bg-gray-100 text-gray-800'
   }
@@ -121,8 +151,8 @@ export function TaskModal({ task, isOpen, onClose, onUpdate, user }: TaskModalPr
                 <div>
                   <Label htmlFor="type">Type</Label>
                   <Select
-                    value={editedTask.type}
-                    onValueChange={(value) => setEditedTask({ ...editedTask, type: value })}
+                    value={editedTask.type || 'task'}
+                    onValueChange={(value: string) => setEditedTask({ ...editedTask, type: value })}
                   >
                     <SelectTrigger className="mt-1">
                       <SelectValue />
@@ -138,12 +168,14 @@ export function TaskModal({ task, isOpen, onClose, onUpdate, user }: TaskModalPr
                 </div>
 
                 <div>
-                  <Label htmlFor="storyPoints">Story Points</Label>
+                  <Label htmlFor="progress">Progress (%)</Label>
                   <Input
-                    id="storyPoints"
+                    id="progress"
                     type="number"
-                    value={editedTask.storyPoints || 0}
-                    onChange={(e) => setEditedTask({ ...editedTask, storyPoints: parseInt(e.target.value) })}
+                    min="0"
+                    max="100"
+                    value={editedTask.progress || 0}
+                    onChange={(e) => setEditedTask({ ...editedTask, progress: parseInt(e.target.value) || 0 })}
                     className="mt-1"
                   />
                 </div>
@@ -196,20 +228,31 @@ export function TaskModal({ task, isOpen, onClose, onUpdate, user }: TaskModalPr
                 <Label htmlFor="status">Status</Label>
                 <Select
                   value={editedTask.status}
-                  onValueChange={(value) => setEditedTask({ ...editedTask, status: value })}
+                  onValueChange={(value: string) => setEditedTask({ ...editedTask, status: value })}
                 >
                   <SelectTrigger className="mt-1">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {statusOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        <div className="flex items-center space-x-2">
-                          <div className={`w-2 h-2 rounded-full ${option.color.split(' ')[0]}`}></div>
-                          <span>{option.label}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
+                    {availableStatuses && availableStatuses.length > 0 ? (
+                      availableStatuses.map((status) => (
+                        <SelectItem key={status.id} value={status.name.toLowerCase()}>
+                          <div className="flex items-center space-x-2">
+                            <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                            <span>{status.name}</span>
+                          </div>
+                        </SelectItem>
+                      ))
+                    ) : (
+                      statusOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          <div className="flex items-center space-x-2">
+                            <div className={`w-2 h-2 rounded-full ${option.color.split(' ')[0]}`}></div>
+                            <span>{option.label}</span>
+                          </div>
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -218,20 +261,31 @@ export function TaskModal({ task, isOpen, onClose, onUpdate, user }: TaskModalPr
                 <Label htmlFor="priority">Priority</Label>
                 <Select
                   value={editedTask.priority}
-                  onValueChange={(value) => setEditedTask({ ...editedTask, priority: value })}
+                  onValueChange={(value: string) => setEditedTask({ ...editedTask, priority: value })}
                 >
                   <SelectTrigger className="mt-1">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {priorityOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        <div className="flex items-center space-x-2">
-                          <AlertCircle className="w-3 h-3" />
-                          <span>{option.label}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
+                    {availablePriorities && availablePriorities.length > 0 ? (
+                      availablePriorities.map((priority) => (
+                        <SelectItem key={priority.id} value={priority.name.toLowerCase()}>
+                          <div className="flex items-center space-x-2">
+                            <AlertCircle className="w-3 h-3" />
+                            <span>{priority.name}</span>
+                          </div>
+                        </SelectItem>
+                      ))
+                    ) : (
+                      priorityOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          <div className="flex items-center space-x-2">
+                            <AlertCircle className="w-3 h-3" />
+                            <span>{option.label}</span>
+                          </div>
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -239,39 +293,65 @@ export function TaskModal({ task, isOpen, onClose, onUpdate, user }: TaskModalPr
 
             {/* Assignment */}
             <div className="space-y-2">
-              <Label>Assignee</Label>
-              <div className="flex items-center space-x-2 p-2 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
-                <Avatar className="w-6 h-6">
-                  <AvatarFallback className="bg-[#28A745] text-white text-xs">
-                    {editedTask.assignee?.avatar}
-                  </AvatarFallback>
-                </Avatar>
-                <span className="text-sm">{editedTask.assignee?.name}</span>
-              </div>
+              <Label htmlFor="assignee">Assignee</Label>
+              <Select
+                value={editedTask.assignee_id || 'unassigned'}
+                onValueChange={(value: string) => {
+                  if (value === 'unassigned') {
+                    setEditedTask({
+                      ...editedTask,
+                      assignee_id: null,
+                      assignee_name: null
+                    })
+                  } else {
+                    const selectedMember = projectTeamMembers.find(member => member.id === value)
+                    setEditedTask({
+                      ...editedTask,
+                      assignee_id: value,
+                      assignee_name: selectedMember?.name || null
+                    })
+                  }
+                }}
+              >
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="Select assignee" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unassigned">Unassigned</SelectItem>
+                  {projectTeamMembers.length > 0 ? projectTeamMembers.map((member) => (
+                    <SelectItem key={member.id} value={member.id}>
+                      {member.name} - {member.role_name}
+                    </SelectItem>
+                  )) : (
+                    <SelectItem value="loading" disabled>Loading team members...</SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
             </div>
 
-            {/* Epic */}
+            {/* Sprint */}
             <div className="space-y-2">
-              <Label>Epic</Label>
+              <Label>Sprint</Label>
               <div className="p-2 bg-purple-50 dark:bg-purple-950/20 rounded-lg">
-                <span className="text-sm text-purple-700 dark:text-purple-300">{editedTask.epic}</span>
+                <span className="text-sm text-purple-700 dark:text-purple-300">
+                  {editedTask.sprint_name || 'No Sprint Assigned'}
+                </span>
               </div>
             </div>
 
-            {/* Time Tracking */}
+            {/* Progress Tracking */}
             <div className="space-y-2">
-              <Label>Time Tracking</Label>
+              <Label>Progress</Label>
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Logged:</span>
-                  <span>4h 30m</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Estimated:</span>
-                  <span>8h</span>
+                  <span className="text-muted-foreground">Completed:</span>
+                  <span>{editedTask.progress || 0}%</span>
                 </div>
                 <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                  <div className="bg-[#28A745] h-2 rounded-full" style={{ width: '56%' }}></div>
+                  <div
+                    className="bg-[#28A745] h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${editedTask.progress || 0}%` }}
+                  ></div>
                 </div>
               </div>
             </div>
@@ -280,9 +360,15 @@ export function TaskModal({ task, isOpen, onClose, onUpdate, user }: TaskModalPr
             <div className="space-y-2">
               <Label>Labels</Label>
               <div className="flex flex-wrap gap-1">
-                <Badge variant="outline" className="text-xs">frontend</Badge>
-                <Badge variant="outline" className="text-xs">authentication</Badge>
-                <Badge variant="outline" className="text-xs">security</Badge>
+                {editedTask.tags && editedTask.tags.length > 0 ? (
+                  editedTask.tags.map((tag: string, index: number) => (
+                    <Badge key={index} variant="outline" className="text-xs">
+                      {tag}
+                    </Badge>
+                  ))
+                ) : (
+                  <span className="text-xs text-muted-foreground">No labels</span>
+                )}
               </div>
             </div>
 

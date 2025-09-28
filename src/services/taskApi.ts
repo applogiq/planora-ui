@@ -8,6 +8,7 @@ export interface Task {
   status: string;
   priority: string;
   project_id: string;
+  sprint_id?: string | null;
   assignee_id?: string | null;
   start_date?: string;
   due_date?: string;
@@ -20,6 +21,7 @@ export interface Task {
   created_at?: string;
   updated_at?: string;
   assignee_name?: string;
+  sprint_name?: string;
   assignee?: {
     id: string;
     name: string;
@@ -60,7 +62,9 @@ export interface CreateTaskRequest {
   status: string;
   priority: string;
   project_id: string;
+  sprint_id?: string | null;
   assignee_id?: string | null;
+  assignee_name?: string;
   start_date?: string;
   due_date?: string;
   progress?: number;

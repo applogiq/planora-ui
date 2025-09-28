@@ -26,7 +26,7 @@ import {
 } from 'lucide-react'
 import { Story, storiesApiService, SubTask } from '../../../services/storiesApi'
 import { epicApiService, Epic } from '../../../services/epicApi'
-import { ProjectMemberDetail } from '../../../services/projectApi'
+import { ProjectMemberDetail, ProjectPriorityItem } from '../../../services/projectApi'
 import { SessionStorageService } from '../../../utils/sessionStorage'
 import { toast } from 'sonner'
 
@@ -37,9 +37,10 @@ interface StoryDetailModalProps {
   onUpdate: () => void
   projectId?: string
   project?: any
+  availablePriorities?: ProjectPriorityItem[]
 }
 
-export function StoryDetailModal({ story, isOpen, onClose, onUpdate, projectId: propProjectId, project }: StoryDetailModalProps) {
+export function StoryDetailModal({ story, isOpen, onClose, onUpdate, projectId: propProjectId, project, availablePriorities }: StoryDetailModalProps) {
   // Get effective project ID from props or session storage
   const effectiveProjectId = SessionStorageService.getEffectiveProjectId(propProjectId)
 
@@ -228,9 +229,19 @@ export function StoryDetailModal({ story, isOpen, onClose, onUpdate, projectId: 
                             <SelectValue placeholder="Select priority" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="high">High</SelectItem>
-                            <SelectItem value="medium">Medium</SelectItem>
-                            <SelectItem value="low">Low</SelectItem>
+                            {availablePriorities && availablePriorities.length > 0 ? (
+                              availablePriorities.map((priority) => (
+                                <SelectItem key={priority.id} value={priority.name.toLowerCase()}>
+                                  {priority.name}
+                                </SelectItem>
+                              ))
+                            ) : (
+                              <>
+                                <SelectItem value="high">High</SelectItem>
+                                <SelectItem value="medium">Medium</SelectItem>
+                                <SelectItem value="low">Low</SelectItem>
+                              </>
+                            )}
                           </SelectContent>
                         </Select>
                       </div>

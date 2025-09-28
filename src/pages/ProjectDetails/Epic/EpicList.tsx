@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '../../../components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card'
+import { Card, CardContent } from '../../../components/ui/card'
 import { Badge } from '../../../components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '../../../components/ui/avatar'
 import { Input } from '../../../components/ui/input'
@@ -33,12 +33,10 @@ import {
 import {
   Plus,
   Search,
-  Filter,
   Edit,
   Trash2,
   Eye,
   Calendar,
-  User,
   Target,
   CheckCircle2,
   Clock,
@@ -51,6 +49,7 @@ import {
   ChevronsRight
 } from 'lucide-react'
 import { epicApiService, Epic, EpicsResponse } from '../../../services/epicApi'
+import { projectApiService, ProjectMastersResponse, ProjectStatusItem, ProjectPriorityItem } from '../../../services/projectApi'
 import { EpicCreateModal } from './EpicCreateModal'
 import { EpicViewEditModal } from './EpicViewEditModal'
 import { toast } from 'sonner'
@@ -70,7 +69,12 @@ export function EpicList({ projectId, user, teamMembers = [] }: EpicListProps) {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [selectedEpic, setSelectedEpic] = useState<Epic | null>(null)
   const [showViewEditModal, setShowViewEditModal] = useState(false)
-  const [deleteEpicId, setDeleteEpicId] = useState<string | null>(null)
+
+  // Project Master Data
+  const [projectMasters, setProjectMasters] = useState<ProjectMastersResponse | null>(null)
+  const [availableStatuses, setAvailableStatuses] = useState<ProjectStatusItem[]>([])
+  const [availablePriorities, setAvailablePriorities] = useState<ProjectPriorityItem[]>([])
+  const [loadingMasters, setLoadingMasters] = useState(true)
 
   // Filters and Pagination
   const [searchTerm, setSearchTerm] = useState('')
@@ -78,6 +82,50 @@ export function EpicList({ projectId, user, teamMembers = [] }: EpicListProps) {
   const [priorityFilter, setPriorityFilter] = useState('all')
   const [viewMode, setViewMode] = useState<'card' | 'table'>('table')
   const [itemsPerPage] = useState(10)
+
+  const loadProjectMasters = async () => {
+    try {
+      setLoadingMasters(true)
+      const masters = await projectApiService.getProjectMasters()
+      setProjectMasters(masters)
+
+      // Filter active statuses and priorities, sorted by sort_order
+      const activeStatuses = masters.statuses
+        .filter(status => status.is_active)
+        .sort((a, b) => a.sort_order - b.sort_order)
+
+      const activePriorities = masters.priorities
+        .filter(priority => priority.is_active)
+        .sort((a, b) => a.sort_order - b.sort_order)
+
+      setAvailableStatuses(activeStatuses)
+      setAvailablePriorities(activePriorities)
+
+      console.log('Loaded project masters:', {
+        statuses: activeStatuses,
+        priorities: activePriorities
+      })
+    } catch (error) {
+      console.error('Error loading project masters:', error)
+      // Fallback to default values
+      setAvailableStatuses([
+        { id: '1', name: 'Not Started', description: '', is_active: true, sort_order: 1, created_at: '', updated_at: '', color: '#gray' },
+        { id: '2', name: 'In Progress', description: '', is_active: true, sort_order: 2, created_at: '', updated_at: '', color: '#blue' },
+        { id: '3', name: 'Completed', description: '', is_active: true, sort_order: 3, created_at: '', updated_at: '', color: '#green' },
+        { id: '4', name: 'On Hold', description: '', is_active: true, sort_order: 4, created_at: '', updated_at: '', color: '#yellow' },
+        { id: '5', name: 'Cancelled', description: '', is_active: true, sort_order: 5, created_at: '', updated_at: '', color: '#red' }
+      ])
+      setAvailablePriorities([
+        { id: '1', name: 'Low', description: '', is_active: true, sort_order: 1, created_at: '', updated_at: '', color: '#green', level: 1 },
+        { id: '2', name: 'Medium', description: '', is_active: true, sort_order: 2, created_at: '', updated_at: '', color: '#yellow', level: 2 },
+        { id: '3', name: 'High', description: '', is_active: true, sort_order: 3, created_at: '', updated_at: '', color: '#orange', level: 3 },
+        { id: '4', name: 'Critical', description: '', is_active: true, sort_order: 4, created_at: '', updated_at: '', color: '#red', level: 4 }
+      ])
+      toast.error('Failed to load project settings, using defaults')
+    } finally {
+      setLoadingMasters(false)
+    }
+  }
 
   const loadEpics = async (page = 1) => {
     try {
@@ -104,6 +152,10 @@ export function EpicList({ projectId, user, teamMembers = [] }: EpicListProps) {
   }
 
   useEffect(() => {
+    loadProjectMasters()
+  }, [])
+
+  useEffect(() => {
     loadEpics()
   }, [projectId, searchTerm, statusFilter, priorityFilter])
 
@@ -121,7 +173,6 @@ export function EpicList({ projectId, user, teamMembers = [] }: EpicListProps) {
       await epicApiService.deleteEpic(epicId)
       toast.success('Epic deleted successfully')
       loadEpics(currentPage)
-      setDeleteEpicId(null)
     } catch (error) {
       console.error('Error deleting epic:', error)
       toast.error('Failed to delete epic')
@@ -208,11 +259,21 @@ export function EpicList({ projectId, user, teamMembers = [] }: EpicListProps) {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Statuses</SelectItem>
-              <SelectItem value="Not Started">Not Started</SelectItem>
-              <SelectItem value="In Progress">In Progress</SelectItem>
-              <SelectItem value="Completed">Completed</SelectItem>
-              <SelectItem value="On Hold">On Hold</SelectItem>
-              <SelectItem value="Cancelled">Cancelled</SelectItem>
+              {loadingMasters ? (
+                <SelectItem value="loading" disabled>Loading...</SelectItem>
+              ) : (
+                availableStatuses.map((status) => (
+                  <SelectItem key={status.id} value={status.name}>
+                    <div className="flex items-center space-x-2">
+                      <div
+                        className="w-2 h-2 rounded-full"
+                        style={{ backgroundColor: status.color || '#gray' }}
+                      />
+                      <span>{status.name}</span>
+                    </div>
+                  </SelectItem>
+                ))
+              )}
             </SelectContent>
           </Select>
 
@@ -223,10 +284,22 @@ export function EpicList({ projectId, user, teamMembers = [] }: EpicListProps) {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Priorities</SelectItem>
-              <SelectItem value="Low">Low</SelectItem>
-              <SelectItem value="Medium">Medium</SelectItem>
-              <SelectItem value="High">High</SelectItem>
-              <SelectItem value="Critical">Critical</SelectItem>
+              {loadingMasters ? (
+                <SelectItem value="loading" disabled>Loading...</SelectItem>
+              ) : (
+                availablePriorities.map((priority) => (
+                  <SelectItem key={priority.id} value={priority.name}>
+                    <div className="flex items-center space-x-2">
+                      <div
+                        className="w-2 h-2 rounded-full"
+                        style={{ backgroundColor: priority.color || '#gray' }}
+                      />
+                      <span>{priority.name}</span>
+                      <span className="text-xs text-muted-foreground">({priority.level})</span>
+                    </div>
+                  </SelectItem>
+                ))
+              )}
             </SelectContent>
           </Select>
         </div>
@@ -676,6 +749,8 @@ export function EpicList({ projectId, user, teamMembers = [] }: EpicListProps) {
           }}
           user={user}
           teamMembers={teamMembers}
+          availableStatuses={projectMasters?.statuses}
+          availablePriorities={projectMasters?.priorities}
         />
       )}
 
@@ -694,6 +769,8 @@ export function EpicList({ projectId, user, teamMembers = [] }: EpicListProps) {
           }}
           user={user}
           teamMembers={teamMembers}
+          availableStatuses={projectMasters?.statuses}
+          availablePriorities={projectMasters?.priorities}
         />
       )}
     </div>

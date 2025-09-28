@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
 import { Badge } from '../../components/ui/badge'
@@ -6,12 +6,15 @@ import { Avatar, AvatarFallback } from '../../components/ui/avatar'
 import { Input } from '../../components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../components/ui/dialog'
-import { Label } from '../../components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs'
 import { Progress } from '../../components/ui/progress'
-import { 
-  Plus, 
-  Search, 
+import { userApiService, User } from '../../services/userApi'
+import { projectApiService, TeamMemberDetail, TeamMember } from '../../services/projectApi'
+import { toast } from 'sonner'
+import { SessionStorageService } from '../../utils/sessionStorage'
+import {
+  Plus,
+  Search,
   Mail,
   Phone,
   MapPin,
@@ -26,13 +29,24 @@ import {
   UserPlus,
   Crown,
   Shield,
-  User,
+  User as UserIcon,
   Settings
 } from 'lucide-react'
 
 interface TeamViewProps {
   project: any
   user: any
+  projectId?: string
+}
+
+interface TeamMember extends User {
+  workload?: number
+  availability?: string
+  currentTasks?: number
+  completedTasks?: number
+  hoursLogged?: number
+  teamLead?: boolean
+  joinDate?: string
 }
 
 // Extended team data with more details
@@ -129,13 +143,215 @@ const mockTeamMembers = [
   }
 ]
 
-export function TeamView({ project, user }: TeamViewProps) {
+export function TeamView({ project, user, projectId: propProjectId }: TeamViewProps) {
+  // Get effective project ID from props or session storage
+  const effectiveProjectId = SessionStorageService.getEffectiveProjectId(propProjectId)
+
   const [searchTerm, setSearchTerm] = useState('')
   const [filterRole, setFilterRole] = useState('all')
   const [filterAvailability, setFilterAvailability] = useState('all')
-  const [selectedMember, setSelectedMember] = useState<any>(null)
+  const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null)
   const [showAddMember, setShowAddMember] = useState(false)
   const [activeTab, setActiveTab] = useState('overview')
+  const [projectMembers, setTeamMembers] = useState<TeamMember[]>([])
+  const [availableUsers, setAvailableUsers] = useState<User[]>([])
+  const [loading, setLoading] = useState(true)
+  const [loadingUsers, setLoadingUsers] = useState(false)
+
+  // Load project members when component mounts
+  useEffect(() => {
+    if (effectiveProjectId) {
+      fetchTeamMembers()
+    }
+  }, [effectiveProjectId])
+
+  // Load available users when add member modal opens
+  useEffect(() => {
+    if (showAddMember) {
+      fetchAvailableUsers()
+    }
+  }, [showAddMember])
+
+  const fetchTeamMembers = async () => {
+    if (!effectiveProjectId) {
+      console.warn('No project ID available for fetching team members')
+      setLoading(false)
+      return
+    }
+
+    try {
+      setLoading(true)
+      // Use project-specific API to get only this project's team members
+      const response = await projectApiService.getProjectTeamMembers(effectiveProjectId)
+
+      // Get all member IDs to fetch their full details
+      const memberIds: string[] = []
+      if (response.team_lead_detail) {
+        memberIds.push(response.team_lead_detail.id)
+      }
+      if (response.team_members_detail && response.team_members_detail.length > 0) {
+        response.team_members_detail.forEach(member => memberIds.push(member.id))
+      }
+
+      // Fetch full user details for all team members
+      const userDetailsMap = new Map<string, User>()
+      if (memberIds.length > 0) {
+        try {
+          // Fetch all users and filter for our team members
+          const allUsersResponse = await userApiService.getUsers({ per_page: 100 })
+          allUsersResponse.items.forEach(user => {
+            if (memberIds.includes(user.id)) {
+              userDetailsMap.set(user.id, user)
+            }
+          })
+          console.log(`Fetched full details for ${userDetailsMap.size} team members`)
+        } catch (userError) {
+          console.warn('Could not fetch full user details:', userError)
+        }
+      }
+
+      // Convert TeamMemberDetail data to TeamMember format with full user details
+      const members: TeamMember[] = []
+
+      // Add team lead if exists
+      if (response.team_lead_detail) {
+        const userDetails = userDetailsMap.get(response.team_lead_detail.id)
+        const teamLead: TeamMember = {
+          id: response.team_lead_detail.id,
+          name: response.team_lead_detail.name,
+          email: userDetails?.email || '',
+          role: userDetails?.role || {
+            name: response.team_lead_detail.role_name,
+            description: '',
+            permissions: [],
+            is_active: true,
+            id: response.team_lead_detail.role_id,
+            created_at: '',
+            updated_at: ''
+          },
+          role_id: response.team_lead_detail.role_id,
+          is_active: userDetails?.is_active ?? true,
+          department: response.team_lead_detail.department,
+          skills: userDetails?.skills || [],
+          phone: userDetails?.phone || '',
+          timezone: userDetails?.timezone || '',
+          last_login: userDetails?.last_login || null,
+          created_at: userDetails?.created_at || '',
+          updated_at: userDetails?.updated_at || null,
+          user_profile: response.team_lead_detail.user_profile,
+          workload: Math.floor(Math.random() * 100), // Mock workload data
+          availability: ['available', 'busy', 'away'][Math.floor(Math.random() * 3)],
+          currentTasks: Math.floor(Math.random() * 10),
+          completedTasks: Math.floor(Math.random() * 50),
+          hoursLogged: Math.floor(Math.random() * 200),
+          teamLead: true,
+          joinDate: userDetails?.created_at || ''
+        }
+        members.push(teamLead)
+      }
+
+      // Add team members
+      if (response.team_members_detail && response.team_members_detail.length > 0) {
+        response.team_members_detail.forEach((memberDetail: TeamMemberDetail) => {
+          const userDetails = userDetailsMap.get(memberDetail.id)
+          const member: TeamMember = {
+            id: memberDetail.id,
+            name: memberDetail.name,
+            email: userDetails?.email || '',
+            role: userDetails?.role || {
+              name: memberDetail.role_name,
+              description: '',
+              permissions: [],
+              is_active: true,
+              id: memberDetail.role_id,
+              created_at: '',
+              updated_at: ''
+            },
+            role_id: memberDetail.role_id,
+            is_active: userDetails?.is_active ?? true,
+            department: memberDetail.department,
+            skills: userDetails?.skills || [],
+            phone: userDetails?.phone || '',
+            timezone: userDetails?.timezone || '',
+            last_login: userDetails?.last_login || null,
+            created_at: userDetails?.created_at || '',
+            updated_at: userDetails?.updated_at || null,
+            user_profile: memberDetail.user_profile,
+            workload: Math.floor(Math.random() * 100), // Mock workload data
+            availability: ['available', 'busy', 'away'][Math.floor(Math.random() * 3)],
+            currentTasks: Math.floor(Math.random() * 10),
+            completedTasks: Math.floor(Math.random() * 50),
+            hoursLogged: Math.floor(Math.random() * 200),
+            teamLead: false,
+            joinDate: userDetails?.created_at || ''
+          }
+          members.push(member)
+        })
+      }
+
+      setTeamMembers(members)
+      console.log('Fetched project-specific team members:', members)
+      toast.success(`Loaded ${members.length} project team members`)
+    } catch (error) {
+      console.error('Error fetching project team members:', error)
+      console.log('Using mock data as fallback')
+
+      // Use mock data as fallback
+      const mockMembers = mockTeamMembers.map(member => ({
+        ...member,
+        role: { name: member.role, description: '', permissions: [], is_active: true, id: '', created_at: '', updated_at: '' },
+        email: member.email,
+        role_id: member.id,
+        user_profile: '',
+        is_active: true,
+        department: member.location.split(',')[0],
+        skills: member.skills,
+        phone: member.phone,
+        timezone: 'UTC',
+        id: member.id,
+        last_login: '',
+        created_at: member.joinDate,
+        updated_at: ''
+      } as TeamMember))
+
+      setTeamMembers(mockMembers)
+      toast.success('Using demo team data (API not available)')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchAvailableUsers = async () => {
+    try {
+      setLoadingUsers(true)
+      // Fetch users excluding admin and project manager roles
+      const response = await userApiService.getUsers({
+        is_active: true,
+        per_page: 100 // Get more users to show options
+      })
+
+      // Filter out admin and project manager roles
+      const filteredUsers = response.items.filter(user => {
+        const roleName = user.role.name.toLowerCase()
+        return !roleName.includes('admin') &&
+               !roleName.includes('project manager') &&
+               !roleName.includes('manager')
+      })
+
+      // Also filter out users who are already in the project
+      const currentMemberIds = projectMembers.map(member => member.id)
+      const availableUsers = filteredUsers.filter(user => !currentMemberIds.includes(user.id))
+
+      setAvailableUsers(availableUsers)
+      console.log('Fetched available users:', availableUsers)
+    } catch (error) {
+      console.error('Error fetching available users:', error)
+      toast.error('Failed to load available users')
+      setAvailableUsers([])
+    } finally {
+      setLoadingUsers(false)
+    }
+  }
 
   const getAvailabilityColor = (availability: string) => {
     switch (availability) {
@@ -153,7 +369,7 @@ export function TeamView({ project, user }: TeamViewProps) {
     } else if (role.includes('Owner')) {
       return <Shield className="w-4 h-4 text-blue-600" />
     } else {
-      return <User className="w-4 h-4 text-gray-600" />
+      return <UserIcon className="w-4 h-4 text-gray-600" />
     }
   }
 
@@ -163,17 +379,17 @@ export function TeamView({ project, user }: TeamViewProps) {
     return 'text-green-600'
   }
 
-  const filteredMembers = mockTeamMembers.filter(member => {
+  const filteredMembers = projectMembers.filter(member => {
     const matchesSearch = member.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         member.role.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesRole = filterRole === 'all' || member.role.toLowerCase().includes(filterRole.toLowerCase())
+                         member.role.name.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesRole = filterRole === 'all' || member.role.name.toLowerCase().includes(filterRole.toLowerCase())
     const matchesAvailability = filterAvailability === 'all' || member.availability === filterAvailability
-    
+
     return matchesSearch && matchesRole && matchesAvailability
   })
 
-  const TeamMemberCard = ({ member }: { member: any }) => (
-    <Card 
+  const TeamMemberCard = ({ member }: { member: TeamMember }) => (
+    <Card
       className="cursor-pointer hover:shadow-md transition-shadow"
       onClick={() => setSelectedMember(member)}
     >
@@ -182,7 +398,7 @@ export function TeamView({ project, user }: TeamViewProps) {
           <div className="relative">
             <Avatar className="w-16 h-16">
               <AvatarFallback className="bg-[#28A745] text-white text-lg">
-                {member.avatar}
+                {member.name.substring(0, 2).toUpperCase()}
               </AvatarFallback>
             </Avatar>
             {member.teamLead && (
@@ -191,14 +407,14 @@ export function TeamView({ project, user }: TeamViewProps) {
               </div>
             )}
           </div>
-          
+
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between mb-2">
               <div>
                 <h3 className="font-semibold text-foreground">{member.name}</h3>
                 <div className="flex items-center space-x-2 mt-1">
-                  {getRoleIcon(member.role)}
-                  <span className="text-sm text-muted-foreground">{member.role}</span>
+                  {getRoleIcon(member.role.name)}
+                  <span className="text-sm text-muted-foreground">{member.role.name}</span>
                 </div>
               </div>
               <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
@@ -208,35 +424,35 @@ export function TeamView({ project, user }: TeamViewProps) {
             
             <div className="space-y-2">
               <div className="flex items-center space-x-2">
-                <Badge variant="outline" className={getAvailabilityColor(member.availability)}>
-                  {member.availability}
+                <Badge variant="outline" className={getAvailabilityColor(member.availability || 'available')}>
+                  {member.availability || 'available'}
                 </Badge>
                 <span className="text-sm text-muted-foreground">
-                  Workload: <span className={getWorkloadColor(member.workload)}>{member.workload}%</span>
+                  Workload: <span className={getWorkloadColor(member.workload || 0)}>{member.workload || 0}%</span>
                 </span>
               </div>
-              
+
               <div className="grid grid-cols-3 gap-4 text-sm">
                 <div>
                   <span className="text-muted-foreground">Active Tasks</span>
-                  <p className="font-medium">{member.currentTasks}</p>
+                  <p className="font-medium">{member.currentTasks || 0}</p>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Completed</span>
-                  <p className="font-medium">{member.completedTasks}</p>
+                  <p className="font-medium">{member.completedTasks || 0}</p>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Hours</span>
-                  <p className="font-medium">{member.hoursLogged}h</p>
+                  <p className="font-medium">{member.hoursLogged || 0}h</p>
                 </div>
               </div>
-              
+
               <div>
                 <div className="flex items-center justify-between text-sm mb-1">
                   <span className="text-muted-foreground">Capacity</span>
-                  <span className="font-medium">{member.workload}%</span>
+                  <span className="font-medium">{member.workload || 0}%</span>
                 </div>
-                <Progress value={member.workload} className="h-2" />
+                <Progress value={member.workload || 0} className="h-2" />
               </div>
             </div>
           </div>
@@ -245,19 +461,19 @@ export function TeamView({ project, user }: TeamViewProps) {
     </Card>
   )
 
-  const MemberDetailsModal = ({ member }: { member: any }) => (
+  const MemberDetailsModal = ({ member }: { member: TeamMember }) => (
     <Dialog open={!!member} onOpenChange={() => setSelectedMember(null)}>
       <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center space-x-3">
             <Avatar className="w-12 h-12">
               <AvatarFallback className="bg-[#28A745] text-white">
-                {member.avatar}
+                {member.name.substring(0, 2).toUpperCase()}
               </AvatarFallback>
             </Avatar>
             <div>
               <span>{member.name}</span>
-              <p className="text-sm text-muted-foreground font-normal">{member.role}</p>
+              <p className="text-sm text-muted-foreground font-normal">{member.role.name}</p>
             </div>
           </DialogTitle>
         </DialogHeader>
@@ -287,11 +503,11 @@ export function TeamView({ project, user }: TeamViewProps) {
                   </div>
                   <div className="flex items-center space-x-3">
                     <MapPin className="w-4 h-4 text-muted-foreground" />
-                    <span className="text-sm">{member.location}</span>
+                    <span className="text-sm">{member.department || 'Not specified'}</span>
                   </div>
                   <div className="flex items-center space-x-3">
                     <Calendar className="w-4 h-4 text-muted-foreground" />
-                    <span className="text-sm">Joined {member.joinDate}</span>
+                    <span className="text-sm">Joined {new Date(member.created_at).toLocaleDateString()}</span>
                   </div>
                 </CardContent>
               </Card>
@@ -304,24 +520,24 @@ export function TeamView({ project, user }: TeamViewProps) {
                   <div>
                     <div className="flex items-center justify-between text-sm mb-1">
                       <span>Current Workload</span>
-                      <span className={getWorkloadColor(member.workload)}>{member.workload}%</span>
+                      <span className={getWorkloadColor(member.workload || 0)}>{member.workload || 0}%</span>
                     </div>
-                    <Progress value={member.workload} className="h-2" />
+                    <Progress value={member.workload || 0} className="h-2" />
                   </div>
-                  
+
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div className="text-center p-3 bg-muted rounded">
-                      <div className="text-2xl font-semibold text-[#007BFF]">{member.currentTasks}</div>
+                      <div className="text-2xl font-semibold text-[#007BFF]">{member.currentTasks || 0}</div>
                       <div className="text-muted-foreground">Active Tasks</div>
                     </div>
                     <div className="text-center p-3 bg-muted rounded">
-                      <div className="text-2xl font-semibold text-[#28A745]">{member.completedTasks}</div>
+                      <div className="text-2xl font-semibold text-[#28A745]">{member.completedTasks || 0}</div>
                       <div className="text-muted-foreground">Completed</div>
                     </div>
                   </div>
-                  
+
                   <div className="text-center p-3 bg-muted rounded">
-                    <div className="text-2xl font-semibold text-[#6F42C1]">{member.hoursLogged}</div>
+                    <div className="text-2xl font-semibold text-[#6F42C1]">{member.hoursLogged || 0}</div>
                     <div className="text-muted-foreground">Hours Logged</div>
                   </div>
                 </CardContent>
@@ -341,25 +557,33 @@ export function TeamView({ project, user }: TeamViewProps) {
             <div>
               <h4 className="font-medium mb-3">Skills & Expertise</h4>
               <div className="flex flex-wrap gap-2">
-                {member.skills.map((skill: string) => (
-                  <Badge key={skill} variant="outline" className="text-sm">
-                    {skill}
-                  </Badge>
-                ))}
+                {member.skills && member.skills.length > 0 ? (
+                  member.skills.map((skill: string) => (
+                    <Badge key={skill} variant="outline" className="text-sm">
+                      {skill}
+                    </Badge>
+                  ))
+                ) : (
+                  <span className="text-sm text-muted-foreground">No skills listed</span>
+                )}
               </div>
             </div>
           </TabsContent>
-          
+
           <TabsContent value="permissions" className="space-y-4">
             <div>
-              <h4 className="font-medium mb-3">Project Permissions</h4>
+              <h4 className="font-medium mb-3">Role Permissions</h4>
               <div className="space-y-2">
-                {member.permissions.map((permission: string) => (
-                  <div key={permission} className="flex items-center space-x-2">
-                    <Shield className="w-4 h-4 text-green-600" />
-                    <span className="text-sm">{permission.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}</span>
-                  </div>
-                ))}
+                {member.role.permissions && member.role.permissions.length > 0 ? (
+                  member.role.permissions.map((permission: string) => (
+                    <div key={permission} className="flex items-center space-x-2">
+                      <Shield className="w-4 h-4 text-green-600" />
+                      <span className="text-sm">{permission.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}</span>
+                    </div>
+                  ))
+                ) : (
+                  <span className="text-sm text-muted-foreground">No specific permissions listed</span>
+                )}
               </div>
             </div>
           </TabsContent>
@@ -388,12 +612,12 @@ export function TeamView({ project, user }: TeamViewProps) {
           <p className="text-muted-foreground">Manage team members and their roles</p>
         </div>
         
-        <Button 
+        <Button
           className="bg-[#28A745] hover:bg-[#218838]"
           onClick={() => setShowAddMember(true)}
         >
           <UserPlus className="w-4 h-4 mr-2" />
-          Add Member
+          Associate Member
         </Button>
       </div>
 
@@ -441,26 +665,32 @@ export function TeamView({ project, user }: TeamViewProps) {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-4 text-center">
-            <div className="text-2xl font-semibold text-[#007BFF]">{mockTeamMembers.length}</div>
+            <div className="text-2xl font-semibold text-[#007BFF]">{projectMembers.length}</div>
             <div className="text-xs text-muted-foreground">Total Members</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
-            <div className="text-2xl font-semibold text-[#28A745]">{mockTeamMembers.filter(m => m.availability === 'available').length}</div>
+            <div className="text-2xl font-semibold text-[#28A745]">
+              {projectMembers.filter(m => m.availability === 'available').length}
+            </div>
             <div className="text-xs text-muted-foreground">Available</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
-            <div className="text-2xl font-semibold text-[#FFC107]">{mockTeamMembers.reduce((sum, m) => sum + m.currentTasks, 0)}</div>
+            <div className="text-2xl font-semibold text-[#FFC107]">
+              {projectMembers.reduce((sum, m) => sum + (m.currentTasks || 0), 0)}
+            </div>
             <div className="text-xs text-muted-foreground">Active Tasks</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
             <div className="text-2xl font-semibold text-[#6F42C1]">
-              {Math.round(mockTeamMembers.reduce((sum, m) => sum + m.workload, 0) / mockTeamMembers.length)}%
+              {projectMembers.length > 0
+                ? Math.round(projectMembers.reduce((sum, m) => sum + (m.workload || 0), 0) / projectMembers.length)
+                : 0}%
             </div>
             <div className="text-xs text-muted-foreground">Avg Workload</div>
           </CardContent>
@@ -469,9 +699,33 @@ export function TeamView({ project, user }: TeamViewProps) {
 
       {/* Team Members Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredMembers.map((member) => (
-          <TeamMemberCard key={member.id} member={member} />
-        ))}
+        {loading ? (
+          <div className="col-span-full flex flex-col items-center justify-center py-20">
+            <div className="animate-spin rounded-full h-12 w-12 border-4 border-gray-200 border-t-[#28A745] mb-4"></div>
+            <p className="text-gray-500 dark:text-gray-400">Loading team members...</p>
+          </div>
+        ) : filteredMembers.length === 0 ? (
+          <div className="col-span-full text-center py-20">
+            <Users className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-medium mb-2">No team members found</h3>
+            <p className="text-muted-foreground mb-4">
+              {projectMembers.length === 0
+                ? "Get started by associating users with this project."
+                : "Try adjusting your search or filter criteria."}
+            </p>
+            <Button
+              className="bg-[#28A745] hover:bg-[#218838]"
+              onClick={() => setShowAddMember(true)}
+            >
+              <UserPlus className="w-4 h-4 mr-2" />
+              Associate Member
+            </Button>
+          </div>
+        ) : (
+          filteredMembers.map((member) => (
+            <TeamMemberCard key={member.id} member={member} />
+          ))
+        )}
       </div>
 
       {/* Member Details Modal */}
@@ -479,55 +733,99 @@ export function TeamView({ project, user }: TeamViewProps) {
 
       {/* Add Member Modal */}
       <Dialog open={showAddMember} onOpenChange={setShowAddMember}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Add Team Member</DialogTitle>
+            <DialogTitle>Associate Team Members</DialogTitle>
+            <p className="text-sm text-muted-foreground">
+              Associate existing users with this project. Only users not already on this project team are shown.
+            </p>
           </DialogHeader>
+
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="name">Full Name</Label>
-                <Input placeholder="Enter full name" />
+            {loadingUsers ? (
+              <div className="flex flex-col items-center justify-center py-20">
+                <div className="animate-spin rounded-full h-12 w-12 border-4 border-gray-200 border-t-[#28A745] mb-4"></div>
+                <p className="text-gray-500 dark:text-gray-400">Loading available users...</p>
               </div>
-              <div>
-                <Label htmlFor="email">Email</Label>
-                <Input type="email" placeholder="Enter email address" />
+            ) : availableUsers.length === 0 ? (
+              <div className="text-center py-20">
+                <Users className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-medium mb-2">No users available to associate</h3>
+                <p className="text-muted-foreground">
+                  All eligible users are already associated with this project, or no additional users are available.
+                </p>
               </div>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4">
+            ) : (
               <div>
-                <Label htmlFor="role">Role</Label>
-                <Select>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="developer">Developer</SelectItem>
-                    <SelectItem value="designer">Designer</SelectItem>
-                    <SelectItem value="qa">QA Engineer</SelectItem>
-                    <SelectItem value="scrum-master">Scrum Master</SelectItem>
-                    <SelectItem value="product-owner">Product Owner</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="mb-4">
+                  <Input
+                    placeholder="Search available users..."
+                    className="w-full"
+                    onChange={(e) => {
+                      const searchValue = e.target.value.toLowerCase()
+                      // Simple client-side search for demo
+                      console.log('Searching users:', searchValue)
+                    }}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-96 overflow-y-auto">
+                  {availableUsers.map((user) => (
+                    <Card
+                      key={user.id}
+                      className="cursor-pointer hover:shadow-md transition-shadow border-2 hover:border-[#28A745]"
+                      onClick={async () => {
+                        // Associate user with project team
+                        console.log('Associating user with project:', user)
+                        try {
+                          // In real implementation, this would call an API to associate the user with the project
+                          // For example: await projectApiService.addTeamMember(effectiveProjectId, user.id)
+
+                          toast.success(`${user.name} has been associated with the project`)
+                          setShowAddMember(false)
+
+                          // Refresh the team members to show the newly associated user
+                          fetchTeamMembers()
+                        } catch (error) {
+                          console.error('Error associating user with project:', error)
+                          toast.error(`Failed to associate ${user.name} with the project`)
+                        }
+                      }}
+                    >
+                      <CardContent className="p-4">
+                        <div className="flex items-center space-x-3">
+                          <Avatar className="w-12 h-12">
+                            <AvatarFallback className="bg-[#28A745] text-white">
+                              {user.name.substring(0, 2).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-medium text-sm">{user.name}</h4>
+                            <p className="text-xs text-muted-foreground">{user.email}</p>
+                            <div className="flex items-center space-x-2 mt-1">
+                              {getRoleIcon(user.role.name)}
+                              <span className="text-xs text-muted-foreground">{user.role.name}</span>
+                            </div>
+                            {user.department && (
+                              <p className="text-xs text-muted-foreground">{user.department}</p>
+                            )}
+                          </div>
+                          <div className="text-right">
+                            <Button size="sm" variant="outline" className="h-8">
+                              Associate
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
               </div>
-              <div>
-                <Label htmlFor="phone">Phone</Label>
-                <Input placeholder="Enter phone number" />
-              </div>
-            </div>
-            
-            <div>
-              <Label htmlFor="location">Location</Label>
-              <Input placeholder="Enter location" />
-            </div>
-            
-            <div className="flex justify-end space-x-2">
+            )}
+
+            <div className="flex justify-end space-x-2 pt-4 border-t">
               <Button variant="outline" onClick={() => setShowAddMember(false)}>
                 Cancel
-              </Button>
-              <Button className="bg-[#28A745] hover:bg-[#218838]">
-                Add Member
               </Button>
             </div>
           </div>

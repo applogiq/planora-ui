@@ -6,7 +6,7 @@ import { Textarea } from '../../../components/ui/textarea'
 import { Label } from '../../../components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select'
 import { sprintsApiService, Sprint, CreateSprintRequest } from '../../../services/sprintsApi'
-import { ProjectMemberDetail } from '../../../services/projectApi'
+import { ProjectMemberDetail, ProjectStatusItem } from '../../../services/projectApi'
 import { toast } from 'sonner'
 
 interface SprintFormModalProps {
@@ -17,6 +17,7 @@ interface SprintFormModalProps {
   projectTeamLead: ProjectMemberDetail | null
   mode: 'create' | 'edit'
   sprint?: Sprint | null
+  availableStatuses?: ProjectStatusItem[]
 }
 
 export function SprintFormModal({
@@ -26,7 +27,8 @@ export function SprintFormModal({
   projectId,
   projectTeamLead,
   mode,
-  sprint
+  sprint,
+  availableStatuses
 }: SprintFormModalProps) {
   const [formData, setFormData] = useState<CreateSprintRequest>({
     name: '',
@@ -149,10 +151,20 @@ export function SprintFormModal({
                   <SelectValue placeholder="Select status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="planning">Planning</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                  <SelectItem value="on-hold">On Hold</SelectItem>
+                  {availableStatuses && availableStatuses.length > 0 ? (
+                    availableStatuses.map((status) => (
+                      <SelectItem key={status.id} value={status.name.toLowerCase()}>
+                        {status.name}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <>
+                      <SelectItem value="planning">Planning</SelectItem>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
+                      <SelectItem value="on-hold">On Hold</SelectItem>
+                    </>
+                  )}
                 </SelectContent>
               </Select>
             </div>
