@@ -1,6 +1,29 @@
 import { authApiService } from './authApi';
-import { Project } from '../mock-data/projects';
 import { getApiUrl } from '../config/api';
+
+export interface Project {
+  id: string;
+  name: string;
+  description: string;
+  status: string;
+  progress: number;
+  start_date: string;
+  end_date: string;
+  budget: number;
+  spent: number;
+  customer: string;
+  customer_id: string;
+  priority: string;
+  team_lead_id: string;
+  team_members: string[];
+  tags: string[];
+  color: string;
+  methodology: string;
+  project_type: string;
+  created_at: string;
+  updated_at: string;
+  team_lead: ProjectOwner;
+}
 
 export interface ProjectMasterItem {
   name: string;
@@ -62,10 +85,6 @@ export interface ProjectOwnersResponse {
   has_next: boolean;
   has_prev: boolean;
 }
-
-// Alias for project members since they have the same structure
-export type ProjectMember = ProjectOwner;
-export type ProjectMembersResponse = ProjectOwnersResponse;
 
 export interface ProjectMemberDetail {
   id: string;

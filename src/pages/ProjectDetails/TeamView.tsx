@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../componen
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs'
 import { Progress } from '../../components/ui/progress'
 import { userApiService, User } from '../../services/userApi'
-import { projectApiService, TeamMemberDetail, TeamMember } from '../../services/projectApi'
+import { projectApiService, ProjectMember } from '../../services/projectApi'
 import { toast } from 'sonner'
 import { SessionStorageService } from '../../utils/sessionStorage'
 import {
@@ -181,116 +181,47 @@ export function TeamView({ project, user, projectId: propProjectId }: TeamViewPr
 
     try {
       setLoading(true)
-      // Use project-specific API to get only this project's team members
-      const response = await projectApiService.getProjectTeamMembers(effectiveProjectId)
+      // Use the actual API endpoint that returns the project members array
+      const response = await projectApiService.getProjectMembersV2(effectiveProjectId)
 
-      // Get all member IDs to fetch their full details
-      const memberIds: string[] = []
-      if (response.team_lead_detail) {
-        memberIds.push(response.team_lead_detail.id)
-      }
-      if (response.team_members_detail && response.team_members_detail.length > 0) {
-        response.team_members_detail.forEach(member => memberIds.push(member.id))
-      }
-
-      // Fetch full user details for all team members
-      const userDetailsMap = new Map<string, User>()
-      if (memberIds.length > 0) {
-        try {
-          // Fetch all users and filter for our team members
-          const allUsersResponse = await userApiService.getUsers({ per_page: 100 })
-          allUsersResponse.items.forEach(user => {
-            if (memberIds.includes(user.id)) {
-              userDetailsMap.set(user.id, user)
-            }
-          })
-          console.log(`Fetched full details for ${userDetailsMap.size} team members`)
-        } catch (userError) {
-          console.warn('Could not fetch full user details:', userError)
-        }
-      }
-
-      // Convert TeamMemberDetail data to TeamMember format with full user details
-      const members: TeamMember[] = []
-
-      // Add team lead if exists
-      if (response.team_lead_detail) {
-        const userDetails = userDetailsMap.get(response.team_lead_detail.id)
-        const teamLead: TeamMember = {
-          id: response.team_lead_detail.id,
-          name: response.team_lead_detail.name,
-          email: userDetails?.email || '',
-          role: userDetails?.role || {
-            name: response.team_lead_detail.role_name,
+      // Convert ProjectMember data to TeamMember format
+      const members: TeamMember[] = response.map((member) => {
+        const teamMember: TeamMember = {
+          id: member.member_id,
+          name: member.member_name,
+          email: member.member_email,
+          role: {
+            name: member.role_name,
             description: '',
             permissions: [],
             is_active: true,
-            id: response.team_lead_detail.role_id,
+            id: member.role_id,
             created_at: '',
             updated_at: ''
           },
-          role_id: response.team_lead_detail.role_id,
-          is_active: userDetails?.is_active ?? true,
-          department: response.team_lead_detail.department,
-          skills: userDetails?.skills || [],
-          phone: userDetails?.phone || '',
-          timezone: userDetails?.timezone || '',
-          last_login: userDetails?.last_login || null,
-          created_at: userDetails?.created_at || '',
-          updated_at: userDetails?.updated_at || null,
-          user_profile: response.team_lead_detail.user_profile,
-          workload: Math.floor(Math.random() * 100), // Mock workload data
+          role_id: member.role_id,
+          is_active: member.is_active,
+          department: '', // Not provided in API response
+          skills: [], // Not provided in API response
+          phone: '', // Not provided in API response
+          timezone: '', // Not provided in API response
+          last_login: null,
+          created_at: member.created_at,
+          updated_at: member.updated_at,
+          user_profile: member.member_profile,
+          workload: Math.floor(Math.random() * 100), // Mock workload data - could be enhanced to get from tasks
           availability: ['available', 'busy', 'away'][Math.floor(Math.random() * 3)],
           currentTasks: Math.floor(Math.random() * 10),
           completedTasks: Math.floor(Math.random() * 50),
           hoursLogged: Math.floor(Math.random() * 200),
-          teamLead: true,
-          joinDate: userDetails?.created_at || ''
+          teamLead: member.role_id === 'role_project_manager', // Mark project managers as team leads
+          joinDate: member.joined_at
         }
-        members.push(teamLead)
-      }
-
-      // Add team members
-      if (response.team_members_detail && response.team_members_detail.length > 0) {
-        response.team_members_detail.forEach((memberDetail: TeamMemberDetail) => {
-          const userDetails = userDetailsMap.get(memberDetail.id)
-          const member: TeamMember = {
-            id: memberDetail.id,
-            name: memberDetail.name,
-            email: userDetails?.email || '',
-            role: userDetails?.role || {
-              name: memberDetail.role_name,
-              description: '',
-              permissions: [],
-              is_active: true,
-              id: memberDetail.role_id,
-              created_at: '',
-              updated_at: ''
-            },
-            role_id: memberDetail.role_id,
-            is_active: userDetails?.is_active ?? true,
-            department: memberDetail.department,
-            skills: userDetails?.skills || [],
-            phone: userDetails?.phone || '',
-            timezone: userDetails?.timezone || '',
-            last_login: userDetails?.last_login || null,
-            created_at: userDetails?.created_at || '',
-            updated_at: userDetails?.updated_at || null,
-            user_profile: memberDetail.user_profile,
-            workload: Math.floor(Math.random() * 100), // Mock workload data
-            availability: ['available', 'busy', 'away'][Math.floor(Math.random() * 3)],
-            currentTasks: Math.floor(Math.random() * 10),
-            completedTasks: Math.floor(Math.random() * 50),
-            hoursLogged: Math.floor(Math.random() * 200),
-            teamLead: false,
-            joinDate: userDetails?.created_at || ''
-          }
-          members.push(member)
-        })
-      }
+        return teamMember
+      })
 
       setTeamMembers(members)
-      console.log('Fetched project-specific team members:', members)
+      console.log('Fetched project members from API:', members)
       toast.success(`Loaded ${members.length} project team members`)
     } catch (error) {
       console.error('Error fetching project team members:', error)
@@ -397,6 +328,17 @@ export function TeamView({ project, user, projectId: propProjectId }: TeamViewPr
         <div className="flex items-start space-x-4">
           <div className="relative">
             <Avatar className="w-16 h-16">
+              {member.user_profile && (
+                <img
+                  src={member.user_profile}
+                  alt={member.name}
+                  className="w-full h-full object-cover rounded-full"
+                  onError={(e) => {
+                    // Hide the image and show fallback on error
+                    (e.target as HTMLImageElement).style.display = 'none';
+                  }}
+                />
+              )}
               <AvatarFallback className="bg-[#28A745] text-white text-lg">
                 {member.name.substring(0, 2).toUpperCase()}
               </AvatarFallback>
@@ -467,6 +409,16 @@ export function TeamView({ project, user, projectId: propProjectId }: TeamViewPr
         <DialogHeader>
           <DialogTitle className="flex items-center space-x-3">
             <Avatar className="w-12 h-12">
+              {member.user_profile && (
+                <img
+                  src={member.user_profile}
+                  alt={member.name}
+                  className="w-full h-full object-cover rounded-full"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = 'none';
+                  }}
+                />
+              )}
               <AvatarFallback className="bg-[#28A745] text-white">
                 {member.name.substring(0, 2).toUpperCase()}
               </AvatarFallback>
@@ -795,6 +747,16 @@ export function TeamView({ project, user, projectId: propProjectId }: TeamViewPr
                       <CardContent className="p-4">
                         <div className="flex items-center space-x-3">
                           <Avatar className="w-12 h-12">
+                            {user.user_profile && (
+                              <img
+                                src={user.user_profile}
+                                alt={user.name}
+                                className="w-full h-full object-cover rounded-full"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).style.display = 'none';
+                                }}
+                              />
+                            )}
                             <AvatarFallback className="bg-[#28A745] text-white">
                               {user.name.substring(0, 2).toUpperCase()}
                             </AvatarFallback>
