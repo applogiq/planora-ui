@@ -42,6 +42,10 @@ import { CreateEpicRequest, epicApiService } from '../../services/epicApi'
 import { storiesApiService, Story } from '../../services/storiesApi'
 import { sprintApiService, Sprint } from '../../services/sprintApi'
 import { projectApiService, ProjectTeamMembersResponse, ProjectMemberDetail } from '../../services/projectApi'
+import { BacklogDialog } from './components/BacklogDialog'
+import { EpicDialog } from './components/EpicDialog'
+import { SprintDialog } from './components/SprintDialog'
+import { BacklogItemActions } from './components/BacklogItemActions'
 
 
 
@@ -197,7 +201,6 @@ export function Tasks({ user }: TasksProps) {
     reporterName: user?.name || '',
     storyPoints: 0,
     businessValue: 'Medium',
-    effort: 'Medium',
     labels: [],
     acceptanceCriteria: ['']
   })
@@ -323,7 +326,6 @@ export function Tasks({ user }: TasksProps) {
       reporterName: user?.name || '',
       storyPoints: 0,
       businessValue: 'Medium',
-      effort: 'Medium',
       labels: [],
       acceptanceCriteria: ['']
     })
@@ -389,8 +391,36 @@ export function Tasks({ user }: TasksProps) {
   }
 
   const handleEditBacklog = (item: any) => {
-    setBacklogItem({ ...item })
+    // Map story fields to backlog form fields properly
+    const mappedItem = {
+      id: item.id,
+      title: item.title || '',
+      description: item.description || '',
+      type: item.story_type || item.type || 'User Story',
+      priority: item.priority || 'Medium',
+      status: item.status || 'Backlog',
+      projectId: item.project_id || '',
+      projectName: item.project_name || '',
+      epicId: item.epic_id || '',
+      epicTitle: item.epic_title || '',
+      assigneeId: item.assignee_id || '',
+      assigneeName: item.assignee_name || '',
+      reporterId: item.reporter_id || '',
+      reporterName: item.reporter_name || '',
+      storyPoints: item.story_points || 0,
+      businessValue: item.business_value || 'Medium',
+      labels: item.labels || item.tags || [],
+      acceptanceCriteria: item.acceptance_criteria || ['']
+    }
+
+    setBacklogItem(mappedItem)
     setEditingItem(item)
+
+    // Load epics and team members for the project
+    if (mappedItem.projectId) {
+      loadDialogDataForProject(mappedItem.projectId)
+    }
+
     setShowBacklogDialog(true)
   }
 
@@ -401,17 +431,24 @@ export function Tasks({ user }: TasksProps) {
     }
 
     try {
-      // Prepare data for API call
+      // Prepare data for API call with proper field mapping
       const storyData = {
         title: backlogItem.title,
         description: backlogItem.description,
-        story_type: backlogItem.type || 'User Story',
-        status: backlogItem.status || 'Backlog',
-        priority: backlogItem.priority,
+        story_type: backlogItem.type === 'User Story' ? 'story' : backlogItem.type.toLowerCase(),
+        status: backlogItem.status.toLowerCase().replace(' ', '-') || 'todo',
+        priority: backlogItem.priority.toLowerCase(),
         project_id: backlogItem.projectId,
         assignee_id: backlogItem.assigneeId,
+        assignee_name: backlogItem.assigneeName,
+        reporter_id: backlogItem.reporterId || user?.id,
+        reporter_name: backlogItem.reporterName || user?.name,
         story_points: backlogItem.storyPoints || 0,
-        acceptance_criteria: backlogItem.acceptanceCriteria.filter(criteria => criteria.trim() !== ''),
+        business_value: backlogItem.businessValue || 'Medium',
+        epic_id: backlogItem.epicId || undefined,
+        epic_title: backlogItem.epicTitle || undefined,
+        acceptance_criteria: backlogItem.acceptanceCriteria?.filter(criteria => criteria.trim() !== '') || [],
+        labels: backlogItem.labels || [],
         tags: backlogItem.labels || []
       }
 
@@ -426,20 +463,10 @@ export function Tasks({ user }: TasksProps) {
         toast.success(`${backlogItem.type || 'Item'} created successfully`)
       }
 
-      // Update local state with the result from API
-      const newItem = {
-        ...result,
-        projectName: projects.find(p => p.id === result.project_id)?.name || '',
-        assigneeName: teamMembers.find(m => m.id === result.assignee_id)?.name || '',
-        reporterName: teamMembers.find(m => m.id === backlogItem.reporterId)?.name || '',
-        epicTitle: result.epic_id ? (epicsResponse?.items || []).find(e => e.id === result.epic_id)?.title || '' : '',
-      }
-
-      if (editingItem) {
-        setBacklogs(prev => prev.map(item => item.id === editingItem.id ? newItem : item))
-      } else {
-        setBacklogs(prev => [...prev, newItem])
-      }
+      // Refresh the stories list to get updated data
+      const selectedProjectId_val = selectedProjectId !== 'all' ? selectedProjectId : undefined
+      const storiesResponse = await storiesApiService.getStories(selectedProjectId_val, 1, 50)
+      setStories(storiesResponse.items)
 
       setShowBacklogDialog(false)
       resetBacklogForm()
@@ -450,18 +477,38 @@ export function Tasks({ user }: TasksProps) {
     }
   }
 
-  const handleDeleteBacklog = (itemId: string) => {
-    const item = backlogs.find(b => b.id === itemId)
-    setBacklogs(prev => prev.filter(b => b.id !== itemId))
-    toast.success(`${item?.type || 'Item'} deleted successfully`)
+  const handleDeleteBacklog = async (itemId: string) => {
+    try {
+      await storiesApiService.deleteStory(itemId)
+
+      // Refresh the stories list
+      const selectedProjectId_val = selectedProjectId !== 'all' ? selectedProjectId : undefined
+      const storiesResponse = await storiesApiService.getStories(selectedProjectId_val, 1, 50)
+      setStories(storiesResponse.items)
+
+      toast.success('Item deleted successfully')
+    } catch (error) {
+      console.error('Failed to delete story:', error)
+      toast.error('Failed to delete item. Please try again.')
+    }
   }
 
-  const handleMoveToSprint = (itemId: string, sprintId: string) => {
-    const item = backlogs.find(b => b.id === itemId)
-    if (item) {
-      setBacklogs(prev => prev.map(b => 
-        b.id === itemId ? { ...b, status: 'In Sprint' } : b
-      ))
+  const handleMoveToSprint = async (itemId: string, sprintId: string) => {
+    try {
+      await storiesApiService.updateStory(itemId, {
+        sprint_id: sprintId,
+        status: 'in-progress'
+      })
+
+      // Refresh the stories list
+      const selectedProjectId_val = selectedProjectId !== 'all' ? selectedProjectId : undefined
+      const storiesResponse = await storiesApiService.getStories(selectedProjectId_val, 1, 50)
+      setStories(storiesResponse.items)
+
+      toast.success('Item moved to sprint successfully')
+    } catch (error) {
+      console.error('Failed to move item to sprint:', error)
+      toast.error('Failed to move item to sprint. Please try again.')
     }
   }
 
@@ -783,7 +830,7 @@ export function Tasks({ user }: TasksProps) {
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <div className="flex items-start gap-3">
-                          {getTypeIcon(item.type)}
+                          {getTypeIcon(item.story_type || item.type)}
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-2">
                               <h3 className="font-medium">{item.title}</h3>
@@ -794,42 +841,42 @@ export function Tasks({ user }: TasksProps) {
                                 {item.status}
                               </Badge>
                             </div>
-                            
+
                             <p className="text-muted-foreground text-sm mb-3 line-clamp-2">
                               {item.description}
                             </p>
 
                             <div className="flex items-center gap-4 text-sm">
                               <div className="flex items-center gap-1">
-                                <div 
+                                <div
                                   className="w-3 h-3 rounded-full"
-                                  style={{ backgroundColor: projects.find(p => p.id === item.projectId)?.color }}
+                                  style={{ backgroundColor: projects.find(p => p.id === (item.project_id || item.projectId))?.color }}
                                 />
-                                <span>{item.projectName}</span>
+                                <span>{item.project_name || projects.find(p => p.id === item.project_id)?.name}</span>
                               </div>
-                              
-                              {item.epicTitle && (
+
+                              {(item.epic_title || item.epicTitle) && (
                                 <div className="flex items-center gap-1 text-purple-600">
                                   <Target className="w-3 h-3" />
-                                  <span>{item.epicTitle}</span>
+                                  <span>{item.epic_title || item.epicTitle}</span>
                                 </div>
                               )}
 
                               <div className="flex items-center gap-1">
                                 <User className="w-3 h-3" />
-                                <span>{item.assigneeName}</span>
+                                <span>{item.assignee_name || item.assigneeName || 'Unassigned'}</span>
                               </div>
 
-                              {item.storyPoints > 0 && (
+                              {(item.story_points || item.storyPoints) > 0 && (
                                 <Badge variant="outline">
-                                  {item.storyPoints} pts
+                                  {item.story_points || item.storyPoints} pts
                                 </Badge>
                               )}
                             </div>
 
-                            {item.labels && item.labels.length > 0 && (
+                            {(item.labels || item.tags) && (item.labels || item.tags).length > 0 && (
                               <div className="flex flex-wrap gap-1 mt-3">
-                                {item.labels.map((label, index) => (
+                                {(item.labels || item.tags).map((label, index) => (
                                   <Badge key={index} variant="outline" className="text-xs">
                                     {label}
                                   </Badge>

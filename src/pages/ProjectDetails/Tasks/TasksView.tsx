@@ -1,4 +1,6 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
+import { DndProvider, useDrag, useDrop } from 'react-dnd'
+import { HTML5Backend } from 'react-dnd-html5-backend'
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card'
 import { Button } from '../../../components/ui/button'
 import { Badge } from '../../../components/ui/badge'
@@ -6,10 +8,10 @@ import { Avatar, AvatarFallback } from '../../../components/ui/avatar'
 import { Input } from '../../../components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs'
-import { 
-  Plus, 
-  Search, 
-  Filter, 
+import {
+  Plus,
+  Search,
+  Filter,
   MoreVertical,
   Target,
   AlertTriangle,
@@ -17,7 +19,8 @@ import {
   CheckCircle,
   Clock,
   Users,
-  BarChart3
+  BarChart3,
+  GripVertical
 } from 'lucide-react'
 import { TaskModal } from './TaskModal'
 import { taskApiService, Task, CreateTaskRequest } from '../../../services/taskApi'
@@ -213,15 +216,46 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
     }
 
     try {
+      console.log('🔄 Loading project masters...')
       const masters = await projectApiService.getProjectMasters()
+      console.log('✅ Project masters loaded:', masters)
+
       setProjectMasters(masters)
       setAvailableStatuses(masters.statuses || [])
       setAvailablePriorities(masters.priorities || [])
+
+      console.log('📊 Available statuses:', masters.statuses?.length || 0)
+      console.log('📊 Available priorities:', masters.priorities?.length || 0)
+
+      if (masters.statuses?.length) {
+        console.log('📋 Status options:', masters.statuses.map(s => s.name).join(', '))
+      }
+      if (masters.priorities?.length) {
+        console.log('📋 Priority options:', masters.priorities.map(p => p.name).join(', '))
+      }
+
     } catch (error) {
-      console.error('Error loading project masters:', error)
-      // Continue with default options if API fails
-      setAvailableStatuses([])
-      setAvailablePriorities([])
+      console.error('❌ Error loading project masters:', error)
+
+      // Set fallback defaults when API fails
+      const defaultStatuses = [
+        { id: '1', name: 'To Do', color: '#6B7280', is_active: true, sort_order: 1 },
+        { id: '2', name: 'In Progress', color: '#3B82F6', is_active: true, sort_order: 2 },
+        { id: '3', name: 'In Review', color: '#F59E0B', is_active: true, sort_order: 3 },
+        { id: '4', name: 'Done', color: '#10B981', is_active: true, sort_order: 4 }
+      ]
+
+      const defaultPriorities = [
+        { id: '1', name: 'Low', color: '#10B981', is_active: true, sort_order: 1 },
+        { id: '2', name: 'Medium', color: '#F59E0B', is_active: true, sort_order: 2 },
+        { id: '3', name: 'High', color: '#EF4444', is_active: true, sort_order: 3 },
+        { id: '4', name: 'Critical', color: '#7C3AED', is_active: true, sort_order: 4 }
+      ]
+
+      setAvailableStatuses(defaultStatuses)
+      setAvailablePriorities(defaultPriorities)
+
+      console.log('🔄 Using default options for statuses and priorities')
     }
   }
 
@@ -495,6 +529,28 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
     }
   }
 
+  const handleTaskMove = async (taskId: string, newStatus: string) => {
+    try {
+      console.log(`🔄 Moving task ${taskId} to ${newStatus}`)
+
+      // Update via API
+      await storiesApiService.updateStory(taskId, { status: newStatus })
+
+      // Update local state
+      setTasks(prevTasks =>
+        prevTasks.map(task =>
+          task.id === taskId ? { ...task, status: newStatus } : task
+        )
+      )
+
+      console.log(`✅ Task moved successfully`)
+      toast.success('Task moved successfully')
+    } catch (error) {
+      console.error('❌ Failed to move task:', error)
+      toast.error('Failed to move task')
+    }
+  }
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'todo': return 'bg-gray-100 text-gray-800 border-gray-300'
@@ -539,6 +595,115 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
     return matchesSearch && matchesStatus && matchesAssignee && matchesSprint
   })
 
+  // Constants for drag and drop
+  const ITEM_TYPE = 'TASK'
+
+  // Draggable Task Card Component
+  const DraggableTaskCard = ({ task, columnId }: { task: Task; columnId: string }) => {
+    const [{ isDragging }, dragRef] = useDrag(() => ({
+      type: ITEM_TYPE,
+      item: () => {
+        console.log(`🖱️ Started dragging task: ${task.title} (${task.id})`)
+        return {
+          id: task.id,
+          columnId: columnId,
+          title: task.title
+        }
+      },
+      end: (item, monitor) => {
+        if (monitor.didDrop()) {
+          console.log(`✅ Drop completed for task: ${item?.title || task.title}`)
+        } else {
+          console.log(`❌ Drop cancelled for task: ${item?.title || task.title}`)
+        }
+      },
+      collect: (monitor) => ({
+        isDragging: monitor.isDragging()
+      })
+    }), [task.id, task.title, columnId])
+
+    return (
+      <div
+        ref={dragRef}
+        style={{
+          opacity: isDragging ? 0.5 : 1,
+        }}
+        className="cursor-move select-none"
+      >
+        <Card
+          className="hover:shadow-md transition-shadow mb-3 hover:bg-gray-50"
+          onClick={() => setSelectedTask(task)}
+        >
+          <CardContent className="p-4">
+            <div className="flex items-start justify-between mb-3">
+              <div className="flex items-start gap-2 flex-1">
+                <GripVertical className="w-4 h-4 text-gray-400 mt-1 cursor-grab" />
+                <h4 className="font-medium text-sm line-clamp-2 flex-1">{task.title}</h4>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 w-6 p-0 flex-shrink-0"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <MoreVertical className="w-3 h-3" />
+              </Button>
+            </div>
+
+            <div className="flex flex-wrap gap-1 mb-3">
+              <Badge variant="outline" className={getPriorityColor(task.priority)} style={{ fontSize: '10px' }}>
+                {task.priority}
+              </Badge>
+              {task.progress > 0 && (
+                <Badge variant="outline" className="text-xs">
+                  {task.progress}%
+                </Badge>
+              )}
+              {task.sprint_id && (
+                <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-300 text-xs">
+                  {task.sprint_name || sprints.find(s => s.id === task.sprint_id)?.name || 'Sprint'}
+                </Badge>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                {(() => {
+                  const assigneeInfo = getAssigneeDisplayInfo(task.assignee_id || null, task.assignee_name || null, enrichedMembersMap)
+                  return (
+                    <>
+                      <Avatar className="w-6 h-6">
+                        <AvatarFallback className="bg-[#28A745] text-white text-xs">
+                          {assigneeInfo.initials}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex flex-col">
+                        <span className="text-xs text-muted-foreground truncate">
+                          {assigneeInfo.name}
+                        </span>
+                        {assigneeInfo.isAssigned && assigneeInfo.role && (
+                          <span className="text-[10px] text-muted-foreground/70 truncate">
+                            {assigneeInfo.role}
+                          </span>
+                        )}
+                      </div>
+                    </>
+                  )
+                })()}
+              </div>
+
+              <div className="flex items-center space-x-1 text-xs text-muted-foreground">
+                <Clock className="w-3 h-3" />
+                <span>{task.progress || 0}%</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  // Static Task Card for non-draggable contexts
   const TaskCard = ({ task }: { task: Task }) => (
     <Card
       className="cursor-pointer hover:shadow-md transition-shadow mb-3"
@@ -603,29 +768,71 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
     </Card>
   )
 
+  // Droppable Column Component
+  const DroppableColumn = ({ column, tasks }: { column: any; tasks: Task[] }) => {
+    const [{ isOver }, dropRef] = useDrop(() => ({
+      accept: ITEM_TYPE,
+      drop: (item: { id: string; columnId: string }) => {
+        console.log(`📥 Dropped task ${item.id} from ${item.columnId} to ${column.id}`)
+        if (item.columnId !== column.id) {
+          handleTaskMove(item.id, column.id)
+        }
+      },
+      hover: (item: { id: string; columnId: string }) => {
+        console.log(`👆 Hovering task ${item.id} over ${column.title}`)
+      },
+      collect: (monitor) => ({
+        isOver: monitor.isOver()
+      })
+    }), [column.id, column.title])
+
+    return (
+      <div key={column.id} className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="font-medium text-sm">{column.title}</h3>
+          <Badge variant="outline" className="text-xs">
+            {tasks.length}
+          </Badge>
+        </div>
+
+        <div
+          ref={dropRef}
+          className={`space-y-3 min-h-[400px] transition-all duration-200 rounded-lg p-2 ${
+            isOver ? 'bg-blue-50 border-2 border-dashed border-blue-400 shadow-inner' : ''
+          }`}
+        >
+          {tasks.map((task) => (
+            <DraggableTaskCard key={task.id} task={task} columnId={column.id} />
+          ))}
+
+          {tasks.length === 0 && (
+            <div className="flex items-center justify-center h-32 text-muted-foreground">
+              <div className="text-center">
+                <Target className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                <p className="text-sm">Drop tasks here</p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   const BoardView = () => (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-      {statusColumns.map((column) => {
-        const columnTasks = filteredTasks.filter(task => task.status === column.id)
-        
-        return (
-          <div key={column.id} className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="font-medium text-sm">{column.title}</h3>
-              <Badge variant="outline" className="text-xs">
-                {columnTasks.length}
-              </Badge>
-            </div>
-            
-            <div className="space-y-3 min-h-[400px]">
-              {columnTasks.map((task) => (
-                <TaskCard key={task.id} task={task} />
-              ))}
-            </div>
-          </div>
-        )
-      })}
-    </div>
+    <DndProvider backend={HTML5Backend}>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {statusColumns.map((column) => {
+          const columnTasks = filteredTasks.filter(task => task.status === column.id)
+          return (
+            <DroppableColumn
+              key={column.id}
+              column={column}
+              tasks={columnTasks}
+            />
+          )
+        })}
+      </div>
+    </DndProvider>
   )
 
   const ListView = () => (

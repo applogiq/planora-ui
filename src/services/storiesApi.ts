@@ -19,7 +19,6 @@ export interface Story {
   reporter_name: string;
   story_points: number;
   business_value: string;
-  effort: string;
   labels: string[];
   acceptance_criteria: string[];
   subtasks: SubTask[];
@@ -83,7 +82,6 @@ export interface CreateStoryRequest {
   reporter_name?: string;
   story_points?: number;
   business_value?: string;
-  effort?: string;
   labels?: string[];
   acceptance_criteria?: string[];
   subtasks?: SubTask[];

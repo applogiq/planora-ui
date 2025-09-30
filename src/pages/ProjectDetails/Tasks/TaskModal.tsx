@@ -65,6 +65,17 @@ export function TaskModal({ task, isOpen, onClose, onUpdate, user, availableStat
     }
   }, [task])
 
+  // Debug logging for project master data
+  useEffect(() => {
+    if (isOpen) {
+      console.log('🔍 TaskModal opened with data:')
+      console.log('📋 Available statuses:', availableStatuses?.length || 0, availableStatuses)
+      console.log('⚡ Available priorities:', availablePriorities?.length || 0, availablePriorities)
+      console.log('👥 Project team members:', projectTeamMembers?.length || 0)
+      console.log('🎯 Current task:', editedTask?.title, 'Status:', editedTask?.status, 'Priority:', editedTask?.priority)
+    }
+  }, [isOpen, availableStatuses, availablePriorities, projectTeamMembers, editedTask])
+
   const handleSave = () => {
     onUpdate(editedTask)
   }

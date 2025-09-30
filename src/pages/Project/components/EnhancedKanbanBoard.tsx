@@ -1,16 +1,14 @@
 import React, { useState, useCallback, useEffect } from 'react'
 import { DndProvider, useDrag, useDrop } from 'react-dnd'
 import { HTML5Backend } from 'react-dnd-html5-backend'
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card'
-import { Button } from '../../components/ui/button'
-import { Badge } from '../../components/ui/badge'
-import { Avatar, AvatarFallback } from '../../components/ui/avatar'
-import { Input } from '../../components/ui/input'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../components/ui/dialog'
-import { Label } from '../../components/ui/label'
-import { Slider } from '../../components/ui/slider'
-import { Switch } from '../../components/ui/switch'
+import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card'
+import { Button } from '../../../components/ui/button'
+import { Badge } from '../../../components/ui/badge'
+import { Avatar, AvatarFallback } from '../../../components/ui/avatar'
+import { Input } from '../../../components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../../components/ui/dialog'
+import { Label } from '../../../components/ui/label'
 import {
   Plus,
   Search,
@@ -23,21 +21,24 @@ import {
   Clock,
   Users,
   AlertCircle,
-  TrendingUp,
   Edit,
   Trash2,
   GripVertical
 } from 'lucide-react'
-import { storiesApiService, Story } from '../../services/storiesApi'
+import { storiesApiService } from '../../../services/storiesApi'
 import { toast } from 'sonner'
 
-interface KanbanBoardViewProps {
-  project: any
-  user: any
-  boardType?: 'sprint' | 'kanban' | 'wip'
+interface KanbanTask {
+  id: string
+  title: string
+  description: string
+  story_type: string
+  priority: string
+  story_points: number
+  assignee_name: string
+  labels: string[]
+  status: string
 }
-
-interface KanbanTask extends Story {}
 
 interface KanbanColumn {
   id: string
@@ -46,6 +47,13 @@ interface KanbanColumn {
   color: string
   wipLimit?: number
   tasks: KanbanTask[]
+}
+
+interface EnhancedKanbanBoardProps {
+  projectId?: string
+  user: any
+  tasks: KanbanTask[]
+  onTaskUpdate: (taskId: string, updates: any) => void
 }
 
 const ItemTypes = {
@@ -64,21 +72,16 @@ const TaskCard: React.FC<{
   onEdit: (task: KanbanTask) => void
   onDelete: (taskId: string) => void
 }> = ({ task, columnId, onEdit, onDelete }) => {
-  const [{ isDragging }, drag] = useDrag(() => ({
+  const [{ isDragging }, drag] = useDrag({
     type: ItemTypes.TASK,
-    item: () => ({
-      id: task.id,
-      type: ItemTypes.TASK,
-      columnId,
-      title: task.title
-    }),
+    item: { id: task.id, type: ItemTypes.TASK, columnId },
     collect: (monitor) => ({
       isDragging: monitor.isDragging(),
     }),
-  }), [task.id, task.title, columnId])
+  })
 
   const getPriorityColor = (priority: string) => {
-    switch (priority?.toLowerCase()) {
+    switch (priority.toLowerCase()) {
       case 'critical': return 'bg-red-100 text-red-800 border-red-300'
       case 'high': return 'bg-orange-100 text-orange-800 border-orange-300'
       case 'medium': return 'bg-yellow-100 text-yellow-800 border-yellow-300'
@@ -88,7 +91,7 @@ const TaskCard: React.FC<{
   }
 
   const getTypeIcon = (type: string) => {
-    switch (type?.toLowerCase()) {
+    switch (type.toLowerCase()) {
       case 'story': return <Target className="w-4 h-4 text-blue-600" />
       case 'task': return <CheckCircle className="w-4 h-4 text-green-600" />
       case 'bug': return <AlertTriangle className="w-4 h-4 text-red-600" />
@@ -190,7 +193,7 @@ const KanbanColumn: React.FC<{
   onTaskEdit: (task: KanbanTask) => void
   onTaskDelete: (taskId: string) => void
 }> = ({ column, onTaskMove, onTaskEdit, onTaskDelete }) => {
-  const [{ isOver, canDrop }, drop] = useDrop(() => ({
+  const [{ isOver, canDrop }, drop] = useDrop({
     accept: ItemTypes.TASK,
     drop: (item: DragItem) => {
       if (item.columnId !== column.id) {
@@ -201,7 +204,7 @@ const KanbanColumn: React.FC<{
       isOver: monitor.isOver(),
       canDrop: monitor.canDrop(),
     }),
-  }), [column.id, onTaskMove])
+  })
 
   const isWipLimitExceeded = column.wipLimit && column.tasks.length >= column.wipLimit
 
@@ -263,37 +266,11 @@ const KanbanColumn: React.FC<{
   )
 }
 
-export function KanbanBoardView({ project, user, boardType = 'kanban' }: KanbanBoardViewProps) {
-  const projectId = project?.id
+export function EnhancedKanbanBoard({ projectId, user, tasks, onTaskUpdate }: EnhancedKanbanBoardProps) {
   const [columns, setColumns] = useState<KanbanColumn[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedTask, setSelectedTask] = useState<KanbanTask | null>(null)
   const [showTaskDialog, setShowTaskDialog] = useState(false)
-  const [showWipSettings, setShowWipSettings] = useState(false)
-  const [wipLimitsEnabled, setWipLimitsEnabled] = useState(true)
-  const [tasks, setTasks] = useState<Story[]>([])
-  const [loading, setLoading] = useState(true)
-
-  // Load tasks from API
-  useEffect(() => {
-    const loadTasks = async () => {
-      if (!projectId) return
-
-      try {
-        setLoading(true)
-        const response = await storiesApiService.getStories(projectId, 1, 100)
-        setTasks(response.items)
-      } catch (error) {
-        console.error('Failed to load tasks:', error)
-        toast.error('Failed to load tasks')
-        setTasks([])
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    loadTasks()
-  }, [projectId])
 
   // Initialize columns with tasks
   useEffect(() => {
@@ -303,7 +280,7 @@ export function KanbanBoardView({ project, user, boardType = 'kanban' }: KanbanB
         title: 'To Do',
         status: 'todo',
         color: 'bg-gray-500',
-        wipLimit: wipLimitsEnabled ? 5 : undefined,
+        wipLimit: 5,
         tasks: []
       },
       {
@@ -311,7 +288,7 @@ export function KanbanBoardView({ project, user, boardType = 'kanban' }: KanbanB
         title: 'In Progress',
         status: 'in-progress',
         color: 'bg-blue-500',
-        wipLimit: wipLimitsEnabled ? 3 : undefined,
+        wipLimit: 3,
         tasks: []
       },
       {
@@ -319,7 +296,7 @@ export function KanbanBoardView({ project, user, boardType = 'kanban' }: KanbanB
         title: 'Review',
         status: 'review',
         color: 'bg-yellow-500',
-        wipLimit: wipLimitsEnabled ? 2 : undefined,
+        wipLimit: 2,
         tasks: []
       },
       {
@@ -341,19 +318,13 @@ export function KanbanBoardView({ project, user, boardType = 'kanban' }: KanbanB
     }))
 
     setColumns(columnsWithTasks)
-  }, [tasks, wipLimitsEnabled])
+  }, [tasks])
 
   const handleTaskMove = useCallback(async (taskId: string, targetColumnId: string) => {
     try {
       // Find target column to get the status
       const targetColumn = columns.find(col => col.id === targetColumnId)
       if (!targetColumn) return
-
-      // Check WIP limits
-      if (targetColumn.wipLimit && targetColumn.tasks.length >= targetColumn.wipLimit) {
-        toast.error(`Cannot move task: WIP limit (${targetColumn.wipLimit}) exceeded for ${targetColumn.title}`)
-        return
-      }
 
       // Update task status via API
       await storiesApiService.updateStory(taskId, {
@@ -386,12 +357,15 @@ export function KanbanBoardView({ project, user, boardType = 'kanban' }: KanbanB
         })
       })
 
+      // Notify parent component
+      onTaskUpdate(taskId, { status: targetColumn.status })
+
       toast.success('Task moved successfully')
     } catch (error) {
       console.error('Failed to move task:', error)
       toast.error('Failed to move task')
     }
-  }, [columns])
+  }, [columns, onTaskUpdate])
 
   const handleTaskEdit = (task: KanbanTask) => {
     setSelectedTask(task)
@@ -426,15 +400,6 @@ export function KanbanBoardView({ project, user, boardType = 'kanban' }: KanbanB
     )
   }))
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-        <span className="ml-2">Loading kanban board...</span>
-      </div>
-    )
-  }
-
   return (
     <DndProvider backend={HTML5Backend}>
       <div className="space-y-6">
@@ -454,7 +419,7 @@ export function KanbanBoardView({ project, user, boardType = 'kanban' }: KanbanB
                 className="pl-10 w-64"
               />
             </div>
-            <Button variant="outline" size="sm" onClick={() => setShowWipSettings(true)}>
+            <Button variant="outline" size="sm">
               <Settings className="w-4 h-4 mr-2" />
               Settings
             </Button>
@@ -486,48 +451,6 @@ export function KanbanBoardView({ project, user, boardType = 'kanban' }: KanbanB
             />
           ))}
         </div>
-
-        {/* WIP Settings Dialog */}
-        <Dialog open={showWipSettings} onOpenChange={setShowWipSettings}>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>Board Settings</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Label>Enable WIP Limits</Label>
-                <Switch
-                  checked={wipLimitsEnabled}
-                  onCheckedChange={setWipLimitsEnabled}
-                />
-              </div>
-              {wipLimitsEnabled && (
-                <div className="space-y-4">
-                  <Label>Column WIP Limits</Label>
-                  {columns.map((column) => (
-                    <div key={column.id} className="flex items-center justify-between">
-                      <span className="text-sm">{column.title}</span>
-                      <Input
-                        type="number"
-                        value={column.wipLimit || 0}
-                        onChange={(e) => {
-                          const newLimit = parseInt(e.target.value) || 0
-                          setColumns(prevColumns =>
-                            prevColumns.map(col =>
-                              col.id === column.id ? { ...col, wipLimit: newLimit } : col
-                            )
-                          )
-                        }}
-                        className="w-20"
-                        min="0"
-                      />
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </DialogContent>
-        </Dialog>
 
         {/* Task Detail Dialog */}
         <Dialog open={showTaskDialog} onOpenChange={setShowTaskDialog}>
