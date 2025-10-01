@@ -1,4 +1,4 @@
-import { Story } from '../../../services/storiesApi'
+import { Story } from '../../../../services/storiesApi'
 
 export const getTypeIcon = (type: string) => {
   switch (type) {

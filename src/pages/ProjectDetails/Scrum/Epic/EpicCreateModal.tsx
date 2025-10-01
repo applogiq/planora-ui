@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
-import { Button } from '../../../components/ui/button'
-import { Input } from '../../../components/ui/input'
-import { Textarea } from '../../../components/ui/textarea'
-import { Label } from '../../../components/ui/label'
+import { Button } from '../../../../components/ui/button'
+import { Input } from '../../../../components/ui/input'
+import { Textarea } from '../../../../components/ui/textarea'
+import { Label } from '../../../../components/ui/label'
 import {
   Dialog,
   DialogContent,
@@ -10,18 +10,18 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '../../../components/ui/dialog'
+} from '../../../../components/ui/dialog'
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '../../../components/ui/select'
-import { Badge } from '../../../components/ui/badge'
+} from '../../../../components/ui/select'
+import { Badge } from '../../../../components/ui/badge'
 import { CalendarIcon, X, Plus } from 'lucide-react'
-import { epicApiService, CreateEpicRequest } from '../../../services/epicApi'
-import { ProjectStatusItem, ProjectPriorityItem } from '../../../services/projectApi'
+import { epicApiService, CreateEpicRequest } from '../../../../services/epicApi'
+import { ProjectStatusItem, ProjectPriorityItem } from '../../../../services/projectApi'
 import { toast } from 'sonner'
 
 interface EpicCreateModalProps {

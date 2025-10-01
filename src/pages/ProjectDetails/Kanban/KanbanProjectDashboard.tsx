@@ -1,7 +1,7 @@
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card'
-import { Badge } from '../../components/ui/badge'
-import { Progress } from '../../components/ui/progress'
-import { Avatar, AvatarFallback } from '../../components/ui/avatar'
+import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card'
+import { Badge } from '../../../components/ui/badge'
+import { Progress } from '../../../components/ui/progress'
+import { Avatar, AvatarFallback } from '../../../components/ui/avatar'
 import { 
   Kanban, 
   TrendingUp, 
@@ -218,7 +218,7 @@ export function KanbanProjectDashboard({ project, user }: KanbanProjectDashboard
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {project.team.slice(0, 4).map((member: any) => (
+            {(project.team || []).slice(0, 4).map((member: any) => (
               <div key={member.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
                 <div className="flex items-center space-x-3">
                   <Avatar className="w-8 h-8">

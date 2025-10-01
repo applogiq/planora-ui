@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react'
 import { DndProvider, useDrag, useDrop } from 'react-dnd'
 import { HTML5Backend } from 'react-dnd-html5-backend'
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card'
-import { Button } from '../../components/ui/button'
-import { Badge } from '../../components/ui/badge'
-import { Avatar, AvatarFallback } from '../../components/ui/avatar'
-import { Input } from '../../components/ui/input'
+import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card'
+import { Button } from '../../../components/ui/button'
+import { Badge } from '../../../components/ui/badge'
+import { Avatar, AvatarFallback } from '../../../components/ui/avatar'
+import { Input } from '../../../components/ui/input'
 import {
   Search,
   Settings,
@@ -16,7 +16,7 @@ import {
   Trash2,
   GripVertical
 } from 'lucide-react'
-import { storiesApiService, Story } from '../../services/storiesApi'
+import { storiesApiService, Story } from '../../../services/storiesApi'
 import { toast } from 'sonner'
 
 interface SimpleDragDropKanbanProps {

@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../../components/ui/dialog'
-import { Button } from '../../../components/ui/button'
-import { Input } from '../../../components/ui/input'
-import { Textarea } from '../../../components/ui/textarea'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select'
-import { Badge } from '../../../components/ui/badge'
-import { Avatar, AvatarFallback } from '../../../components/ui/avatar'
-import { Label } from '../../../components/ui/label'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../../../components/ui/dialog'
+import { Button } from '../../../../components/ui/button'
+import { Input } from '../../../../components/ui/input'
+import { Textarea } from '../../../../components/ui/textarea'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../../components/ui/select'
+import { Badge } from '../../../../components/ui/badge'
+import { Avatar, AvatarFallback } from '../../../../components/ui/avatar'
+import { Label } from '../../../../components/ui/label'
 import {
   Clock,
   Calendar,
@@ -18,7 +18,7 @@ import {
   Save,
   X
 } from 'lucide-react'
-import { ProjectStatusItem, ProjectPriorityItem, ProjectMemberDetail } from '../../../services/projectApi'
+import { ProjectStatusItem, ProjectPriorityItem, ProjectMemberDetail } from '../../../../services/projectApi'
 
 interface TaskModalProps {
   task: any
@@ -30,6 +30,7 @@ interface TaskModalProps {
   availablePriorities?: ProjectPriorityItem[]
   projectTeamMembers?: ProjectMemberDetail[]
   projectTeamLead?: ProjectMemberDetail
+  project?: any
 }
 
 const statusOptions = [
@@ -54,7 +55,7 @@ const typeOptions = [
   { value: 'epic', label: 'Epic' }
 ]
 
-export function TaskModal({ task, isOpen, onClose, onUpdate, user, availableStatuses, availablePriorities, projectTeamMembers = [], projectTeamLead }: TaskModalProps) {
+export function TaskModal({ task, isOpen, onClose, onUpdate, user, availableStatuses, availablePriorities, projectTeamMembers = [], projectTeamLead, project }: TaskModalProps) {
   const [editedTask, setEditedTask] = useState(task)
   const [newComment, setNewComment] = useState('')
 

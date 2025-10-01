@@ -1,6 +1,6 @@
-import { ScrumProjectDashboard } from './ScrumProjectDashboard'
-import { KanbanProjectDashboard } from './KanbanProjectDashboard'
-import { WaterfallProjectDashboard } from './WaterfallProjectDashboard'
+import { ScrumProjectDashboard } from './Scrum/ScrumProjectDashboard'
+import { KanbanProjectDashboard } from './Kanban/KanbanProjectDashboard'
+import { WaterfallProjectDashboard } from './Waterfall/WaterfallProjectDashboard'
 
 interface ProjectDashboardProps {
   project: any

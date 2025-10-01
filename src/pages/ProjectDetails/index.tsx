@@ -34,20 +34,24 @@ import {
 import logoImage from 'figma:asset/6748e9361ee0546a59b88c4fb2d8d612f9260020.png'
 import { SessionStorageService } from '../../utils/sessionStorage'
 import { ProjectDashboard } from './ProjectDashboard'
-import { TasksView } from './Tasks/TasksView'
+import { TasksView as ScrumTasksView } from './Scrum/Tasks/TasksView'
+import { TasksView as KanbanTasksView } from './Kanban/Tasks/TasksView'
+import { TasksView as WaterfallTasksView } from './Waterfall/Tasks/TasksView'
 import { FilesView } from './FilesView'
-import { BacklogView } from './backlog'
-import { SprintsView } from './SprintsView'
-import { NativeDragDropKanban as KanbanBoardView } from './NativeDragDropKanban'
-import { WaterfallPhasesView } from './WaterfallPhasesView'
+import { BacklogView } from './Scrum/Backlog'
+import { SprintsView } from './Scrum/Sprints/SprintsView'
+import { NativeDragDropKanban as KanbanBoardView } from './Kanban/NativeDragDropKanban'
+import { WaterfallPhasesView } from './Waterfall/WaterfallPhasesView'
 import { MilestonesView } from './MilestonesView'
 import { DeliverablesView } from './DeliverablesView'
 import { TeamView } from './TeamView'
-import { ReportsView } from './ReportsView'
+import { ReportsView as ScrumReportsView } from './Scrum/Reports/ReportsView'
+import { ReportsView as KanbanReportsView } from './Kanban/Reports/ReportsView'
+import { ReportsView as WaterfallReportsView } from './Waterfall/Reports/ReportsView'
 import { ActivityView } from './ActivityView'
 import { ProjectSettings } from './ProjectSettings'
 import { ProjectEditModal } from './ProjectEditModal'
-import { Epic } from './Epic'
+import { Epic } from './Scrum/Epic'
 
 interface ProjectDetailsProps {
   projectId: string
@@ -221,11 +225,25 @@ export function ProjectDetails({ projectId, onBack, user, onLogout }: ProjectDet
       case 'deliverables':
         return <DeliverablesView project={project} user={user} />
       case 'tasks':
-        return <TasksView project={project} user={user} />
+        // Use methodology-specific TasksView
+        const methodology = project?.methodology?.toLowerCase()
+        if (methodology === 'kanban') {
+          return <KanbanTasksView project={project} user={user} />
+        } else if (methodology === 'waterfall') {
+          return <WaterfallTasksView project={project} user={user} />
+        }
+        return <ScrumTasksView project={project} user={user} />
       case 'team':
         return <TeamView project={project} user={user} />
       case 'reports':
-        return <ReportsView project={project} user={user} />
+        // Use methodology-specific ReportsView
+        const reportsMethodology = project?.methodology?.toLowerCase()
+        if (reportsMethodology === 'kanban') {
+          return <KanbanReportsView project={project} user={user} />
+        } else if (reportsMethodology === 'waterfall') {
+          return <WaterfallReportsView project={project} user={user} />
+        }
+        return <ScrumReportsView project={project} user={user} />
       case 'files':
         return <FilesView project={project} user={user} />
       case 'activity':

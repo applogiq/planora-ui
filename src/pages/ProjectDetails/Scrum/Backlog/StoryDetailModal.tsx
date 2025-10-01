@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../../components/ui/dialog'
-import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card'
-import { Button } from '../../../components/ui/button'
-import { Badge } from '../../../components/ui/badge'
-import { Avatar, AvatarFallback } from '../../../components/ui/avatar'
-import { Input } from '../../../components/ui/input'
-import { Textarea } from '../../../components/ui/textarea'
-import { Label } from '../../../components/ui/label'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../../../components/ui/dialog'
+import { Card, CardContent, CardHeader, CardTitle } from '../../../../components/ui/card'
+import { Button } from '../../../../components/ui/button'
+import { Badge } from '../../../../components/ui/badge'
+import { Avatar, AvatarFallback } from '../../../../components/ui/avatar'
+import { Input } from '../../../../components/ui/input'
+import { Textarea } from '../../../../components/ui/textarea'
+import { Label } from '../../../../components/ui/label'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../../components/ui/tabs'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../../components/ui/select'
 import {
   MessageSquare,
   Paperclip,
@@ -24,10 +24,10 @@ import {
   CheckCircle,
   Activity
 } from 'lucide-react'
-import { Story, storiesApiService, SubTask } from '../../../services/storiesApi'
-import { epicApiService, Epic } from '../../../services/epicApi'
-import { ProjectMemberDetail, ProjectPriorityItem } from '../../../services/projectApi'
-import { SessionStorageService } from '../../../utils/sessionStorage'
+import { Story, storiesApiService, SubTask } from '../../../../services/storiesApi'
+import { epicApiService, Epic } from '../../../../services/epicApi'
+import { ProjectMemberDetail, ProjectPriorityItem } from '../../../../services/projectApi'
+import { SessionStorageService } from '../../../../utils/sessionStorage'
 import { toast } from 'sonner'
 
 interface StoryDetailModalProps {

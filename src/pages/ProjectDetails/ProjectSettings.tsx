@@ -5,21 +5,17 @@ import { Input } from '../../components/ui/input'
 import { Textarea } from '../../components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select'
 import { Badge } from '../../components/ui/badge'
-import { Avatar, AvatarFallback } from '../../components/ui/avatar'
 import { Switch } from '../../components/ui/switch'
 import { Label } from '../../components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs'
-import { 
-  Settings, 
-  Users, 
-  Shield, 
-  Bell, 
-  Palette, 
+import {
+  Settings,
+  Shield,
+  Bell,
+  Palette,
   Archive,
   Trash2,
   Save,
-  Plus,
-  X,
   AlertTriangle
 } from 'lucide-react'
 
@@ -50,7 +46,6 @@ export function ProjectSettings({ project, user }: ProjectSettingsProps) {
     statusChanges: true
   })
 
-  const [teamMembers, setTeamMembers] = useState(project.team || [])
 
   const methodologyOptions = [
     { value: 'agile', label: 'Agile' },
@@ -75,27 +70,12 @@ export function ProjectSettings({ project, user }: ProjectSettingsProps) {
     { value: 'critical', label: 'Critical' }
   ]
 
-  const roleOptions = [
-    { value: 'project_manager', label: 'Project Manager' },
-    { value: 'developer', label: 'Developer' },
-    { value: 'designer', label: 'Designer' },
-    { value: 'tester', label: 'QA Tester' },
-    { value: 'analyst', label: 'Business Analyst' }
-  ]
 
   const handleSave = () => {
     console.log('Saving project settings:', projectData)
     // Save logic here
   }
 
-  const handleAddTeamMember = () => {
-    // Add team member logic here
-    console.log('Adding team member')
-  }
-
-  const handleRemoveTeamMember = (memberId: string) => {
-    setTeamMembers(teamMembers.filter(member => member.id !== memberId))
-  }
 
   return (
     <div className="space-y-6">
@@ -115,7 +95,6 @@ export function ProjectSettings({ project, user }: ProjectSettingsProps) {
       <Tabs defaultValue="general" className="space-y-6">
         <TabsList>
           <TabsTrigger value="general">General</TabsTrigger>
-          <TabsTrigger value="team">Team</TabsTrigger>
           <TabsTrigger value="permissions">Permissions</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
           <TabsTrigger value="advanced">Advanced</TabsTrigger>
@@ -260,66 +239,6 @@ export function ProjectSettings({ project, user }: ProjectSettingsProps) {
           </Card>
         </TabsContent>
 
-        <TabsContent value="team" className="space-y-6">
-          {/* Team Management */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center space-x-2">
-                  <Users className="w-5 h-5" />
-                  <span>Team Members</span>
-                </CardTitle>
-                <Button onClick={handleAddTeamMember} size="sm" className="bg-[#28A745] hover:bg-[#218838]">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Member
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {teamMembers.map((member) => (
-                  <div key={member.id} className="flex items-center justify-between p-4 border rounded-lg">
-                    <div className="flex items-center space-x-4">
-                      <Avatar className="w-10 h-10">
-                        <AvatarFallback className="bg-[#28A745] text-white">
-                          {member.avatar}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <div className="font-medium">{member.name}</div>
-                        <div className="text-sm text-muted-foreground">{member.role}</div>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center space-x-3">
-                      <Select defaultValue={member.role}>
-                        <SelectTrigger className="w-40">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {roleOptions.map((role) => (
-                            <SelectItem key={role.value} value={role.value}>
-                              {role.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={() => handleRemoveTeamMember(member.id)}
-                        className="text-red-600 hover:text-red-700"
-                      >
-                        <X className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
 
         <TabsContent value="permissions" className="space-y-6">
           {/* Permissions */}

@@ -1,4 +1,4 @@
-import { SprintView } from './Sprints/SprintView'
+import { SprintView } from './SprintView'
 
 interface SprintsViewProps {
   project: any

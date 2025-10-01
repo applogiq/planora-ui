@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card'
-import { Button } from '../../../components/ui/button'
-import { Badge } from '../../../components/ui/badge'
-import { Avatar, AvatarFallback, AvatarImage } from '../../../components/ui/avatar'
-import { Input } from '../../../components/ui/input'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select'
-import { Textarea } from '../../../components/ui/textarea'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../../../components/ui/dialog'
-import { Label } from '../../../components/ui/label'
+import { Card, CardContent, CardHeader, CardTitle } from '../../../../components/ui/card'
+import { Button } from '../../../../components/ui/button'
+import { Badge } from '../../../../components/ui/badge'
+import { Avatar, AvatarFallback, AvatarImage } from '../../../../components/ui/avatar'
+import { Input } from '../../../../components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../../components/ui/select'
+import { Textarea } from '../../../../components/ui/textarea'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../../../../components/ui/dialog'
+import { Label } from '../../../../components/ui/label'
 import {
   Plus,
   Search,
@@ -35,13 +35,13 @@ import {
   ArrowRight,
   MoreHorizontal
 } from 'lucide-react'
-import { storiesApiService, Story, CreateStoryRequest, SubTask } from '../../../services/storiesApi'
-import { epicApiService, Epic } from '../../../services/epicApi'
-import { sprintsApiService, Sprint } from '../../../services/sprintsApi'
-import { ProjectMemberDetail, projectApiService, ProjectMastersResponse, ProjectPriorityItem } from '../../../services/projectApi'
-import { getEnrichedTeamMemberDetails, getAssigneeDisplayInfo, EnrichedMemberDetail } from '../../../utils/teamMemberDetails'
+import { storiesApiService, Story, CreateStoryRequest, SubTask } from '../../../../services/storiesApi'
+import { epicApiService, Epic } from '../../../../services/epicApi'
+import { sprintsApiService, Sprint } from '../../../../services/sprintsApi'
+import { ProjectMemberDetail, projectApiService, ProjectMastersResponse, ProjectPriorityItem } from '../../../../services/projectApi'
+import { getEnrichedTeamMemberDetails, getAssigneeDisplayInfo, EnrichedMemberDetail } from '../../../../utils/teamMemberDetails'
 import { StoryDetailModal } from './StoryDetailModal'
-import { SessionStorageService } from '../../../utils/sessionStorage'
+import { SessionStorageService } from '../../../../utils/sessionStorage'
 import { toast } from 'sonner'
 
 interface BacklogViewProps {

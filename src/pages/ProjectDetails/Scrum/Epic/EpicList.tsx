@@ -1,16 +1,16 @@
 import { useState, useEffect } from 'react'
-import { Button } from '../../../components/ui/button'
-import { Card, CardContent } from '../../../components/ui/card'
-import { Badge } from '../../../components/ui/badge'
-import { Avatar, AvatarFallback, AvatarImage } from '../../../components/ui/avatar'
-import { Input } from '../../../components/ui/input'
+import { Button } from '../../../../components/ui/button'
+import { Card, CardContent } from '../../../../components/ui/card'
+import { Badge } from '../../../../components/ui/badge'
+import { Avatar, AvatarFallback, AvatarImage } from '../../../../components/ui/avatar'
+import { Input } from '../../../../components/ui/input'
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '../../../components/ui/select'
+} from '../../../../components/ui/select'
 import {
   Table,
   TableBody,
@@ -18,7 +18,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '../../../components/ui/table'
+} from '../../../../components/ui/table'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,7 +29,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from '../../../components/ui/alert-dialog'
+} from '../../../../components/ui/alert-dialog'
 import {
   Plus,
   Search,
@@ -48,8 +48,8 @@ import {
   ChevronsLeft,
   ChevronsRight
 } from 'lucide-react'
-import { epicApiService, Epic, EpicsResponse } from '../../../services/epicApi'
-import { projectApiService, ProjectMastersResponse, ProjectStatusItem, ProjectPriorityItem } from '../../../services/projectApi'
+import { epicApiService, Epic, EpicsResponse } from '../../../../services/epicApi'
+import { projectApiService, ProjectMastersResponse, ProjectStatusItem, ProjectPriorityItem } from '../../../../services/projectApi'
 import { EpicCreateModal } from './EpicCreateModal'
 import { EpicViewEditModal } from './EpicViewEditModal'
 import { toast } from 'sonner'

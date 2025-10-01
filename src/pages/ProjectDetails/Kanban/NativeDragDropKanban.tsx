@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card'
-import { Button } from '../../components/ui/button'
-import { Badge } from '../../components/ui/badge'
-import { Avatar, AvatarFallback } from '../../components/ui/avatar'
-import { Input } from '../../components/ui/input'
+import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card'
+import { Button } from '../../../components/ui/button'
+import { Badge } from '../../../components/ui/badge'
+import { Avatar, AvatarFallback } from '../../../components/ui/avatar'
+import { Input } from '../../../components/ui/input'
 import {
   Search,
   Target,
@@ -11,7 +11,7 @@ import {
   CheckCircle,
   GripVertical
 } from 'lucide-react'
-import { storiesApiService, Story } from '../../services/storiesApi'
+import { storiesApiService, Story } from '../../../services/storiesApi'
 import { toast } from 'sonner'
 
 interface NativeDragDropKanbanProps {

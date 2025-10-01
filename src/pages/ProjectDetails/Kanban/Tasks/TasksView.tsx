@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react'
 import { DndProvider, useDrag, useDrop } from 'react-dnd'
 import { HTML5Backend } from 'react-dnd-html5-backend'
-import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card'
-import { Button } from '../../../components/ui/button'
-import { Badge } from '../../../components/ui/badge'
-import { Avatar, AvatarFallback } from '../../../components/ui/avatar'
-import { Input } from '../../../components/ui/input'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs'
+import { Card, CardContent, CardHeader, CardTitle } from '../../../../components/ui/card'
+import { Button } from '../../../../components/ui/button'
+import { Badge } from '../../../../components/ui/badge'
+import { Avatar, AvatarFallback } from '../../../../components/ui/avatar'
+import { Input } from '../../../../components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../../components/ui/select'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../../components/ui/tabs'
 import {
   Plus,
   Search,
@@ -23,17 +23,17 @@ import {
   GripVertical
 } from 'lucide-react'
 import { TaskModal } from './TaskModal'
-import { taskApiService, Task, CreateTaskRequest } from '../../../services/taskApi'
-import { storiesApiService, Story } from '../../../services/storiesApi'
-import { sprintApiService, Sprint } from '../../../services/sprintApi'
-import { projectApiService, ProjectMastersResponse, ProjectStatusItem, ProjectPriorityItem, ProjectMember, ProjectMemberDetail } from '../../../services/projectApi'
-import { getEnrichedTeamMemberDetails, getAssigneeDisplayInfo, EnrichedMemberDetail } from '../../../utils/teamMemberDetails'
-import { BOARD_TASKS, SPRINTS } from '../../../mock-data/tasks'
+import { taskApiService, Task, CreateTaskRequest } from '../../../../services/taskApi'
+import { storiesApiService, Story } from '../../../../services/storiesApi'
+import { sprintApiService, Sprint } from '../../../../services/sprintApi'
+import { projectApiService, ProjectMastersResponse, ProjectStatusItem, ProjectPriorityItem, ProjectMember, ProjectMemberDetail } from '../../../../services/projectApi'
+import { getEnrichedTeamMemberDetails, getAssigneeDisplayInfo, EnrichedMemberDetail } from '../../../../utils/teamMemberDetails'
+import { BOARD_TASKS, SPRINTS } from '../../../../mock-data/tasks'
 import { toast } from 'sonner'
-import { SessionStorageService } from '../../../utils/sessionStorage'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../../components/ui/dialog'
-import { Label } from '../../../components/ui/label'
-import { Textarea } from '../../../components/ui/textarea'
+import { SessionStorageService } from '../../../../utils/sessionStorage'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../../../components/ui/dialog'
+import { Label } from '../../../../components/ui/label'
+import { Textarea } from '../../../../components/ui/textarea'
 
 interface TasksViewProps {
   projectId?: string
@@ -144,7 +144,7 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
   const [filterStatus, setFilterStatus] = useState('all')
   const [filterAssignee, setFilterAssignee] = useState('all')
   const [filterSprint, setFilterSprint] = useState('all')
-  const [viewMode, setViewMode] = useState<'board' | 'list' | 'table'>('board')
+  const [viewMode, setViewMode] = useState<'board' | 'list' | 'table'>(project?.methodology === 'Kanban' ? 'list' : 'board')
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [createTaskData, setCreateTaskData] = useState<CreateTaskRequest>({
     title: '',
@@ -182,6 +182,13 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
       loadEnrichedMemberDetails([...project.team_members_detail, project.team_lead_detail])
     }
   }, [project])
+
+  // Update view mode based on methodology
+  useEffect(() => {
+    if (project?.methodology === 'Kanban') {
+      setViewMode('list')
+    }
+  }, [project?.methodology])
 
   const loadEnrichedMemberDetails = async (members: ProjectMemberDetail[]) => {
     try {
@@ -659,7 +666,7 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
                   {task.progress}%
                 </Badge>
               )}
-              {task.sprint_id && (
+              {task.sprint_id && project?.methodology !== 'Kanban' && (
                 <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-300 text-xs">
                   {task.sprint_name || sprints.find(s => s.id === task.sprint_id)?.name || 'Sprint'}
                 </Badge>
@@ -726,7 +733,7 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
               {task.progress}%
             </Badge>
           )}
-          {task.sprint_id && (
+          {task.sprint_id && project?.methodology !== 'Kanban' && (
             <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-300 text-xs">
               {task.sprint_name || sprints.find(s => s.id === task.sprint_id)?.name || 'Sprint'}
             </Badge>
@@ -867,7 +874,7 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
                       {task.progress}%
                     </Badge>
                   )}
-                  {task.sprint_id && (
+                  {task.sprint_id && project?.methodology !== 'Kanban' && (
                     <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-300 text-xs">
                       {task.sprint_name || sprints.find(s => s.id === task.sprint_id)?.name || 'Sprint'}
                     </Badge>
@@ -984,28 +991,38 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
             </SelectContent>
           </Select>
 
-          <Select value={filterSprint} onValueChange={setFilterSprint}>
-            <SelectTrigger className="w-40">
-              <SelectValue placeholder="Sprint" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Sprints</SelectItem>
-              <SelectItem value="unassigned">Unassigned</SelectItem>
-              {sprints.map((sprint) => (
-                <SelectItem key={sprint.id} value={sprint.id}>
-                  {sprint.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+{/* Hide sprint filter for Kanban methodology */}
+          {project?.methodology !== 'Kanban' && (
+            <Select value={filterSprint} onValueChange={setFilterSprint}>
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="Sprint" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Sprints</SelectItem>
+                <SelectItem value="unassigned">Unassigned</SelectItem>
+                {sprints.map((sprint) => (
+                  <SelectItem key={sprint.id} value={sprint.id}>
+                    {sprint.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </div>
 
-        <Tabs value={viewMode} onValueChange={(value: string) => setViewMode(value as 'board' | 'list' | 'table')}>
-          <TabsList>
-            <TabsTrigger value="board">Board</TabsTrigger>
-            <TabsTrigger value="list">List</TabsTrigger>
-          </TabsList>
-        </Tabs>
+{/* Hide board view for Kanban methodology */}
+        {project?.methodology !== 'Kanban' ? (
+          <Tabs value={viewMode} onValueChange={(value: string) => setViewMode(value as 'board' | 'list' | 'table')}>
+            <TabsList>
+              <TabsTrigger value="board">Board</TabsTrigger>
+              <TabsTrigger value="list">List</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        ) : (
+          <div className="text-sm text-muted-foreground font-medium">
+            List View
+          </div>
+        )}
       </div>
 
       {/* Task Statistics */}
@@ -1074,8 +1091,15 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
           </Card>
         ) : (
           <>
-            {viewMode === 'board' && <BoardView />}
-            {viewMode === 'list' && <ListView />}
+            {/* For Kanban methodology, only show list view */}
+            {project?.methodology === 'Kanban' ? (
+              <ListView />
+            ) : (
+              <>
+                {viewMode === 'board' && <BoardView />}
+                {viewMode === 'list' && <ListView />}
+              </>
+            )}
           </>
         )}
       </div>
@@ -1185,29 +1209,32 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="sprint">Sprint</Label>
-                <Select
-                  value={createTaskData.sprint_id || 'unassigned'}
-                  onValueChange={(value: string) => setCreateTaskData({
-                    ...createTaskData,
-                    sprint_id: value === 'unassigned' ? null : value
-                  })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select sprint" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="unassigned">Unassigned</SelectItem>
-                    {sprints.map((sprint) => (
-                      <SelectItem key={sprint.id} value={sprint.id}>
-                        {sprint.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+{/* Sprint and Assignee - Hide sprint for Kanban methodology */}
+            <div className={`grid gap-4 ${project?.methodology === 'Kanban' ? 'grid-cols-1' : 'grid-cols-2'}`}>
+              {project?.methodology !== 'Kanban' && (
+                <div>
+                  <Label htmlFor="sprint">Sprint</Label>
+                  <Select
+                    value={createTaskData.sprint_id || 'unassigned'}
+                    onValueChange={(value: string) => setCreateTaskData({
+                      ...createTaskData,
+                      sprint_id: value === 'unassigned' ? null : value
+                    })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select sprint" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="unassigned">Unassigned</SelectItem>
+                      {sprints.map((sprint) => (
+                        <SelectItem key={sprint.id} value={sprint.id}>
+                          {sprint.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
               <div>
                 <Label htmlFor="assignee">Assignee</Label>

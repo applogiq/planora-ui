@@ -1,16 +1,16 @@
 import React, { useState, useCallback, useEffect } from 'react'
 import { DndProvider, useDrag, useDrop } from 'react-dnd'
 import { HTML5Backend } from 'react-dnd-html5-backend'
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card'
-import { Button } from '../../components/ui/button'
-import { Badge } from '../../components/ui/badge'
-import { Avatar, AvatarFallback } from '../../components/ui/avatar'
-import { Input } from '../../components/ui/input'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../components/ui/dialog'
-import { Label } from '../../components/ui/label'
-import { Slider } from '../../components/ui/slider'
-import { Switch } from '../../components/ui/switch'
+import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card'
+import { Button } from '../../../components/ui/button'
+import { Badge } from '../../../components/ui/badge'
+import { Avatar, AvatarFallback } from '../../../components/ui/avatar'
+import { Input } from '../../../components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../../components/ui/dialog'
+import { Label } from '../../../components/ui/label'
+import { Slider } from '../../../components/ui/slider'
+import { Switch } from '../../../components/ui/switch'
 import {
   Plus,
   Search,
@@ -28,7 +28,7 @@ import {
   Trash2,
   GripVertical
 } from 'lucide-react'
-import { storiesApiService, Story } from '../../services/storiesApi'
+import { storiesApiService, Story } from '../../../services/storiesApi'
 import { toast } from 'sonner'
 
 interface KanbanBoardViewProps {
