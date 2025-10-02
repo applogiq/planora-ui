@@ -1,55 +1,97 @@
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card'
 import { Badge } from '../../../components/ui/badge'
 import { Progress } from '../../../components/ui/progress'
 import { Avatar, AvatarFallback } from '../../../components/ui/avatar'
-import { 
-  Kanban, 
-  TrendingUp, 
-  Users, 
+import {
+  Kanban,
+  TrendingUp,
+  Users,
   Clock,
   CheckCircle,
   ArrowRight,
   BarChart3,
   Activity
 } from 'lucide-react'
+import { projectApiService } from '../../../services/projectApi'
+import { storiesApiService } from '../../../services/storiesApi'
 
 interface KanbanProjectDashboardProps {
   project: any
   user: any
+  masterData?: any
+  masterLoading?: boolean
 }
 
-// Mock Kanban-specific data
-const mockKanbanData = {
-  board: {
-    columns: [
-      { name: 'Backlog', count: 23, limit: null },
-      { name: 'To Do', count: 8, limit: 10 },
-      { name: 'In Progress', count: 5, limit: 5 },
-      { name: 'Review', count: 3, limit: 3 },
-      { name: 'Done', count: 42, limit: null }
-    ],
-    cycleTime: {
-      average: 4.2,
-      current: 3.8,
-      trend: 'improving'
-    },
-    throughput: {
-      weekly: 8,
-      monthly: 32,
-      trend: 'stable'
+export function KanbanProjectDashboard({ project, user, masterData: propMasterData, masterLoading: propMasterLoading }: KanbanProjectDashboardProps) {
+  const [tasks, setTasks] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [columns, setColumns] = useState<any[]>([])
+
+  // Use master data from props or local state (for backwards compatibility)
+  const masterData = propMasterData
+  const masterLoading = propMasterLoading || false
+
+  // Load tasks only (master data comes from parent)
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setLoading(true)
+        console.log('🔄 [Kanban Dashboard] Loading tasks...')
+        console.log('📊 [Kanban Dashboard] Using master data from parent:', masterData ? 'YES' : 'NO')
+
+        // Load tasks if project ID is available
+        if (project?.id) {
+          const tasksResponse = await storiesApiService.getStories(project.id, 1, 100)
+          setTasks(tasksResponse.items || [])
+          console.log('✅ [Kanban Dashboard] Tasks loaded:', tasksResponse.items?.length || 0)
+
+          // Create columns from master statuses with task counts
+          if (masterData?.statuses) {
+            const columnsData = masterData.statuses
+              .filter((status: any) => status.is_active)
+              .sort((a: any, b: any) => a.sort_order - b.sort_order)
+              .map((status: any) => {
+                const statusId = status.name.toLowerCase().replace(/\s+/g, '-')
+                const count = tasksResponse.items.filter((task: any) =>
+                  task.status?.toLowerCase().replace(/\s+/g, '-') === statusId
+                ).length
+
+                return {
+                  name: status.name,
+                  count: count,
+                  limit: status.name.toLowerCase().includes('done') ? null : 10
+                }
+              })
+            setColumns(columnsData)
+            console.log('✅ [Kanban Dashboard] Columns created:', columnsData)
+          }
+        }
+      } catch (error) {
+        console.error('❌ [Kanban Dashboard] Error loading data:', error)
+      } finally {
+        setLoading(false)
+      }
     }
-  },
-  wipLimits: {
-    exceeded: 0,
-    atLimit: 2,
-    underLimit: 3
-  }
-}
 
-export function KanbanProjectDashboard({ project, user }: KanbanProjectDashboardProps) {
-  const totalTasks = mockKanbanData.board.columns.reduce((sum, col) => sum + col.count, 0)
-  const completedTasks = mockKanbanData.board.columns.find(col => col.name === 'Done')?.count || 0
-  const completionRate = Math.round((completedTasks / totalTasks) * 100)
+    // Only load data when masterData is available
+    if (masterData) {
+      loadData()
+    }
+  }, [project?.id, masterData])
+
+  const totalTasks = columns.reduce((sum, col) => sum + col.count, 0)
+  const completedTasks = columns.find(col => col.name.toLowerCase().includes('done'))?.count || 0
+  const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
+
+  if (loading || masterLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <span className="ml-2">Loading dashboard...</span>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -63,8 +105,8 @@ export function KanbanProjectDashboard({ project, user }: KanbanProjectDashboard
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-5 gap-4">
-              {mockKanbanData.board.columns.map((column) => (
+            <div className={`grid gap-4 ${columns.length <= 4 ? 'grid-cols-4' : 'grid-cols-5'}`}>
+              {columns.map((column) => (
                 <div key={column.name} className="text-center">
                   <div className="mb-2">
                     <h4 className="text-sm font-medium">{column.name}</h4>
@@ -74,23 +116,23 @@ export function KanbanProjectDashboard({ project, user }: KanbanProjectDashboard
                       </div>
                     )}
                   </div>
-                  
+
                   <div className="relative">
                     <div className="w-16 h-16 mx-auto bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center">
                       <span className="text-xl font-semibold">{column.count}</span>
                     </div>
-                    
+
                     {column.limit && column.count >= column.limit && (
                       <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center">
                         <span className="text-xs text-white">!</span>
                       </div>
                     )}
                   </div>
-                  
+
                   {column.limit && (
                     <div className="mt-2">
-                      <Progress 
-                        value={(column.count / column.limit) * 100} 
+                      <Progress
+                        value={(column.count / column.limit) * 100}
                         className="h-1"
                       />
                     </div>
@@ -127,27 +169,27 @@ export function KanbanProjectDashboard({ project, user }: KanbanProjectDashboard
           <CardContent className="space-y-4">
             <div>
               <div className="flex justify-between items-center mb-2">
-                <span className="text-sm text-muted-foreground">Cycle Time</span>
-                <Badge variant="outline" className="bg-[#28A745]/10 text-[#28A745] border-[#28A745]/30">
-                  {mockKanbanData.board.cycleTime.trend}
+                <span className="text-sm text-muted-foreground">Total Tasks</span>
+                <Badge variant="outline" className="bg-[#007BFF]/10 text-[#007BFF] border-[#007BFF]/30">
+                  Active
                 </Badge>
               </div>
-              <div className="text-2xl font-semibold">{mockKanbanData.board.cycleTime.average} days</div>
+              <div className="text-2xl font-semibold">{totalTasks}</div>
               <div className="text-xs text-muted-foreground">
-                Current: {mockKanbanData.board.cycleTime.current} days
+                Across all columns
               </div>
             </div>
-            
+
             <div>
               <div className="flex justify-between items-center mb-2">
-                <span className="text-sm text-muted-foreground">Throughput</span>
-                <Badge variant="outline" className="bg-[#007BFF]/10 text-[#007BFF] border-[#007BFF]/30">
-                  {mockKanbanData.board.throughput.trend}
+                <span className="text-sm text-muted-foreground">Completed</span>
+                <Badge variant="outline" className="bg-[#28A745]/10 text-[#28A745] border-[#28A745]/30">
+                  Done
                 </Badge>
               </div>
-              <div className="text-2xl font-semibold">{mockKanbanData.board.throughput.weekly}/week</div>
+              <div className="text-2xl font-semibold">{completedTasks}</div>
               <div className="text-xs text-muted-foreground">
-                Monthly: {mockKanbanData.board.throughput.monthly} items
+                Tasks completed
               </div>
             </div>
             
@@ -172,7 +214,9 @@ export function KanbanProjectDashboard({ project, user }: KanbanProjectDashboard
                 <CheckCircle className="w-5 h-5 text-[#28A745]" />
               </div>
               <div>
-                <div className="text-lg font-semibold">{mockKanbanData.wipLimits.underLimit}</div>
+                <div className="text-lg font-semibold">
+                  {columns.filter(col => col.limit && col.count < col.limit).length}
+                </div>
                 <div className="text-xs text-muted-foreground">Columns Under Limit</div>
               </div>
             </div>
@@ -186,7 +230,9 @@ export function KanbanProjectDashboard({ project, user }: KanbanProjectDashboard
                 <Clock className="w-5 h-5 text-[#FFC107]" />
               </div>
               <div>
-                <div className="text-lg font-semibold">{mockKanbanData.wipLimits.atLimit}</div>
+                <div className="text-lg font-semibold">
+                  {columns.filter(col => col.limit && col.count === col.limit).length}
+                </div>
                 <div className="text-xs text-muted-foreground">Columns At Limit</div>
               </div>
             </div>
@@ -200,7 +246,9 @@ export function KanbanProjectDashboard({ project, user }: KanbanProjectDashboard
                 <Activity className="w-5 h-5 text-[#DC3545]" />
               </div>
               <div>
-                <div className="text-lg font-semibold">{mockKanbanData.wipLimits.exceeded}</div>
+                <div className="text-lg font-semibold">
+                  {columns.filter(col => col.limit && col.count > col.limit).length}
+                </div>
                 <div className="text-xs text-muted-foreground">Columns Over Limit</div>
               </div>
             </div>
@@ -218,36 +266,45 @@ export function KanbanProjectDashboard({ project, user }: KanbanProjectDashboard
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {(project.team || []).slice(0, 4).map((member: any) => (
-              <div key={member.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
-                <div className="flex items-center space-x-3">
-                  <Avatar className="w-8 h-8">
-                    <AvatarFallback className="bg-[#28A745] text-white text-xs">
-                      {member.avatar}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <div className="font-medium text-sm">{member.name}</div>
-                    <div className="text-xs text-muted-foreground">{member.role}</div>
-                  </div>
-                </div>
-                
-                <div className="flex items-center space-x-4 text-center">
-                  <div>
-                    <div className="text-sm font-semibold">
-                      {Math.floor(Math.random() * 5) + 3}
+            {project?.team_members_detail && project.team_members_detail.length > 0 ? (
+              project.team_members_detail.slice(0, 4).map((member: any) => {
+                const memberTasks = tasks.filter((task: any) => task.assignee_id === member.id)
+                return (
+                  <div key={member.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+                    <div className="flex items-center space-x-3">
+                      <Avatar className="w-8 h-8">
+                        <AvatarFallback className="bg-[#28A745] text-white text-xs">
+                          {member.name?.split(' ').map((n: string) => n[0]).join('').toUpperCase() || 'U'}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <div className="font-medium text-sm">{member.name}</div>
+                        <div className="text-xs text-muted-foreground">{member.role_name}</div>
+                      </div>
                     </div>
-                    <div className="text-xs text-muted-foreground">Tasks/Week</div>
-                  </div>
-                  <div>
-                    <div className="text-sm font-semibold">
-                      {Math.floor(Math.random() * 3) + 2}.{Math.floor(Math.random() * 9)}
+
+                    <div className="flex items-center space-x-4 text-center">
+                      <div>
+                        <div className="text-sm font-semibold">
+                          {memberTasks.length}
+                        </div>
+                        <div className="text-xs text-muted-foreground">Tasks</div>
+                      </div>
+                      <div>
+                        <div className="text-sm font-semibold">
+                          {memberTasks.filter((t: any) => t.status?.toLowerCase().includes('done')).length}
+                        </div>
+                        <div className="text-xs text-muted-foreground">Completed</div>
+                      </div>
                     </div>
-                    <div className="text-xs text-muted-foreground">Avg Cycle Time</div>
                   </div>
-                </div>
+                )
+              })
+            ) : (
+              <div className="text-center text-muted-foreground py-8">
+                No team members assigned
               </div>
-            ))}
+            )}
           </div>
         </CardContent>
       </Card>

@@ -30,11 +30,14 @@ import {
 } from 'lucide-react'
 import { storiesApiService, Story } from '../../../services/storiesApi'
 import { toast } from 'sonner'
+import { projectApiService } from '../../../services/projectApi'
 
 interface KanbanBoardViewProps {
   project: any
   user: any
   boardType?: 'sprint' | 'kanban' | 'wip'
+  masterData?: any
+  masterLoading?: boolean
 }
 
 interface KanbanTask extends Story {}
@@ -263,7 +266,7 @@ const KanbanColumn: React.FC<{
   )
 }
 
-export function KanbanBoardView({ project, user, boardType = 'kanban' }: KanbanBoardViewProps) {
+export function KanbanBoardView({ project, user, boardType = 'kanban', masterData: propMasterData, masterLoading: propMasterLoading }: KanbanBoardViewProps) {
   const projectId = project?.id
   const [columns, setColumns] = useState<KanbanColumn[]>([])
   const [searchTerm, setSearchTerm] = useState('')
@@ -273,6 +276,39 @@ export function KanbanBoardView({ project, user, boardType = 'kanban' }: KanbanB
   const [wipLimitsEnabled, setWipLimitsEnabled] = useState(true)
   const [tasks, setTasks] = useState<Story[]>([])
   const [loading, setLoading] = useState(true)
+
+  // Use master data from props (passed from parent)
+  const masterData = propMasterData
+  const masterLoading = propMasterLoading || false
+  const [projectTeamMembers, setProjectTeamMembers] = useState<any[]>([])
+  const [projectTeamLead, setProjectTeamLead] = useState<any>(null)
+
+  // Log master data usage
+  useEffect(() => {
+    console.log('📊 [Kanban Board] Using master data from parent:', masterData ? 'YES' : 'NO')
+    if (masterData) {
+      console.log('📊 [Kanban Board] Statuses available:', masterData.statuses?.length || 0)
+    }
+  }, [masterData])
+
+  // Load project team members
+  useEffect(() => {
+    const loadTeamMembers = async () => {
+      if (!projectId) return
+
+      try {
+        console.log('🔄 [Kanban] Loading team members for project:', projectId)
+        const teamData = await projectApiService.getProjectTeamMembers(projectId)
+        console.log('✅ [Kanban] Team members loaded:', teamData)
+        setProjectTeamMembers(teamData.team_members_detail || [])
+        setProjectTeamLead(teamData.team_lead_detail || null)
+      } catch (error) {
+        console.error('❌ [Kanban] Failed to load team members:', error)
+      }
+    }
+
+    loadTeamMembers()
+  }, [projectId])
 
   // Load tasks from API
   useEffect(() => {
@@ -297,51 +333,43 @@ export function KanbanBoardView({ project, user, boardType = 'kanban' }: KanbanB
 
   // Initialize columns with tasks
   useEffect(() => {
-    const defaultColumns: KanbanColumn[] = [
-      {
-        id: 'todo',
-        title: 'To Do',
-        status: 'todo',
-        color: 'bg-gray-500',
-        wipLimit: wipLimitsEnabled ? 5 : undefined,
-        tasks: []
-      },
-      {
-        id: 'in-progress',
-        title: 'In Progress',
-        status: 'in-progress',
-        color: 'bg-blue-500',
-        wipLimit: wipLimitsEnabled ? 3 : undefined,
-        tasks: []
-      },
-      {
-        id: 'review',
-        title: 'Review',
-        status: 'review',
-        color: 'bg-yellow-500',
-        wipLimit: wipLimitsEnabled ? 2 : undefined,
-        tasks: []
-      },
-      {
-        id: 'done',
-        title: 'Done',
-        status: 'done',
-        color: 'bg-green-500',
-        tasks: []
-      }
-    ]
+    // Only create columns if master data is loaded
+    if (!masterData || !masterData.statuses || masterData.statuses.length === 0) {
+      console.warn('⚠️ [Kanban] Master data not available yet, skipping column initialization')
+      return
+    }
+
+    console.log('🔄 [Kanban] Initializing columns from master statuses:', masterData.statuses.length)
+
+    // Create columns from master statuses
+    const defaultColumns: KanbanColumn[] = masterData.statuses
+      .filter((status: any) => status.is_active)
+      .sort((a: any, b: any) => a.sort_order - b.sort_order)
+      .map((status: any) => {
+        const statusId = status.name.toLowerCase().replace(/\s+/g, '-')
+        console.log(`📋 [Kanban] Creating column: ${status.name} (${statusId})`)
+        return {
+          id: statusId,
+          title: status.name,
+          status: statusId,
+          color: status.color ? `bg-[${status.color}]` : 'bg-gray-500',
+          wipLimit: wipLimitsEnabled ? (status.name.toLowerCase().includes('done') || status.name.toLowerCase().includes('completed') ? undefined : 5) : undefined,
+          tasks: []
+        }
+      })
 
     // Distribute tasks into columns based on status
     const columnsWithTasks = defaultColumns.map(column => ({
       ...column,
       tasks: tasks.filter(task => {
-        const taskStatus = task.status?.toLowerCase().replace(' ', '-') || 'todo'
+        const taskStatus = task.status?.toLowerCase().replace(/\s+/g, '-') || 'todo'
         return taskStatus === column.status
       })
     }))
 
+    console.log('✅ [Kanban] Columns initialized:', columnsWithTasks.map(c => `${c.title} (${c.tasks.length} tasks)`))
     setColumns(columnsWithTasks)
-  }, [tasks, wipLimitsEnabled])
+  }, [tasks, wipLimitsEnabled, masterData])
 
   const handleTaskMove = useCallback(async (taskId: string, targetColumnId: string) => {
     try {
@@ -426,7 +454,7 @@ export function KanbanBoardView({ project, user, boardType = 'kanban' }: KanbanB
     )
   }))
 
-  if (loading) {
+  if (loading || masterLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>

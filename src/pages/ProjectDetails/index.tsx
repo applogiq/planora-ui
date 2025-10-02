@@ -33,6 +33,7 @@ import {
 } from 'lucide-react'
 import logoImage from 'figma:asset/6748e9361ee0546a59b88c4fb2d8d612f9260020.png'
 import { SessionStorageService } from '../../utils/sessionStorage'
+import { projectApiService, ProjectMastersResponse } from '../../services/projectApi'
 import { ProjectDashboard } from './ProjectDashboard'
 import { TasksView as ScrumTasksView } from './Scrum/Tasks/TasksView'
 import { TasksView as KanbanTasksView } from './Kanban/Tasks/TasksView'
@@ -75,6 +76,10 @@ export function ProjectDetails({ projectId, onBack, user, onLogout }: ProjectDet
   const [darkMode, setDarkMode] = useState(false)
   const [showUserMenu, setShowUserMenu] = useState(false)
 
+  // Load master project data once at parent level
+  const [masterData, setMasterData] = useState<ProjectMastersResponse | null>(null)
+  const [masterLoading, setMasterLoading] = useState(false)
+
   // Load project data and manage session storage
   useEffect(() => {
     if (projectId) {
@@ -90,6 +95,26 @@ export function ProjectDetails({ projectId, onBack, user, onLogout }: ProjectDet
       SessionStorageService.setCurrentProjectData(project)
     }
   }, [project])
+
+  // Load master data once for all child components
+  useEffect(() => {
+    const loadMasterData = async () => {
+      try {
+        setMasterLoading(true)
+        console.log('🔄 [ProjectDetails] Loading project masters once for all views...')
+        const masters = await projectApiService.getProjectMasters()
+        console.log('✅ [ProjectDetails] Project masters loaded:', masters)
+        setMasterData(masters)
+      } catch (error) {
+        console.error('❌ [ProjectDetails] Error loading project masters:', error)
+        setMasterData(null)
+      } finally {
+        setMasterLoading(false)
+      }
+    }
+
+    loadMasterData()
+  }, [])
 
   // Toggle dark mode
   useEffect(() => {
@@ -209,7 +234,7 @@ export function ProjectDetails({ projectId, onBack, user, onLogout }: ProjectDet
   const renderActiveView = () => {
     switch (activeView) {
       case 'dashboard':
-        return <ProjectDashboard project={project} user={user} />
+        return <ProjectDashboard project={project} user={user} masterData={masterData} masterLoading={masterLoading} />
       case 'epics':
         return <Epic projectId={projectId} user={user} teamMembers={project?.team_members_detail || []} />
       case 'backlog':
@@ -217,7 +242,7 @@ export function ProjectDetails({ projectId, onBack, user, onLogout }: ProjectDet
       case 'sprints':
         return <SprintsView project={project} user={user} />
       case 'kanban':
-        return <KanbanBoardView project={project} user={user} />
+        return <KanbanBoardView project={project} user={user} masterData={masterData} masterLoading={masterLoading} />
       case 'phases':
         return <WaterfallPhasesView project={project} user={user} />
       case 'milestones':

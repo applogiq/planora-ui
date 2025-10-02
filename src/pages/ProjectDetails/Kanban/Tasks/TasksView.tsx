@@ -190,6 +190,22 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
     }
   }, [project?.methodology])
 
+  // Update default status and priority when master data is loaded
+  useEffect(() => {
+    if (availableStatuses.length > 0 && availablePriorities.length > 0) {
+      const firstStatus = availableStatuses[0]
+      const firstPriority = availablePriorities[0]
+
+      setCreateTaskData(prev => ({
+        ...prev,
+        status: firstStatus.name.toLowerCase().replace(/\s+/g, '-'),
+        priority: firstPriority.name.toLowerCase()
+      }))
+
+      console.log('📊 [Kanban Tasks] Set default status to:', firstStatus.name, 'and priority to:', firstPriority.name)
+    }
+  }, [availableStatuses, availablePriorities])
+
   const loadEnrichedMemberDetails = async (members: ProjectMemberDetail[]) => {
     try {
       const enrichedMap = await getEnrichedTeamMemberDetails(members)
@@ -223,46 +239,33 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
     }
 
     try {
-      console.log('🔄 Loading project masters...')
+      console.log('🔄 [Kanban Tasks] Loading project masters...')
       const masters = await projectApiService.getProjectMasters()
-      console.log('✅ Project masters loaded:', masters)
+      console.log('✅ [Kanban Tasks] Project masters loaded:', masters)
 
       setProjectMasters(masters)
-      setAvailableStatuses(masters.statuses || [])
-      setAvailablePriorities(masters.priorities || [])
 
-      console.log('📊 Available statuses:', masters.statuses?.length || 0)
-      console.log('📊 Available priorities:', masters.priorities?.length || 0)
-
-      if (masters.statuses?.length) {
-        console.log('📋 Status options:', masters.statuses.map(s => s.name).join(', '))
+      // Only set if data is available
+      if (masters.statuses && masters.statuses.length > 0) {
+        setAvailableStatuses(masters.statuses.filter(s => s.is_active).sort((a, b) => a.sort_order - b.sort_order))
+        console.log('📊 [Kanban Tasks] Available statuses:', masters.statuses.length, '-', masters.statuses.map(s => s.name).join(', '))
+      } else {
+        console.warn('⚠️ [Kanban Tasks] No statuses found in master data')
+        setAvailableStatuses([])
       }
-      if (masters.priorities?.length) {
-        console.log('📋 Priority options:', masters.priorities.map(p => p.name).join(', '))
+
+      if (masters.priorities && masters.priorities.length > 0) {
+        setAvailablePriorities(masters.priorities.filter(p => p.is_active).sort((a, b) => a.sort_order - b.sort_order))
+        console.log('📊 [Kanban Tasks] Available priorities:', masters.priorities.length, '-', masters.priorities.map(p => p.name).join(', '))
+      } else {
+        console.warn('⚠️ [Kanban Tasks] No priorities found in master data')
+        setAvailablePriorities([])
       }
 
     } catch (error) {
-      console.error('❌ Error loading project masters:', error)
-
-      // Set fallback defaults when API fails
-      const defaultStatuses = [
-        { id: '1', name: 'To Do', color: '#6B7280', is_active: true, sort_order: 1 },
-        { id: '2', name: 'In Progress', color: '#3B82F6', is_active: true, sort_order: 2 },
-        { id: '3', name: 'In Review', color: '#F59E0B', is_active: true, sort_order: 3 },
-        { id: '4', name: 'Done', color: '#10B981', is_active: true, sort_order: 4 }
-      ]
-
-      const defaultPriorities = [
-        { id: '1', name: 'Low', color: '#10B981', is_active: true, sort_order: 1 },
-        { id: '2', name: 'Medium', color: '#F59E0B', is_active: true, sort_order: 2 },
-        { id: '3', name: 'High', color: '#EF4444', is_active: true, sort_order: 3 },
-        { id: '4', name: 'Critical', color: '#7C3AED', is_active: true, sort_order: 4 }
-      ]
-
-      setAvailableStatuses(defaultStatuses)
-      setAvailablePriorities(defaultPriorities)
-
-      console.log('🔄 Using default options for statuses and priorities')
+      console.error('❌ [Kanban Tasks] Error loading project masters:', error)
+      setAvailableStatuses([])
+      setAvailablePriorities([])
     }
   }
 
@@ -437,6 +440,29 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
         return
       }
 
+      if (!createTaskData.status) {
+        toast.error('Status is required')
+        return
+      }
+
+      if (!createTaskData.priority) {
+        toast.error('Priority is required')
+        return
+      }
+
+      // Validate that status and priority exist in master data
+      if (availableStatuses.length === 0) {
+        toast.error('Status options not loaded. Please refresh the page.')
+        return
+      }
+
+      if (availablePriorities.length === 0) {
+        toast.error('Priority options not loaded. Please refresh the page.')
+        return
+      }
+
+      console.log('📝 [Kanban Tasks] Creating task with status:', createTaskData.status, 'and priority:', createTaskData.priority)
+
       // Convert Task data to Story format for API
       const storyData = {
         title: createTaskData.title,
@@ -464,11 +490,20 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
       }
 
       setShowCreateModal(false)
+
+      // Reset to first available status and priority from master data
+      const defaultStatus = availableStatuses.length > 0
+        ? availableStatuses[0].name.toLowerCase().replace(/\s+/g, '-')
+        : 'todo'
+      const defaultPriority = availablePriorities.length > 0
+        ? availablePriorities[0].name.toLowerCase()
+        : 'medium'
+
       setCreateTaskData({
         title: '',
         description: '',
-        status: 'todo',
-        priority: 'medium',
+        status: defaultStatus,
+        priority: defaultPriority,
         project_id: effectiveProjectId || '',
         sprint_id: null,
         assignee_id: null,
@@ -1153,56 +1188,68 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="status">Status</Label>
+                <Label htmlFor="status">Status *</Label>
                 <Select
                   value={createTaskData.status}
                   onValueChange={(value: string) => setCreateTaskData({ ...createTaskData, status: value })}
+                  disabled={!availableStatuses || availableStatuses.length === 0}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select status" />
+                    <SelectValue placeholder={availableStatuses.length > 0 ? "Select status" : "Loading statuses..."} />
                   </SelectTrigger>
                   <SelectContent>
                     {availableStatuses && availableStatuses.length > 0 ? (
                       availableStatuses.map((status) => (
-                        <SelectItem key={status.id} value={status.name.toLowerCase()}>
-                          {status.name}
+                        <SelectItem key={status.id} value={status.name.toLowerCase().replace(/\s+/g, '-')}>
+                          <div className="flex items-center space-x-2">
+                            {status.color && (
+                              <div
+                                className="w-3 h-3 rounded-full"
+                                style={{ backgroundColor: status.color }}
+                              />
+                            )}
+                            <span>{status.name}</span>
+                          </div>
                         </SelectItem>
                       ))
                     ) : (
-                      <>
-                        <SelectItem value="todo">To Do</SelectItem>
-                        <SelectItem value="in-progress">In Progress</SelectItem>
-                        <SelectItem value="review">In Review</SelectItem>
-                        <SelectItem value="done">Done</SelectItem>
-                      </>
+                      <SelectItem value="loading" disabled>
+                        No statuses available - check master data
+                      </SelectItem>
                     )}
                   </SelectContent>
                 </Select>
               </div>
 
               <div>
-                <Label htmlFor="priority">Priority</Label>
+                <Label htmlFor="priority">Priority *</Label>
                 <Select
                   value={createTaskData.priority}
                   onValueChange={(value: string) => setCreateTaskData({ ...createTaskData, priority: value })}
+                  disabled={!availablePriorities || availablePriorities.length === 0}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select priority" />
+                    <SelectValue placeholder={availablePriorities.length > 0 ? "Select priority" : "Loading priorities..."} />
                   </SelectTrigger>
                   <SelectContent>
                     {availablePriorities && availablePriorities.length > 0 ? (
                       availablePriorities.map((priority) => (
                         <SelectItem key={priority.id} value={priority.name.toLowerCase()}>
-                          {priority.name}
+                          <div className="flex items-center space-x-2">
+                            {priority.color && (
+                              <div
+                                className="w-3 h-3 rounded-full"
+                                style={{ backgroundColor: priority.color }}
+                              />
+                            )}
+                            <span>{priority.name}</span>
+                          </div>
                         </SelectItem>
                       ))
                     ) : (
-                      <>
-                        <SelectItem value="low">Low</SelectItem>
-                        <SelectItem value="medium">Medium</SelectItem>
-                        <SelectItem value="high">High</SelectItem>
-                        <SelectItem value="critical">Critical</SelectItem>
-                      </>
+                      <SelectItem value="loading" disabled>
+                        No priorities available - check master data
+                      </SelectItem>
                     )}
                   </SelectContent>
                 </Select>
@@ -1315,11 +1362,21 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
               <Button
                 className="bg-[#28A745] hover:bg-[#218838]"
                 onClick={handleCreateTask}
-                disabled={!createTaskData.title.trim()}
+                disabled={
+                  !createTaskData.title.trim() ||
+                  availableStatuses.length === 0 ||
+                  availablePriorities.length === 0
+                }
               >
                 Create Task
               </Button>
             </div>
+
+            {(availableStatuses.length === 0 || availablePriorities.length === 0) && (
+              <div className="text-xs text-amber-600 dark:text-amber-400 mt-2 text-center">
+                ⚠️ Master data is loading. Please wait...
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>

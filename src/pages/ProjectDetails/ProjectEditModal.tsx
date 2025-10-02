@@ -229,7 +229,7 @@ export function ProjectEditModal({ isOpen, onClose, project, onSave, user }: Pro
 
     try {
       // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      await new Promise(resolve => setTimeout(resolve, 100))
       
       const updatedProject = {
         ...project,

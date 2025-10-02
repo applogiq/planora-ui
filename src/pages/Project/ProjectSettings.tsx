@@ -65,7 +65,7 @@ export function ProjectSettings({ project, onUpdate, user }: ProjectSettingsProp
     setIsLoading(true)
     try {
       // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      await new Promise(resolve => setTimeout(resolve, 100))
       
       const updatedProject = {
         ...project,
@@ -87,7 +87,7 @@ export function ProjectSettings({ project, onUpdate, user }: ProjectSettingsProp
     if (window.confirm('Are you sure you want to archive this project? This action can be reversed later.')) {
       setIsLoading(true)
       try {
-        await new Promise(resolve => setTimeout(resolve, 1000))
+        await new Promise(resolve => setTimeout(resolve, 100))
         
         const archivedProject = {
           ...project,
