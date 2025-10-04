@@ -211,7 +211,6 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
   // Refetch tasks when sprint filter changes (to trigger API calls)
   useEffect(() => {
     if (effectiveProjectId && filterSprint !== 'all') {
-      console.log('Sprint filter changed to:', filterSprint)
       fetchTasksWithSprintFilter(filterSprint)
     }
   }, [filterSprint, effectiveProjectId])
@@ -223,46 +222,14 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
     }
 
     try {
-      console.log('🔄 Loading project masters...')
-      const masters = await projectApiService.getProjectMasters()
-      console.log('✅ Project masters loaded:', masters)
-
+     const masters = await projectApiService.getProjectMasters()
+     
       setProjectMasters(masters)
       setAvailableStatuses(masters.statuses || [])
       setAvailablePriorities(masters.priorities || [])
 
-      console.log('📊 Available statuses:', masters.statuses?.length || 0)
-      console.log('📊 Available priorities:', masters.priorities?.length || 0)
-
-      if (masters.statuses?.length) {
-        console.log('📋 Status options:', masters.statuses.map(s => s.name).join(', '))
-      }
-      if (masters.priorities?.length) {
-        console.log('📋 Priority options:', masters.priorities.map(p => p.name).join(', '))
-      }
-
     } catch (error) {
       console.error('❌ Error loading project masters:', error)
-
-      // Set fallback defaults when API fails
-      const defaultStatuses = [
-        { id: '1', name: 'To Do', color: '#6B7280', is_active: true, sort_order: 1 },
-        { id: '2', name: 'In Progress', color: '#3B82F6', is_active: true, sort_order: 2 },
-        { id: '3', name: 'In Review', color: '#F59E0B', is_active: true, sort_order: 3 },
-        { id: '4', name: 'Done', color: '#10B981', is_active: true, sort_order: 4 }
-      ]
-
-      const defaultPriorities = [
-        { id: '1', name: 'Low', color: '#10B981', is_active: true, sort_order: 1 },
-        { id: '2', name: 'Medium', color: '#F59E0B', is_active: true, sort_order: 2 },
-        { id: '3', name: 'High', color: '#EF4444', is_active: true, sort_order: 3 },
-        { id: '4', name: 'Critical', color: '#7C3AED', is_active: true, sort_order: 4 }
-      ]
-
-      setAvailableStatuses(defaultStatuses)
-      setAvailablePriorities(defaultPriorities)
-
-      console.log('🔄 Using default options for statuses and priorities')
     }
   }
 
@@ -302,11 +269,8 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
       }))
 
       setTasks(convertedTasks)
-      console.log('Fetched stories as tasks:', convertedTasks)
     } catch (error) {
       console.error('Error fetching stories:', error)
-      console.log('Using mock data as fallback')
-
       // Convert mock data to match our Task interface
       const mockTasks: Task[] = BOARD_TASKS.map(mockTask => ({
         id: mockTask.id,
@@ -344,8 +308,6 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
 
     try {
       setLoading(true)
-      console.log('Making API call with sprint filter:', sprintFilter)
-
       // Use stories API with project filter - the API should handle sprint filtering on backend
       const response = await storiesApiService.getStories(effectiveProjectId)
 
@@ -372,11 +334,9 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
       }))
 
       setTasks(convertedTasks)
-      console.log('Fetched stories with sprint filter:', convertedTasks)
       toast.success(`Fetched tasks for sprint filter: ${sprintFilter}`)
     } catch (error) {
       console.error('Error fetching stories with sprint filter:', error)
-      console.log('Sprint filter will use client-side filtering')
       // Don't change tasks on error, let client-side filtering handle it
     } finally {
       setLoading(false)
@@ -394,8 +354,6 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
       setSprints(response.items)
     } catch (error) {
       console.error('Error fetching sprints:', error)
-      console.log('Using mock sprint data as fallback')
-
       // Convert mock sprints to match our Sprint interface
       const mockSprints: Sprint[] = SPRINTS.map(mockSprint => ({
         id: mockSprint.id.toLowerCase().replace(' ', '-'),
@@ -460,7 +418,6 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
       } catch (apiError) {
         // API not available, show demo message
         toast.success('Task creation demo (API not available)')
-        console.log('Demo task would be created:', storyData)
       }
 
       setShowCreateModal(false)
@@ -514,7 +471,6 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
         )
         setTasks(updatedTasks)
         toast.success('Task updated successfully (demo mode)')
-        console.log('Demo task update:', storyUpdateData)
       }
 
       setSelectedTask(null)
@@ -538,8 +494,6 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
 
   const handleTaskMove = async (taskId: string, newStatus: string) => {
     try {
-      console.log(`🔄 Moving task ${taskId} to ${newStatus}`)
-
       // Update via API
       await storiesApiService.updateStory(taskId, { status: newStatus })
 
@@ -549,8 +503,6 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
           task.id === taskId ? { ...task, status: newStatus } : task
         )
       )
-
-      console.log(`✅ Task moved successfully`)
       toast.success('Task moved successfully')
     } catch (error) {
       console.error('❌ Failed to move task:', error)
@@ -610,7 +562,6 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
     const [{ isDragging }, dragRef] = useDrag(() => ({
       type: ITEM_TYPE,
       item: () => {
-        console.log(`🖱️ Started dragging task: ${task.title} (${task.id})`)
         return {
           id: task.id,
           columnId: columnId,
@@ -780,7 +731,6 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
     const [{ isOver }, dropRef] = useDrop(() => ({
       accept: ITEM_TYPE,
       drop: (item: { id: string; columnId: string }) => {
-        console.log(`📥 Dropped task ${item.id} from ${item.columnId} to ${column.id}`)
         if (item.columnId !== column.id) {
           handleTaskMove(item.id, column.id)
         }

@@ -37,14 +37,10 @@ export function KanbanProjectDashboard({ project, user, masterData: propMasterDa
     const loadData = async () => {
       try {
         setLoading(true)
-        console.log('🔄 [Kanban Dashboard] Loading tasks...')
-        console.log('📊 [Kanban Dashboard] Using master data from parent:', masterData ? 'YES' : 'NO')
-
         // Load tasks if project ID is available
         if (project?.id) {
           const tasksResponse = await storiesApiService.getStories(project.id, 1, 100)
           setTasks(tasksResponse.items || [])
-          console.log('✅ [Kanban Dashboard] Tasks loaded:', tasksResponse.items?.length || 0)
 
           // Create columns from master statuses with task counts
           if (masterData?.statuses) {

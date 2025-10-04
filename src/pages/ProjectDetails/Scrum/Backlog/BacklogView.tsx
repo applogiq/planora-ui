@@ -255,15 +255,7 @@ export function BacklogView({ projectId: propProjectId, user, project }: Backlog
           subtask.task_name?.trim() || subtask.description?.trim()
         ) || []
       }
-
-      console.log('Creating story with data:', cleanedStoryData)
-      console.log('Assignee details:', {
-        assignee_id: cleanedStoryData.assignee_id,
-        assignee_name: cleanedStoryData.assignee_name,
-        reporter_id: cleanedStoryData.reporter_id,
-        reporter_name: cleanedStoryData.reporter_name
-      })
-
+      
       await storiesApiService.createStory(cleanedStoryData)
       toast.success('Story created successfully')
       setShowCreateModal(false)

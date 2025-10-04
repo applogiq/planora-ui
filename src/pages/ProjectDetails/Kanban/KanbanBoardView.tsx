@@ -4,7 +4,7 @@ import { HTML5Backend } from 'react-dnd-html5-backend'
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card'
 import { Button } from '../../../components/ui/button'
 import { Badge } from '../../../components/ui/badge'
-import { Avatar, AvatarFallback } from '../../../components/ui/avatar'
+import { Avatar, AvatarFallback, AvatarImage } from '../../../components/ui/avatar'
 import { Input } from '../../../components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../../components/ui/dialog'
@@ -26,11 +26,14 @@ import {
   TrendingUp,
   Edit,
   Trash2,
-  GripVertical
+  GripVertical,
+  Calendar,
+  Layers
 } from 'lucide-react'
 import { storiesApiService, Story } from '../../../services/storiesApi'
 import { toast } from 'sonner'
 import { projectApiService } from '../../../services/projectApi'
+import { TaskModal } from './Tasks/TaskModal'
 
 interface KanbanBoardViewProps {
   project: any
@@ -80,107 +83,161 @@ const TaskCard: React.FC<{
     }),
   }), [task.id, task.title, columnId])
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority?.toLowerCase()) {
-      case 'critical': return 'bg-red-100 text-red-800 border-red-300'
-      case 'high': return 'bg-orange-100 text-orange-800 border-orange-300'
-      case 'medium': return 'bg-yellow-100 text-yellow-800 border-yellow-300'
-      case 'low': return 'bg-green-100 text-green-800 border-green-300'
-      default: return 'bg-gray-100 text-gray-800 border-gray-300'
+  // Check if task is in done column
+  const isDone = columnId === 'done' || task.status?.toLowerCase().includes('done') || task.status?.toLowerCase().includes('completed')
+
+  // Check if task is overdue
+  const isOverdue = () => {
+    if (!task.end_date) return false
+    const dueDate = new Date(task.end_date)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    dueDate.setHours(0, 0, 0, 0)
+    return dueDate < today && !isDone
+  }
+
+  // Format due date - only date, no time
+  const formatDueDate = () => {
+    if (!task.end_date) return null
+    const dueDate = new Date(task.end_date)
+    return dueDate.toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    })
+  }
+
+  // Truncate description to 100 characters
+  const truncateDescription = (text: string | null | undefined, maxLength: number = 100) => {
+    if (!text) return ''
+    return text.length > maxLength ? text.substring(0, maxLength) + '...' : text
+  }
+
+  // Get priority color and badge style
+  const getPriorityBadge = () => {
+    switch (task.priority?.toLowerCase()) {
+      case 'critical':
+        return { bg: 'bg-red-100', text: 'text-red-700', border: 'border-red-300' }
+      case 'high':
+        return { bg: 'bg-orange-100', text: 'text-orange-700', border: 'border-orange-300' }
+      case 'medium':
+        return { bg: 'bg-yellow-100', text: 'text-yellow-700', border: 'border-yellow-300' }
+      case 'low':
+        return { bg: 'bg-green-100', text: 'text-green-700', border: 'border-green-300' }
+      default:
+        return { bg: 'bg-gray-100', text: 'text-gray-700', border: 'border-gray-300' }
     }
   }
 
-  const getTypeIcon = (type: string) => {
-    switch (type?.toLowerCase()) {
-      case 'story': return <Target className="w-4 h-4 text-blue-600" />
-      case 'task': return <CheckCircle className="w-4 h-4 text-green-600" />
-      case 'bug': return <AlertTriangle className="w-4 h-4 text-red-600" />
-      default: return <Target className="w-4 h-4 text-blue-600" />
+  // Get story type icon and color
+  const getStoryTypeIcon = () => {
+    switch (task.story_type?.toLowerCase()) {
+      case 'story':
+        return { icon: Target, color: 'text-blue-600' }
+      case 'bug':
+        return { icon: AlertTriangle, color: 'text-red-600' }
+      case 'task':
+        return { icon: CheckCircle, color: 'text-green-600' }
+      case 'epic':
+        return { icon: Layers, color: 'text-purple-600' }
+      default:
+        return { icon: Target, color: 'text-gray-600' }
     }
   }
+
+  const priorityBadge = getPriorityBadge()
+  const storyTypeInfo = getStoryTypeIcon()
+  const StoryIcon = storyTypeInfo.icon
 
   return (
     <div
       ref={drag}
-      className={`cursor-move transition-all duration-200 ${
+      className={`transition-all duration-200 ${
         isDragging ? 'opacity-50 scale-95' : 'opacity-100 scale-100'
       }`}
     >
-      <Card className="mb-3 hover:shadow-md transition-shadow border-l-4 border-l-blue-500">
-        <CardContent className="p-4">
-          <div className="flex items-start justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <GripVertical className="w-4 h-4 text-gray-400" />
-              {getTypeIcon(task.story_type)}
-              <h4 className="font-medium text-sm">{task.title}</h4>
-            </div>
-            <div className="flex items-center gap-1">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 w-6 p-0"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onEdit(task)
-                }}
-              >
-                <Edit className="w-3 h-3" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 w-6 p-0 text-red-600 hover:text-red-700"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onDelete(task.id)
-                }}
-              >
-                <Trash2 className="w-3 h-3" />
-              </Button>
-            </div>
+      <Card
+        className="mb-3 hover:shadow-md transition-shadow bg-white cursor-pointer border border-gray-200 rounded-lg"
+        onClick={(e: React.MouseEvent) => {
+          e.stopPropagation()
+          console.log('Card clicked:', task.task_id || task.id)
+          onEdit(task)
+        }}
+      >
+        <CardContent className="p-4 space-y-3">
+          {/* Task ID */}
+          <div className="text-sm font-medium text-gray-600">
+            {task.task_id || task.id || 'N/A'}
           </div>
 
-          <p className="text-xs text-muted-foreground mb-3 line-clamp-2">
-            {task.description}
-          </p>
+          {/* Task Title */}
+          <h4 className={`font-medium text-base ${isDone ? 'line-through text-gray-400' : 'text-gray-900'}`}>
+            {task.title}
+          </h4>
 
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className={getPriorityColor(task.priority)}>
+          {/* Description */}
+          {task.description && (
+            <p className="text-xs text-gray-600 line-clamp-2">
+              {truncateDescription(task.description, 100)}
+            </p>
+          )}
+
+          {/* Story Type and Priority */}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
+              <StoryIcon className={`w-4 h-4 ${storyTypeInfo.color}`} />
+              <span className={`text-xs ${storyTypeInfo.color} capitalize`}>
+                {task.story_type || 'Task'}
+              </span>
+            </div>
+            {task.priority && (
+              <Badge
+                variant="outline"
+                className={`text-xs ${priorityBadge.bg} ${priorityBadge.text} border ${priorityBadge.border} capitalize`}
+              >
                 {task.priority}
               </Badge>
-              {task.story_points > 0 && (
-                <Badge variant="outline" className="text-xs">
-                  {task.story_points} pts
-                </Badge>
-              )}
-            </div>
-
-            <div className="flex items-center gap-2">
-              {task.assignee_name && (
-                <Avatar className="w-6 h-6">
-                  <AvatarFallback className="text-xs bg-blue-100 text-blue-700">
-                    {task.assignee_name.split(' ').map(n => n[0]).join('')}
-                  </AvatarFallback>
-                </Avatar>
-              )}
-            </div>
+            )}
           </div>
 
-          {task.labels && task.labels.length > 0 && (
-            <div className="flex flex-wrap gap-1 mt-2">
-              {task.labels.slice(0, 3).map((label, index) => (
-                <Badge key={index} variant="outline" className="text-xs">
-                  {label}
-                </Badge>
-              ))}
-              {task.labels.length > 3 && (
-                <Badge variant="outline" className="text-xs">
-                  +{task.labels.length - 3}
-                </Badge>
-              )}
+          {/* Epic/Project */}
+          {(task.epic_title || task.project_name) && (
+            <div className="flex items-center gap-2 text-sm text-gray-600">
+              <Layers className="w-4 h-4" />
+              <span className="truncate">{task.epic_title || task.project_name}</span>
             </div>
           )}
+
+          {/* Footer: Due Date + Avatar */}
+          <div className="flex items-center justify-between pt-2">
+            <div className="flex items-center gap-2">
+              {task.end_date && (
+                <div className="flex items-center gap-1">
+                  <Clock className="w-4 h-4 text-gray-400" />
+                  <span className={`text-xs ${isOverdue() ? 'text-red-500 font-medium' : 'text-gray-600'}`}>
+                    {formatDueDate()}
+                  </span>
+                </div>
+              )}
+              {isOverdue() && (
+                <AlertCircle className="w-4 h-4 text-red-500" />
+              )}
+            </div>
+
+            {task.assignee && (
+              <Avatar className="w-8 h-8 border-2 border-white shadow-sm">
+                {task.assignee.user_profile && (
+                  <AvatarImage
+                    src={task.assignee.user_profile}
+                    alt={task.assignee.name}
+                  />
+                )}
+                <AvatarFallback className="text-xs bg-blue-500 text-white font-medium">
+                  {task.assignee.name.split(' ').map((n: string) => n[0]).join('').toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+            )}
+          </div>
         </CardContent>
       </Card>
     </div>
@@ -209,7 +266,7 @@ const KanbanColumn: React.FC<{
   const isWipLimitExceeded = column.wipLimit && column.tasks.length >= column.wipLimit
 
   return (
-    <div className="flex-1 min-w-72">
+    <div className="flex-1 min-w-80">
       <Card className="h-full">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
@@ -285,10 +342,6 @@ export function KanbanBoardView({ project, user, boardType = 'kanban', masterDat
 
   // Log master data usage
   useEffect(() => {
-    console.log('📊 [Kanban Board] Using master data from parent:', masterData ? 'YES' : 'NO')
-    if (masterData) {
-      console.log('📊 [Kanban Board] Statuses available:', masterData.statuses?.length || 0)
-    }
   }, [masterData])
 
   // Load project team members
@@ -297,9 +350,7 @@ export function KanbanBoardView({ project, user, boardType = 'kanban', masterDat
       if (!projectId) return
 
       try {
-        console.log('🔄 [Kanban] Loading team members for project:', projectId)
         const teamData = await projectApiService.getProjectTeamMembers(projectId)
-        console.log('✅ [Kanban] Team members loaded:', teamData)
         setProjectTeamMembers(teamData.team_members_detail || [])
         setProjectTeamLead(teamData.team_lead_detail || null)
       } catch (error) {
@@ -318,6 +369,8 @@ export function KanbanBoardView({ project, user, boardType = 'kanban', masterDat
       try {
         setLoading(true)
         const response = await storiesApiService.getStories(projectId, 1, 100)
+        console.log('📋 [Kanban] Loaded tasks:', response.items)
+        console.log('📋 [Kanban] Sample task data:', response.items[0])
         setTasks(response.items)
       } catch (error) {
         console.error('Failed to load tasks:', error)
@@ -338,16 +391,12 @@ export function KanbanBoardView({ project, user, boardType = 'kanban', masterDat
       console.warn('⚠️ [Kanban] Master data not available yet, skipping column initialization')
       return
     }
-
-    console.log('🔄 [Kanban] Initializing columns from master statuses:', masterData.statuses.length)
-
     // Create columns from master statuses
     const defaultColumns: KanbanColumn[] = masterData.statuses
       .filter((status: any) => status.is_active)
       .sort((a: any, b: any) => a.sort_order - b.sort_order)
       .map((status: any) => {
         const statusId = status.name.toLowerCase().replace(/\s+/g, '-')
-        console.log(`📋 [Kanban] Creating column: ${status.name} (${statusId})`)
         return {
           id: statusId,
           title: status.name,
@@ -367,8 +416,7 @@ export function KanbanBoardView({ project, user, boardType = 'kanban', masterDat
       })
     }))
 
-    console.log('✅ [Kanban] Columns initialized:', columnsWithTasks.map(c => `${c.title} (${c.tasks.length} tasks)`))
-    setColumns(columnsWithTasks)
+   setColumns(columnsWithTasks)
   }, [tasks, wipLimitsEnabled, masterData])
 
   const handleTaskMove = useCallback(async (taskId: string, targetColumnId: string) => {
@@ -424,6 +472,36 @@ export function KanbanBoardView({ project, user, boardType = 'kanban', masterDat
   const handleTaskEdit = (task: KanbanTask) => {
     setSelectedTask(task)
     setShowTaskDialog(true)
+  }
+
+  const handleTaskUpdate = async (updatedTask: any) => {
+    try {
+      // Update task via API
+      await storiesApiService.updateStory(updatedTask.id, updatedTask)
+
+      // Update local state
+      setColumns(prevColumns =>
+        prevColumns.map(column => ({
+          ...column,
+          tasks: column.tasks.map(task =>
+            task.id === updatedTask.id ? { ...task, ...updatedTask } : task
+          )
+        }))
+      )
+
+      // Update tasks state
+      setTasks(prevTasks =>
+        prevTasks.map(task =>
+          task.id === updatedTask.id ? { ...task, ...updatedTask } : task
+        )
+      )
+
+      setShowTaskDialog(false)
+      toast.success('Task updated successfully')
+    } catch (error) {
+      console.error('Failed to update task:', error)
+      toast.error('Failed to update task')
+    }
   }
 
   const handleTaskDelete = async (taskId: string) => {
@@ -557,56 +635,21 @@ export function KanbanBoardView({ project, user, boardType = 'kanban', masterDat
           </DialogContent>
         </Dialog>
 
-        {/* Task Detail Dialog */}
-        <Dialog open={showTaskDialog} onOpenChange={setShowTaskDialog}>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Task Details</DialogTitle>
-            </DialogHeader>
-            {selectedTask && (
-              <div className="space-y-4">
-                <div>
-                  <Label>Title</Label>
-                  <p className="font-medium">{selectedTask.title}</p>
-                </div>
-                <div>
-                  <Label>Description</Label>
-                  <p className="text-muted-foreground">{selectedTask.description}</p>
-                </div>
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <Label>Type</Label>
-                    <p>{selectedTask.story_type}</p>
-                  </div>
-                  <div>
-                    <Label>Priority</Label>
-                    <p>{selectedTask.priority}</p>
-                  </div>
-                  <div>
-                    <Label>Story Points</Label>
-                    <p>{selectedTask.story_points}</p>
-                  </div>
-                </div>
-                <div>
-                  <Label>Assignee</Label>
-                  <p>{selectedTask.assignee_name || 'Unassigned'}</p>
-                </div>
-                {selectedTask.labels && selectedTask.labels.length > 0 && (
-                  <div>
-                    <Label>Labels</Label>
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {selectedTask.labels.map((label, index) => (
-                        <Badge key={index} variant="outline">
-                          {label}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </DialogContent>
-        </Dialog>
+        {/* Task Edit Modal */}
+        {selectedTask && (
+          <TaskModal
+            task={selectedTask}
+            isOpen={showTaskDialog}
+            onClose={() => setShowTaskDialog(false)}
+            onUpdate={handleTaskUpdate}
+            user={user}
+            availableStatuses={masterData?.statuses}
+            availablePriorities={masterData?.priorities}
+            projectTeamMembers={projectTeamMembers}
+            projectTeamLead={projectTeamLead}
+            project={project}
+          />
+        )}
       </div>
     </DndProvider>
   )

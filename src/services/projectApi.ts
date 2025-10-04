@@ -49,6 +49,7 @@ export interface ProjectMastersResponse {
   types: ProjectMasterItem[];
   statuses: ProjectStatusItem[];
   priorities: ProjectPriorityItem[];
+  task_status: ProjectStatusItem[];
 }
 
 export interface ProjectOwner {

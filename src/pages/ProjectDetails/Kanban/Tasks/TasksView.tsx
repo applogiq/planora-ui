@@ -8,6 +8,7 @@ import { Avatar, AvatarFallback } from '../../../../components/ui/avatar'
 import { Input } from '../../../../components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../../components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../../components/ui/tabs'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../../components/ui/table'
 import {
   Plus,
   Search,
@@ -20,7 +21,11 @@ import {
   Clock,
   Users,
   BarChart3,
-  GripVertical
+  GripVertical,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  Calendar
 } from 'lucide-react'
 import { TaskModal } from './TaskModal'
 import { taskApiService, Task, CreateTaskRequest } from '../../../../services/taskApi'
@@ -145,12 +150,19 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
   const [filterAssignee, setFilterAssignee] = useState('all')
   const [filterSprint, setFilterSprint] = useState('all')
   const [viewMode, setViewMode] = useState<'board' | 'list' | 'table'>(project?.methodology === 'Kanban' ? 'list' : 'board')
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalItems, setTotalItems] = useState(0)
+  const [itemsPerPage, setItemsPerPage] = useState(10)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [createTaskData, setCreateTaskData] = useState<CreateTaskRequest>({
     title: '',
     description: '',
     status: 'todo',
     priority: 'medium',
+    story_type: 'task',
     project_id: effectiveProjectId || '',
     sprint_id: null,
     assignee_id: null,
@@ -158,6 +170,7 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
     due_date: '',
     progress: 0,
     tags: [],
+    acceptance_criteria: [],
     subtasks: [],
     comments: [],
     attachments: [],
@@ -201,8 +214,6 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
         status: firstStatus.name.toLowerCase().replace(/\s+/g, '-'),
         priority: firstPriority.name.toLowerCase()
       }))
-
-      console.log('📊 [Kanban Tasks] Set default status to:', firstStatus.name, 'and priority to:', firstPriority.name)
     }
   }, [availableStatuses, availablePriorities])
 
@@ -224,13 +235,26 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
     }
   }, [effectiveProjectId])
 
-  // Refetch tasks when sprint filter changes (to trigger API calls)
+  // Refetch tasks when filters or pagination change
   useEffect(() => {
-    if (effectiveProjectId && filterSprint !== 'all') {
-      console.log('Sprint filter changed to:', filterSprint)
-      fetchTasksWithSprintFilter(filterSprint)
+    if (effectiveProjectId) {
+      // For Kanban, we don't use sprint filter, so just use status and assignee
+      if (project?.methodology === 'Kanban') {
+        const statusParam = filterStatus !== 'all' ? filterStatus : undefined
+        const assigneeParam = filterAssignee !== 'all' ? filterAssignee : undefined
+        fetchTasks(statusParam, assigneeParam, currentPage, itemsPerPage)
+      } else {
+        // For other methodologies, handle sprint filter separately
+        if (filterSprint !== 'all') {
+          fetchTasksWithSprintFilter(filterSprint)
+        } else {
+          const statusParam = filterStatus !== 'all' ? filterStatus : undefined
+          const assigneeParam = filterAssignee !== 'all' ? filterAssignee : undefined
+          fetchTasks(statusParam, assigneeParam, currentPage, itemsPerPage)
+        }
+      }
     }
-  }, [filterSprint, effectiveProjectId])
+  }, [filterStatus, filterAssignee, filterSprint, effectiveProjectId, project?.methodology, currentPage, itemsPerPage])
 
   const loadProjectMasters = async () => {
     if (!effectiveProjectId) {
@@ -239,26 +263,19 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
     }
 
     try {
-      console.log('🔄 [Kanban Tasks] Loading project masters...')
       const masters = await projectApiService.getProjectMasters()
-      console.log('✅ [Kanban Tasks] Project masters loaded:', masters)
-
       setProjectMasters(masters)
-
-      // Only set if data is available
-      if (masters.statuses && masters.statuses.length > 0) {
-        setAvailableStatuses(masters.statuses.filter(s => s.is_active).sort((a, b) => a.sort_order - b.sort_order))
-        console.log('📊 [Kanban Tasks] Available statuses:', masters.statuses.length, '-', masters.statuses.map(s => s.name).join(', '))
+      // Only set if data is available - use task_status for task-specific statuses
+      if (masters.task_status && masters.task_status.length > 0) {
+        setAvailableStatuses(masters.task_status.filter(s => s.is_active).sort((a, b) => a.sort_order - b.sort_order))
       } else {
-        console.warn('⚠️ [Kanban Tasks] No statuses found in master data')
+        console.warn('⚠️ [Kanban Tasks] No task statuses found in master data')
         setAvailableStatuses([])
       }
 
       if (masters.priorities && masters.priorities.length > 0) {
         setAvailablePriorities(masters.priorities.filter(p => p.is_active).sort((a, b) => a.sort_order - b.sort_order))
-        console.log('📊 [Kanban Tasks] Available priorities:', masters.priorities.length, '-', masters.priorities.map(p => p.name).join(', '))
       } else {
-        console.warn('⚠️ [Kanban Tasks] No priorities found in master data')
         setAvailablePriorities([])
       }
 
@@ -270,7 +287,7 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
   }
 
 
-  const fetchTasks = async () => {
+  const fetchTasks = async (statusFilter?: string, assigneeFilter?: string, page: number = 1, perPage: number = 10) => {
     if (!effectiveProjectId) {
       console.warn('No project ID available for fetching tasks')
       setLoading(false)
@@ -279,8 +296,19 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
 
     try {
       setLoading(true)
-      // Use stories API instead of tasks API
-      const response = await storiesApiService.getStories(effectiveProjectId)
+      // Use stories API with filter parameters and pagination
+      const response = await storiesApiService.getStories(
+        effectiveProjectId,
+        page,
+        perPage,
+        statusFilter,
+        assigneeFilter
+      )
+
+      // Update pagination info
+      setTotalPages(response.total_pages || 1)
+      setTotalItems(response.total || 0)
+      setCurrentPage(response.page || 1)
 
       // Convert Story data to Task format
       const convertedTasks: Task[] = response.items.map((story: Story) => ({
@@ -296,6 +324,7 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
         assignee_id: story.assignee_id,
         progress: story.progress || 0,
         tags: story.tags || [],
+        acceptance_criteria: story.acceptance_criteria || [],
         subtasks: [],
         comments: [],
         attachments: [],
@@ -305,11 +334,8 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
       }))
 
       setTasks(convertedTasks)
-      console.log('Fetched stories as tasks:', convertedTasks)
     } catch (error) {
       console.error('Error fetching stories:', error)
-      console.log('Using mock data as fallback')
-
       // Convert mock data to match our Task interface
       const mockTasks: Task[] = BOARD_TASKS.map(mockTask => ({
         id: mockTask.id,
@@ -347,8 +373,6 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
 
     try {
       setLoading(true)
-      console.log('Making API call with sprint filter:', sprintFilter)
-
       // Use stories API with project filter - the API should handle sprint filtering on backend
       const response = await storiesApiService.getStories(effectiveProjectId)
 
@@ -366,6 +390,7 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
         assignee_id: story.assignee_id,
         progress: story.progress || 0,
         tags: story.tags || [],
+        acceptance_criteria: story.acceptance_criteria || [],
         subtasks: [],
         comments: [],
         attachments: [],
@@ -375,11 +400,9 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
       }))
 
       setTasks(convertedTasks)
-      console.log('Fetched stories with sprint filter:', convertedTasks)
       toast.success(`Fetched tasks for sprint filter: ${sprintFilter}`)
     } catch (error) {
       console.error('Error fetching stories with sprint filter:', error)
-      console.log('Sprint filter will use client-side filtering')
       // Don't change tasks on error, let client-side filtering handle it
     } finally {
       setLoading(false)
@@ -397,8 +420,6 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
       setSprints(response.items)
     } catch (error) {
       console.error('Error fetching sprints:', error)
-      console.log('Using mock sprint data as fallback')
-
       // Convert mock sprints to match our Sprint interface
       const mockSprints: Sprint[] = SPRINTS.map(mockSprint => ({
         id: mockSprint.id.toLowerCase().replace(' ', '-'),
@@ -461,8 +482,6 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
         return
       }
 
-      console.log('📝 [Kanban Tasks] Creating task with status:', createTaskData.status, 'and priority:', createTaskData.priority)
-
       // Convert Task data to Story format for API
       const storyData = {
         title: createTaskData.title,
@@ -477,7 +496,8 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
         start_date: createTaskData.start_date,
         end_date: createTaskData.due_date,
         tags: createTaskData.tags || [],
-        labels: createTaskData.tags || []
+        labels: createTaskData.tags || [],
+        acceptance_criteria: createTaskData.acceptance_criteria?.filter(c => c.trim() !== '') || []
       }
 
       try {
@@ -486,7 +506,6 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
       } catch (apiError) {
         // API not available, show demo message
         toast.success('Task creation demo (API not available)')
-        console.log('Demo task would be created:', storyData)
       }
 
       setShowCreateModal(false)
@@ -511,6 +530,7 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
         due_date: '',
         progress: 0,
         tags: [],
+        acceptance_criteria: [],
         subtasks: [],
         comments: [],
         attachments: [],
@@ -536,7 +556,8 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
         assignee_id: taskData.assignee_id || undefined,
         progress: taskData.progress || 0,
         tags: taskData.tags || [],
-        labels: taskData.tags || []
+        labels: taskData.tags || [],
+        acceptance_criteria: taskData.acceptance_criteria?.filter((c: string) => c.trim() !== '') || []
       }
 
       try {
@@ -549,7 +570,6 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
         )
         setTasks(updatedTasks)
         toast.success('Task updated successfully (demo mode)')
-        console.log('Demo task update:', storyUpdateData)
       }
 
       setSelectedTask(null)
@@ -573,19 +593,14 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
 
   const handleTaskMove = async (taskId: string, newStatus: string) => {
     try {
-      console.log(`🔄 Moving task ${taskId} to ${newStatus}`)
-
       // Update via API
       await storiesApiService.updateStory(taskId, { status: newStatus })
-
       // Update local state
       setTasks(prevTasks =>
         prevTasks.map(task =>
           task.id === taskId ? { ...task, status: newStatus } : task
         )
       )
-
-      console.log(`✅ Task moved successfully`)
       toast.success('Task moved successfully')
     } catch (error) {
       console.error('❌ Failed to move task:', error)
@@ -623,18 +638,12 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
     }
   }
 
+  // Client-side filtering only for search term (server-side filtering for status, assignee, sprint)
   const filteredTasks = tasks.filter(task => {
-    const matchesSearch = task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    const matchesSearch = searchTerm === '' ||
+                         task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          task.description.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesStatus = filterStatus === 'all' || task.status === filterStatus
-    const matchesAssignee = filterAssignee === 'all' ||
-                           (filterAssignee === 'unassigned' && !task.assignee_name) ||
-                           (task.assignee_name && task.assignee_name === filterAssignee)
-    const matchesSprint = filterSprint === 'all' ||
-                         (filterSprint === 'unassigned' && !task.sprint_id) ||
-                         task.sprint_id === filterSprint
-
-    return matchesSearch && matchesStatus && matchesAssignee && matchesSprint
+    return matchesSearch
   })
 
   // Constants for drag and drop
@@ -645,7 +654,6 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
     const [{ isDragging }, dragRef] = useDrag(() => ({
       type: ITEM_TYPE,
       item: () => {
-        console.log(`🖱️ Started dragging task: ${task.title} (${task.id})`)
         return {
           id: task.id,
           columnId: columnId,
@@ -815,7 +823,6 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
     const [{ isOver }, dropRef] = useDrop(() => ({
       accept: ITEM_TYPE,
       drop: (item: { id: string; columnId: string }) => {
-        console.log(`📥 Dropped task ${item.id} from ${item.columnId} to ${column.id}`)
         if (item.columnId !== column.id) {
           handleTaskMove(item.id, column.id)
         }
@@ -951,6 +958,96 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
     </div>
   )
 
+  // Table View Component
+  const TableView = () => (
+    <Card>
+      <CardContent className="p-0">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[40%]">Task</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Priority</TableHead>
+              <TableHead>Assignee</TableHead>
+              <TableHead>Due Date</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredTasks.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                  No tasks found
+                </TableCell>
+              </TableRow>
+            ) : (
+              filteredTasks.map((task) => (
+                <TableRow key={task.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setSelectedTask(task)}>
+                  <TableCell>
+                    <div>
+                      <div className="font-medium">{task.title}</div>
+                      {task.description && (
+                        <div className="text-sm text-muted-foreground line-clamp-1">
+                          {task.description}
+                        </div>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className={getStatusColor(task.status)}>
+                      {task.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className={getPriorityColor(task.priority)}>
+                      {task.priority}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {task.assignee_name ? (
+                      <div className="flex items-center space-x-2">
+                        <Avatar className="w-6 h-6">
+                          <AvatarFallback className="text-xs bg-blue-500 text-white">
+                            {task.assignee_name.split(' ').map(n => n[0]).join('')}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="text-sm">{task.assignee_name}</span>
+                      </div>
+                    ) : (
+                      <span className="text-sm text-muted-foreground">Unassigned</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {task.due_date ? (
+                      <div className="flex items-center space-x-2">
+                        <Calendar className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-sm">{new Date(task.due_date).toLocaleDateString()}</span>
+                      </div>
+                    ) : (
+                      <span className="text-sm text-muted-foreground">-</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setSelectedTask(task)
+                      }}
+                    >
+                      <MoreVertical className="w-4 h-4" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
+  )
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -990,8 +1087,16 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
               <SelectItem value="all">All Status</SelectItem>
               {availableStatuses && availableStatuses.length > 0 ? (
                 availableStatuses.map((status) => (
-                  <SelectItem key={status.id} value={status.name.toLowerCase()}>
-                    {status.name}
+                  <SelectItem key={status.id} value={status.name.toLowerCase().replace(/\s+/g, '-')}>
+                    <div className="flex items-center space-x-2">
+                      {status.color && (
+                        <div
+                          className="w-3 h-3 rounded-full"
+                          style={{ backgroundColor: status.color }}
+                        />
+                      )}
+                      <span>{status.name}</span>
+                    </div>
                   </SelectItem>
                 ))
               ) : (
@@ -1013,7 +1118,7 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
               <SelectItem value="all">All Assignees</SelectItem>
               <SelectItem value="unassigned">Unassigned</SelectItem>
               {projectTeamMembers.length > 0 ? projectTeamMembers.map((member) => (
-                <SelectItem key={member.id} value={member.name}>
+                <SelectItem key={member.id} value={member.id}>
                   {member.name}
                 </SelectItem>
               )) : (
@@ -1051,12 +1156,16 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
             <TabsList>
               <TabsTrigger value="board">Board</TabsTrigger>
               <TabsTrigger value="list">List</TabsTrigger>
+              <TabsTrigger value="table">Table</TabsTrigger>
             </TabsList>
           </Tabs>
         ) : (
-          <div className="text-sm text-muted-foreground font-medium">
-            List View
-          </div>
+          <Tabs value={viewMode} onValueChange={(value: string) => setViewMode(value as 'board' | 'list' | 'table')}>
+            <TabsList>
+              <TabsTrigger value="list">List</TabsTrigger>
+              <TabsTrigger value="table">Table</TabsTrigger>
+            </TabsList>
+          </Tabs>
         )}
       </div>
 
@@ -1126,16 +1235,66 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
           </Card>
         ) : (
           <>
-            {/* For Kanban methodology, only show list view */}
+            {/* For Kanban methodology, show list and table views */}
             {project?.methodology === 'Kanban' ? (
-              <ListView />
+              <>
+                {viewMode === 'list' && <ListView />}
+                {viewMode === 'table' && <TableView />}
+              </>
             ) : (
               <>
                 {viewMode === 'board' && <BoardView />}
                 {viewMode === 'list' && <ListView />}
+                {viewMode === 'table' && <TableView />}
               </>
             )}
           </>
+        )}
+
+        {/* Pagination Controls */}
+        {(viewMode === 'table' || viewMode === 'list') && totalPages > 1 && (
+          <div className="flex items-center justify-between px-4 py-4 border-t">
+            <div className="text-sm text-muted-foreground">
+              Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems} tasks
+            </div>
+            <div className="flex items-center space-x-2">
+              <Select value={itemsPerPage.toString()} onValueChange={(value) => {
+                setItemsPerPage(parseInt(value))
+                setCurrentPage(1)
+              }}>
+                <SelectTrigger className="w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="10">10 per page</SelectItem>
+                  <SelectItem value="20">20 per page</SelectItem>
+                  <SelectItem value="50">50 per page</SelectItem>
+                  <SelectItem value="100">100 per page</SelectItem>
+                </SelectContent>
+              </Select>
+              <div className="flex items-center space-x-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </Button>
+                <div className="px-4 py-2 text-sm">
+                  Page {currentPage} of {totalPages}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
 
@@ -1186,7 +1345,25 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <Label htmlFor="type">Type *</Label>
+                <Select
+                  value={createTaskData.story_type || 'task'}
+                  onValueChange={(value: string) => setCreateTaskData({ ...createTaskData, story_type: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="story">User Story</SelectItem>
+                    <SelectItem value="task">Task</SelectItem>
+                    <SelectItem value="bug">Bug</SelectItem>
+                    <SelectItem value="epic">Epic</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
               <div>
                 <Label htmlFor="status">Status *</Label>
                 <Select
@@ -1353,6 +1530,53 @@ export function TasksView({ projectId: propProjectId, user, project }: TasksView
                 value={createTaskData.progress}
                 onChange={(e) => setCreateTaskData({ ...createTaskData, progress: parseInt(e.target.value) || 0 })}
               />
+            </div>
+
+            {/* Acceptance Criteria */}
+            <div>
+              <Label>Acceptance Criteria</Label>
+              <div className="space-y-2">
+                {Array.isArray(createTaskData.acceptance_criteria) && createTaskData.acceptance_criteria.length > 0 ? (
+                  createTaskData.acceptance_criteria.map((criteria, index) => (
+                    <div key={index} className="flex items-center space-x-2">
+                      <Input
+                        placeholder="Enter acceptance criteria"
+                        value={criteria}
+                        onChange={(e) => {
+                          const newCriteria = [...(createTaskData.acceptance_criteria || [])]
+                          newCriteria[index] = e.target.value
+                          setCreateTaskData({ ...createTaskData, acceptance_criteria: newCriteria })
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const newCriteria = createTaskData.acceptance_criteria?.filter((_, i) => i !== index) || []
+                          setCreateTaskData({ ...createTaskData, acceptance_criteria: newCriteria })
+                        }}
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))
+                ) : null}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const newCriteria = [...(createTaskData.acceptance_criteria || []), '']
+                    setCreateTaskData({ ...createTaskData, acceptance_criteria: newCriteria })
+                  }}
+                  className="w-full"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Acceptance Criteria
+                </Button>
+              </div>
             </div>
 
             <div className="flex justify-end space-x-2 pt-4">

@@ -101,12 +101,9 @@ export function ProjectDetails({ projectId, onBack, user, onLogout }: ProjectDet
     const loadMasterData = async () => {
       try {
         setMasterLoading(true)
-        console.log('🔄 [ProjectDetails] Loading project masters once for all views...')
         const masters = await projectApiService.getProjectMasters()
-        console.log('✅ [ProjectDetails] Project masters loaded:', masters)
         setMasterData(masters)
       } catch (error) {
-        console.error('❌ [ProjectDetails] Error loading project masters:', error)
         setMasterData(null)
       } finally {
         setMasterLoading(false)

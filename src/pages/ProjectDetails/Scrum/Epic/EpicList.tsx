@@ -101,10 +101,6 @@ export function EpicList({ projectId, user, teamMembers = [] }: EpicListProps) {
       setAvailableStatuses(activeStatuses)
       setAvailablePriorities(activePriorities)
 
-      console.log('Loaded project masters:', {
-        statuses: activeStatuses,
-        priorities: activePriorities
-      })
     } catch (error) {
       console.error('Error loading project masters:', error)
       // Fallback to default values

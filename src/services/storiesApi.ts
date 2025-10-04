@@ -1,8 +1,23 @@
 import { authApiService } from './authApi';
 import { getApiUrl } from '../config/api';
 
+export interface AssigneeDetail {
+  id: string;
+  name: string;
+  email: string;
+  user_profile: string;
+}
+
+export interface ReporterDetail {
+  id: string;
+  name: string;
+  email: string;
+  user_profile: string;
+}
+
 export interface Story {
   id: string;
+  task_id?: string;
   title: string;
   description: string;
   story_type: string;
@@ -15,10 +30,13 @@ export interface Story {
   sprint_id: string;
   assignee_id: string;
   assignee_name: string;
+  assignee?: AssigneeDetail;
   reporter_id: string;
   reporter_name: string;
+  reporter?: ReporterDetail;
   story_points: number;
   business_value: string;
+  effort?: string;
   labels: string[];
   acceptance_criteria: string[];
   subtasks: SubTask[];
@@ -29,6 +47,8 @@ export interface Story {
   end_date: string;
   tags: string[];
   activity: Activity[];
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface SubTask {
@@ -171,7 +191,13 @@ export class StoriesApiService {
     return response.json();
   }
 
-  async getStories(projectId?: string, page: number = 1, perPage: number = 50): Promise<StoriesResponse> {
+  async getStories(
+    projectId?: string,
+    page: number = 1,
+    perPage: number = 50,
+    status?: string,
+    assigneeId?: string
+  ): Promise<StoriesResponse> {
     const params = new URLSearchParams({
       page: page.toString(),
       per_page: perPage.toString(),
@@ -179,6 +205,16 @@ export class StoriesApiService {
 
     if (projectId) {
       params.append('project_id', projectId);
+    }
+
+    if (status && status !== 'all') {
+      params.append('status', status);
+    }
+
+    if (assigneeId && assigneeId !== 'all' && assigneeId !== 'unassigned') {
+      params.append('assignee_id', assigneeId);
+    } else if (assigneeId === 'unassigned') {
+      params.append('assignee_id', '');
     }
 
     const queryString = params.toString();

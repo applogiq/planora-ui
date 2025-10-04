@@ -14,6 +14,7 @@ export interface Task {
   due_date?: string;
   progress: number;
   tags: string[];
+  acceptance_criteria?: string[];
   subtasks: any[];
   comments: any[];
   attachments: any[];
@@ -69,6 +70,7 @@ export interface CreateTaskRequest {
   due_date?: string;
   progress?: number;
   tags?: string[];
+  acceptance_criteria?: string[];
   subtasks?: any[];
   comments?: any[];
   attachments?: any[];

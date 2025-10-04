@@ -221,12 +221,8 @@ export function TeamView({ project, user, projectId: propProjectId }: TeamViewPr
       })
 
       setTeamMembers(members)
-      console.log('Fetched project members from API:', members)
       toast.success(`Loaded ${members.length} project team members`)
     } catch (error) {
-      console.error('Error fetching project team members:', error)
-      console.log('Using mock data as fallback')
-
       // Use mock data as fallback
       const mockMembers = mockTeamMembers.map(member => ({
         ...member,
@@ -274,7 +270,6 @@ export function TeamView({ project, user, projectId: propProjectId }: TeamViewPr
       const availableUsers = filteredUsers.filter(user => !currentMemberIds.includes(user.id))
 
       setAvailableUsers(availableUsers)
-      console.log('Fetched available users:', availableUsers)
     } catch (error) {
       console.error('Error fetching available users:', error)
       toast.error('Failed to load available users')
@@ -715,8 +710,6 @@ export function TeamView({ project, user, projectId: propProjectId }: TeamViewPr
                     className="w-full"
                     onChange={(e) => {
                       const searchValue = e.target.value.toLowerCase()
-                      // Simple client-side search for demo
-                      console.log('Searching users:', searchValue)
                     }}
                   />
                 </div>
@@ -728,7 +721,6 @@ export function TeamView({ project, user, projectId: propProjectId }: TeamViewPr
                       className="cursor-pointer hover:shadow-md transition-shadow border-2 hover:border-[#28A745]"
                       onClick={async () => {
                         // Associate user with project team
-                        console.log('Associating user with project:', user)
                         try {
                           // In real implementation, this would call an API to associate the user with the project
                           // For example: await projectApiService.addTeamMember(effectiveProjectId, user.id)

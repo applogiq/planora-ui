@@ -206,8 +206,6 @@ export function ProjectDetails({ projectId, onBack, user }: ProjectDetailsProps)
 
   const handleTaskSave = async (taskData: any) => {
     try {
-      console.log('Raw taskData from TaskModal:', taskData)
-
       // Convert TaskModal data format to API format
       const apiTaskData: CreateTaskRequest = {
         title: taskData.title,
@@ -258,8 +256,6 @@ export function ProjectDetails({ projectId, onBack, user }: ProjectDetailsProps)
           }
         ]
       }
-
-      console.log('Final API payload:', apiTaskData)
 
       if (taskModalMode === 'create') {
         await createTask(apiTaskData)

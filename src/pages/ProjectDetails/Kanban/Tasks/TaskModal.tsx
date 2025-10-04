@@ -16,7 +16,8 @@ import {
   MessageSquare,
   Paperclip,
   Save,
-  X
+  X,
+  Plus
 } from 'lucide-react'
 import { ProjectStatusItem, ProjectPriorityItem, ProjectMemberDetail } from '../../../../services/projectApi'
 
@@ -62,19 +63,18 @@ export function TaskModal({ task, isOpen, onClose, onUpdate, user, availableStat
   // Update editedTask when task prop changes
   useEffect(() => {
     if (task) {
-      setEditedTask(task)
+      // Normalize status to match the format expected by Select (lowercase-with-hyphens)
+      const normalizedTask = {
+        ...task,
+        status: task.status ? task.status.toLowerCase().replace(/\s+/g, '-') : 'todo',
+        priority: task.priority ? task.priority.toLowerCase().replace(/\s+/g, '-') : 'medium'
+      }
+      setEditedTask(normalizedTask)
     }
   }, [task])
 
   // Debug logging for project master data
   useEffect(() => {
-    if (isOpen) {
-      console.log('🔍 TaskModal opened with data:')
-      console.log('📋 Available statuses:', availableStatuses?.length || 0, availableStatuses)
-      console.log('⚡ Available priorities:', availablePriorities?.length || 0, availablePriorities)
-      console.log('👥 Project team members:', projectTeamMembers?.length || 0)
-      console.log('🎯 Current task:', editedTask?.title, 'Status:', editedTask?.status, 'Priority:', editedTask?.priority)
-    }
   }, [isOpen, availableStatuses, availablePriorities, projectTeamMembers, editedTask])
 
   const handleSave = () => {
@@ -163,8 +163,8 @@ export function TaskModal({ task, isOpen, onClose, onUpdate, user, availableStat
                 <div>
                   <Label htmlFor="type">Type</Label>
                   <Select
-                    value={editedTask.type || 'task'}
-                    onValueChange={(value: string) => setEditedTask({ ...editedTask, type: value })}
+                    value={editedTask.story_type || 'task'}
+                    onValueChange={(value: string) => setEditedTask({ ...editedTask, story_type: value })}
                   >
                     <SelectTrigger className="mt-1">
                       <SelectValue />
@@ -190,6 +190,53 @@ export function TaskModal({ task, isOpen, onClose, onUpdate, user, availableStat
                     onChange={(e) => setEditedTask({ ...editedTask, progress: parseInt(e.target.value) || 0 })}
                     className="mt-1"
                   />
+                </div>
+              </div>
+
+              {/* Acceptance Criteria */}
+              <div>
+                <Label>Acceptance Criteria</Label>
+                <div className="space-y-2 mt-2">
+                  {Array.isArray(editedTask.acceptance_criteria) && editedTask.acceptance_criteria.length > 0 ? (
+                    editedTask.acceptance_criteria.map((criteria, index) => (
+                      <div key={index} className="flex items-center space-x-2">
+                        <Input
+                          placeholder="Enter acceptance criteria"
+                          value={criteria}
+                          onChange={(e) => {
+                            const newCriteria = [...(editedTask.acceptance_criteria || [])]
+                            newCriteria[index] = e.target.value
+                            setEditedTask({ ...editedTask, acceptance_criteria: newCriteria })
+                          }}
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const newCriteria = editedTask.acceptance_criteria?.filter((_, i) => i !== index) || []
+                            setEditedTask({ ...editedTask, acceptance_criteria: newCriteria })
+                          }}
+                          className="text-red-600 hover:text-red-700"
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    ))
+                  ) : null}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const newCriteria = [...(editedTask.acceptance_criteria || []), '']
+                      setEditedTask({ ...editedTask, acceptance_criteria: newCriteria })
+                    }}
+                    className="w-full"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Acceptance Criteria
+                  </Button>
                 </div>
               </div>
             </div>
@@ -248,9 +295,14 @@ export function TaskModal({ task, isOpen, onClose, onUpdate, user, availableStat
                   <SelectContent>
                     {availableStatuses && availableStatuses.length > 0 ? (
                       availableStatuses.map((status) => (
-                        <SelectItem key={status.id} value={status.name.toLowerCase()}>
+                        <SelectItem key={status.id} value={status.name.toLowerCase().replace(/\s+/g, '-')}>
                           <div className="flex items-center space-x-2">
-                            <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                            {status.color && (
+                              <div
+                                className="w-3 h-3 rounded-full"
+                                style={{ backgroundColor: status.color }}
+                              />
+                            )}
                             <span>{status.name}</span>
                           </div>
                         </SelectItem>
@@ -281,9 +333,14 @@ export function TaskModal({ task, isOpen, onClose, onUpdate, user, availableStat
                   <SelectContent>
                     {availablePriorities && availablePriorities.length > 0 ? (
                       availablePriorities.map((priority) => (
-                        <SelectItem key={priority.id} value={priority.name.toLowerCase()}>
+                        <SelectItem key={priority.id} value={priority.name.toLowerCase().replace(/\s+/g, '-')}>
                           <div className="flex items-center space-x-2">
-                            <AlertCircle className="w-3 h-3" />
+                            {priority.color && (
+                              <div
+                                className="w-3 h-3 rounded-full"
+                                style={{ backgroundColor: priority.color }}
+                              />
+                            )}
                             <span>{priority.name}</span>
                           </div>
                         </SelectItem>
@@ -341,32 +398,6 @@ export function TaskModal({ task, isOpen, onClose, onUpdate, user, availableStat
               </Select>
             </div>
 
-            {/* Sprint */}
-            <div className="space-y-2">
-              <Label>Sprint</Label>
-              <div className="p-2 bg-purple-50 dark:bg-purple-950/20 rounded-lg">
-                <span className="text-sm text-purple-700 dark:text-purple-300">
-                  {editedTask.sprint_name || 'No Sprint Assigned'}
-                </span>
-              </div>
-            </div>
-
-            {/* Progress Tracking */}
-            <div className="space-y-2">
-              <Label>Progress</Label>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Completed:</span>
-                  <span>{editedTask.progress || 0}%</span>
-                </div>
-                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                  <div
-                    className="bg-[#28A745] h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${editedTask.progress || 0}%` }}
-                  ></div>
-                </div>
-              </div>
-            </div>
 
             {/* Labels */}
             <div className="space-y-2">

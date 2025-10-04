@@ -38,9 +38,6 @@ export async function getEnrichedTeamMemberDetails(
         userDetailsMap.set(user.id, user)
       }
     })
-
-    console.log(`Fetched full details for ${userDetailsMap.size} team members`)
-
     // Create enriched member details
     teamMembers.forEach(member => {
       const userDetails = userDetailsMap.get(member.id)

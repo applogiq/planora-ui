@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
@@ -18,6 +18,8 @@ import {
   Save,
   AlertTriangle
 } from 'lucide-react'
+import { projectApiService } from '../../services/projectApi'
+import { toast } from 'sonner'
 
 interface ProjectSettingsProps {
   project: any
@@ -25,16 +27,30 @@ interface ProjectSettingsProps {
 }
 
 export function ProjectSettings({ project, user }: ProjectSettingsProps) {
+  const [loading, setLoading] = useState(false)
+  const [saving, setSaving] = useState(false)
   const [projectData, setProjectData] = useState({
-    name: project.name,
-    description: project.description,
-    methodology: project.methodology,
-    status: project.status,
-    priority: project.priority,
-    budget: project.budget,
-    startDate: project.startDate,
-    endDate: project.endDate,
-    client: project.client
+    name: '',
+    description: '',
+    methodology: '',
+    status: '',
+    priority: '',
+    budget: 0,
+    start_date: '',
+    end_date: '',
+    customer: '',
+    customer_id: '',
+    project_type: '',
+    tags: [] as string[],
+    color: ''
+  })
+
+  const [permissions, setPermissions] = useState({
+    publicProject: false,
+    guestAccess: false,
+    timeTracking: true,
+    fileSharing: true,
+    taskCreation: true
   })
 
   const [notifications, setNotifications] = useState({
@@ -45,6 +61,27 @@ export function ProjectSettings({ project, user }: ProjectSettingsProps) {
     deadlines: true,
     statusChanges: true
   })
+
+  // Load project data on mount and when project changes
+  useEffect(() => {
+    if (project && project.id) {
+      setProjectData({
+        name: project.name || '',
+        description: project.description || '',
+        methodology: project.methodology || '',
+        status: project.status || '',
+        priority: project.priority || '',
+        budget: project.budget || 0,
+        start_date: project.start_date || '',
+        end_date: project.end_date || '',
+        customer: project.customer || '',
+        customer_id: project.customer_id || '',
+        project_type: project.project_type || '',
+        tags: project.tags || [],
+        color: project.color || ''
+      })
+    }
+  }, [project])
 
 
   const methodologyOptions = [
@@ -71,9 +108,40 @@ export function ProjectSettings({ project, user }: ProjectSettingsProps) {
   ]
 
 
-  const handleSave = () => {
-    console.log('Saving project settings:', projectData)
-    // Save logic here
+  const handleSave = async () => {
+    if (!project || !project.id) {
+      toast.error('Project ID not found')
+      return
+    }
+
+    try {
+      setSaving(true)
+
+      // Prepare update data
+      const updateData = {
+        name: projectData.name,
+        description: projectData.description,
+        methodology: projectData.methodology,
+        status: projectData.status,
+        priority: projectData.priority,
+        budget: projectData.budget,
+        start_date: projectData.start_date,
+        end_date: projectData.end_date,
+        customer: projectData.customer,
+        customer_id: projectData.customer_id,
+        project_type: projectData.project_type,
+        tags: projectData.tags,
+        color: projectData.color
+      }
+
+      await projectApiService.updateProject(project.id, updateData)
+      toast.success('Project settings updated successfully')
+    } catch (error) {
+      console.error('Failed to update project:', error)
+      toast.error('Failed to update project settings')
+    } finally {
+      setSaving(false)
+    }
   }
 
 
@@ -86,9 +154,13 @@ export function ProjectSettings({ project, user }: ProjectSettingsProps) {
           <p className="text-muted-foreground">Manage project configuration and team access</p>
         </div>
         
-        <Button onClick={handleSave} className="bg-[#28A745] hover:bg-[#218838]">
+        <Button
+          onClick={handleSave}
+          className="bg-[#28A745] hover:bg-[#218838]"
+          disabled={saving}
+        >
           <Save className="w-4 h-4 mr-2" />
-          Save Changes
+          {saving ? 'Saving...' : 'Save Changes'}
         </Button>
       </div>
 
@@ -122,11 +194,11 @@ export function ProjectSettings({ project, user }: ProjectSettingsProps) {
                 </div>
                 
                 <div>
-                  <Label htmlFor="client">Client</Label>
+                  <Label htmlFor="customer">Customer</Label>
                   <Input
-                    id="client"
-                    value={projectData.client}
-                    onChange={(e) => setProjectData({ ...projectData, client: e.target.value })}
+                    id="customer"
+                    value={projectData.customer}
+                    onChange={(e) => setProjectData({ ...projectData, customer: e.target.value })}
                     className="mt-1"
                   />
                 </div>
@@ -145,9 +217,9 @@ export function ProjectSettings({ project, user }: ProjectSettingsProps) {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <Label htmlFor="methodology">Methodology</Label>
-                  <Select 
-                    value={projectData.methodology} 
-                    onValueChange={(value) => setProjectData({ ...projectData, methodology: value })}
+                  <Select
+                    value={projectData.methodology}
+                    onValueChange={(value: string) => setProjectData({ ...projectData, methodology: value })}
                   >
                     <SelectTrigger className="mt-1">
                       <SelectValue />
@@ -164,9 +236,9 @@ export function ProjectSettings({ project, user }: ProjectSettingsProps) {
 
                 <div>
                   <Label htmlFor="status">Status</Label>
-                  <Select 
-                    value={projectData.status} 
-                    onValueChange={(value) => setProjectData({ ...projectData, status: value })}
+                  <Select
+                    value={projectData.status}
+                    onValueChange={(value: string) => setProjectData({ ...projectData, status: value })}
                   >
                     <SelectTrigger className="mt-1">
                       <SelectValue />
@@ -183,9 +255,9 @@ export function ProjectSettings({ project, user }: ProjectSettingsProps) {
 
                 <div>
                   <Label htmlFor="priority">Priority</Label>
-                  <Select 
-                    value={projectData.priority} 
-                    onValueChange={(value) => setProjectData({ ...projectData, priority: value })}
+                  <Select
+                    value={projectData.priority}
+                    onValueChange={(value: string) => setProjectData({ ...projectData, priority: value })}
                   >
                     <SelectTrigger className="mt-1">
                       <SelectValue />
@@ -203,23 +275,23 @@ export function ProjectSettings({ project, user }: ProjectSettingsProps) {
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <Label htmlFor="startDate">Start Date</Label>
+                  <Label htmlFor="start_date">Start Date</Label>
                   <Input
-                    id="startDate"
+                    id="start_date"
                     type="date"
-                    value={projectData.startDate}
-                    onChange={(e) => setProjectData({ ...projectData, startDate: e.target.value })}
+                    value={projectData.start_date}
+                    onChange={(e) => setProjectData({ ...projectData, start_date: e.target.value })}
                     className="mt-1"
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor="endDate">End Date</Label>
+                  <Label htmlFor="end_date">End Date</Label>
                   <Input
-                    id="endDate"
+                    id="end_date"
                     type="date"
-                    value={projectData.endDate}
-                    onChange={(e) => setProjectData({ ...projectData, endDate: e.target.value })}
+                    value={projectData.end_date}
+                    onChange={(e) => setProjectData({ ...projectData, end_date: e.target.value })}
                     className="mt-1"
                   />
                 </div>
@@ -230,7 +302,7 @@ export function ProjectSettings({ project, user }: ProjectSettingsProps) {
                     id="budget"
                     type="number"
                     value={projectData.budget}
-                    onChange={(e) => setProjectData({ ...projectData, budget: parseInt(e.target.value) })}
+                    onChange={(e) => setProjectData({ ...projectData, budget: parseInt(e.target.value) || 0 })}
                     className="mt-1"
                   />
                 </div>
@@ -256,7 +328,10 @@ export function ProjectSettings({ project, user }: ProjectSettingsProps) {
                     <Label>Public Project</Label>
                     <p className="text-sm text-muted-foreground">Allow anyone in the organization to view this project</p>
                   </div>
-                  <Switch />
+                  <Switch
+                    checked={permissions.publicProject}
+                    onCheckedChange={(checked: boolean) => setPermissions({ ...permissions, publicProject: checked })}
+                  />
                 </div>
 
                 <div className="flex items-center justify-between">
@@ -264,7 +339,10 @@ export function ProjectSettings({ project, user }: ProjectSettingsProps) {
                     <Label>Allow Guest Access</Label>
                     <p className="text-sm text-muted-foreground">Allow external users to access limited project data</p>
                   </div>
-                  <Switch />
+                  <Switch
+                    checked={permissions.guestAccess}
+                    onCheckedChange={(checked: boolean) => setPermissions({ ...permissions, guestAccess: checked })}
+                  />
                 </div>
 
                 <div className="flex items-center justify-between">
@@ -272,7 +350,10 @@ export function ProjectSettings({ project, user }: ProjectSettingsProps) {
                     <Label>Enable Time Tracking</Label>
                     <p className="text-sm text-muted-foreground">Allow team members to track time on tasks</p>
                   </div>
-                  <Switch defaultChecked />
+                  <Switch
+                    checked={permissions.timeTracking}
+                    onCheckedChange={(checked: boolean) => setPermissions({ ...permissions, timeTracking: checked })}
+                  />
                 </div>
 
                 <div className="flex items-center justify-between">
@@ -280,7 +361,10 @@ export function ProjectSettings({ project, user }: ProjectSettingsProps) {
                     <Label>Enable File Sharing</Label>
                     <p className="text-sm text-muted-foreground">Allow team members to upload and share files</p>
                   </div>
-                  <Switch defaultChecked />
+                  <Switch
+                    checked={permissions.fileSharing}
+                    onCheckedChange={(checked: boolean) => setPermissions({ ...permissions, fileSharing: checked })}
+                  />
                 </div>
 
                 <div className="flex items-center justify-between">
@@ -288,7 +372,10 @@ export function ProjectSettings({ project, user }: ProjectSettingsProps) {
                     <Label>Allow Task Creation</Label>
                     <p className="text-sm text-muted-foreground">Allow team members to create new tasks</p>
                   </div>
-                  <Switch defaultChecked />
+                  <Switch
+                    checked={permissions.taskCreation}
+                    onCheckedChange={(checked: boolean) => setPermissions({ ...permissions, taskCreation: checked })}
+                  />
                 </div>
               </div>
             </CardContent>
@@ -314,9 +401,9 @@ export function ProjectSettings({ project, user }: ProjectSettingsProps) {
                         Get notified when {key.replace(/([A-Z])/g, ' $1').toLowerCase()} occur
                       </p>
                     </div>
-                    <Switch 
+                    <Switch
                       checked={value}
-                      onCheckedChange={(checked) => setNotifications({ ...notifications, [key]: checked })}
+                      onCheckedChange={(checked: boolean) => setNotifications({ ...notifications, [key]: checked })}
                     />
                   </div>
                 ))}
